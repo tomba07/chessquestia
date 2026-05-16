@@ -1,5 +1,6 @@
 .DS_Store
 node_modules/
+.local-chess-rooms.json
 
 # Old Python setup
 maia2_models/

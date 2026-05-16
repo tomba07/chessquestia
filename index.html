@@ -13,11 +13,14 @@
     :root {
       --bg:         #f0ece5;
       --surface:    #e7e2da;
+      --surface-2:  #f7f4ee;
       --border:     #c8c2b8;
       --text:       #1c1917;
       --text-dim:   #57534e;
       --text-faint: #a8a29e;
       --accent:     #2f7d74;
+      --accent-soft:#d9ebe6;
+      --warn:       #b86b21;
       --board-size: min(calc(100svh - 150px), min(calc(100svw - 40px), 480px));
     }
 
@@ -51,10 +54,17 @@
       font-size: 13px;
       font-family: inherit;
       cursor: pointer;
+      min-height: 38px;
     }
     .lb-btn:hover { border-color: var(--accent); }
     .lb-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
     .lb-btn.primary:hover { opacity: 0.85; }
+    .lb-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      border-color: var(--border);
+    }
+    .lb-btn.primary:disabled { background: var(--text-faint); border-color: var(--text-faint); }
 
     .sm-btn {
       background: var(--surface);
@@ -75,27 +85,59 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 24px;
+      gap: 16px;
     }
 
     .lobby-title {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 700;
-      letter-spacing: -0.5px;
+      letter-spacing: 0;
+      margin-bottom: 4px;
+    }
+
+    .lobby-panel {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .panel-kicker {
+      font-size: 11px;
+      color: var(--text-faint);
+      font-variant-numeric: tabular-nums;
     }
 
     .lobby-settings {
       display: flex;
-      gap: 14px;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: center;
+      width: 100%;
+      flex-direction: column;
+      gap: 8px;
     }
 
     .lobby-settings label {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
+      gap: 12px;
       font-size: 13px;
       color: var(--text-dim);
     }
@@ -103,7 +145,7 @@
     #strength-slider {
       accent-color: var(--accent);
       cursor: pointer;
-      width: 140px;
+      width: 100%;
     }
     #strength-val {
       font-size: 12px;
@@ -116,19 +158,56 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .lb-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      width: 100%;
+    }
+    .lb-btns .lb-btn { flex: 1; }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
       width: 100%;
     }
 
-    .lb-btns { display: flex; gap: 10px; justify-content: center; }
+    .mode-btn {
+      min-height: 64px;
+      padding: 12px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      justify-content: center;
+    }
+
+    .mode-btn strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .mode-btn span {
+      display: block;
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.25;
+    }
 
     #cp-name {
       width: 100%;
-      background: var(--surface);
+      background: #fffaf3;
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 7px 10px;
+      padding: 10px 11px;
       font-size: 13px;
       font-family: inherit;
       outline: none;
@@ -140,6 +219,10 @@
       align-items: center;
       gap: 8px;
       width: 100%;
+      background: #fffaf3;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
     }
     #cp-link {
       flex: 1;
@@ -152,9 +235,57 @@
     }
 
     #cp-player-list {
-      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .player-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      padding: 8px 10px;
+    }
+
+    .player-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .player-status {
+      flex-shrink: 0;
+      font-size: 11px;
       color: var(--text-dim);
-      align-self: flex-start;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      white-space: nowrap;
+    }
+    .player-status.ready { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+    .player-status.waiting { color: var(--warn); }
+
+    .room-actions {
+      align-items: center;
+      justify-content: space-between;
+    }
+    .room-actions .lb-btn { flex: 1; }
+    .room-actions .sm-btn { min-height: 38px; padding-inline: 14px; }
+
+    @media (max-width: 420px) {
+      .mode-grid { grid-template-columns: 1fr; }
+      .lb-btns { flex-direction: column; }
+      .cp-link-row { align-items: stretch; flex-direction: column; }
     }
 
     /* ── Model status ── */
@@ -262,26 +393,39 @@
 
   <!-- ── Lobby ── -->
   <div id="lobby">
-    <div class="lobby-title">Chess AI</div>
-
-    <div class="lobby-settings">
-      <label>
-        Strength
-        <input type="range" id="strength-slider" min="400" max="2800" step="50" value="1500" />
-        <span id="strength-val">1500</span>
-      </label>
-    </div>
+    <div class="lobby-title">Local Chess</div>
 
     <!-- Default: play solo or start coop -->
-    <div id="lb-main" class="lobby-section">
-      <div class="lb-btns">
-        <button id="play-solo-btn" class="lb-btn primary">Play Solo</button>
-        <button id="play-coop-btn" class="lb-btn">Play with Friends</button>
+    <div id="lb-main" class="lobby-section lobby-panel">
+      <div class="panel-head">
+        <div class="panel-title">New game</div>
+        <div class="panel-kicker">Maia 3</div>
+      </div>
+      <div class="lobby-settings">
+        <label>
+          <span>Strength</span>
+          <span id="strength-val">1500</span>
+        </label>
+        <input type="range" id="strength-slider" min="400" max="2800" step="50" value="1500" />
+      </div>
+      <div class="mode-grid">
+        <button id="play-solo-btn" class="lb-btn primary mode-btn">
+          <strong>Solo</strong>
+          <span>Alone against bot</span>
+        </button>
+        <button id="play-coop-btn" class="lb-btn mode-btn">
+          <strong>Coop</strong>
+          <span>Together against bot</span>
+        </button>
       </div>
     </div>
 
     <!-- Name + connect button (coop create or join) -->
-    <div id="lb-connect" class="lobby-section" style="display:none">
+    <div id="lb-connect" class="lobby-section lobby-panel" style="display:none">
+      <div class="panel-head">
+        <div class="panel-title" id="cp-flow-title">Create game</div>
+        <div class="panel-kicker" id="cp-flow-kicker">New room</div>
+      </div>
       <input id="cp-name" placeholder="Your name" maxlength="20" autocomplete="off" />
       <div class="lb-btns">
         <button id="cp-connect-btn" class="lb-btn primary">Create Game</button>
@@ -290,13 +434,24 @@
     </div>
 
     <!-- Room lobby: invite link + player list + start -->
-    <div id="lb-room" class="lobby-section" style="display:none">
+    <div id="lb-room" class="lobby-section lobby-panel" style="display:none">
+      <div class="panel-head">
+        <div class="panel-title">Waiting room</div>
+        <div class="panel-kicker" id="cp-room-meta">Lobby</div>
+      </div>
       <div class="cp-link-row">
         <span id="cp-link"></span>
         <button id="cp-copy" class="sm-btn">Copy link</button>
       </div>
+      <div class="lobby-settings" id="cp-strength-settings">
+        <label>
+          <span>Bot strength</span>
+          <span id="connect-strength-val">1500</span>
+        </label>
+        <input type="range" id="connect-strength-slider" min="400" max="2800" step="50" value="1500" />
+      </div>
       <div id="cp-player-list"></div>
-      <div class="lb-btns">
+      <div class="lb-btns room-actions">
         <button id="cp-start" class="lb-btn primary" style="display:none">Start Game</button>
         <button id="cp-leave" class="sm-btn">Leave</button>
       </div>
@@ -320,7 +475,7 @@
     <div id="cp-chips"></div>
     <div class="game-controls">
       <div id="game-status">…</div>
-      <button id="back-btn" class="sm-btn">← Lobby</button>
+      <button id="back-btn" class="sm-btn">Exit Game</button>
     </div>
   </div>
 
@@ -336,7 +491,20 @@
 
   const strengthSlider = document.getElementById("strength-slider");
   const strengthVal    = document.getElementById("strength-val");
-  strengthSlider.oninput = () => { strengthVal.textContent = strengthSlider.value; };
+  const connectStrengthSlider = document.getElementById("connect-strength-slider");
+  const connectStrengthVal = document.getElementById("connect-strength-val");
+  function syncStrength(value) {
+    strengthSlider.value = value;
+    connectStrengthSlider.value = value;
+    strengthVal.textContent = value;
+    connectStrengthVal.textContent = value;
+  }
+  strengthSlider.oninput = () => syncStrength(strengthSlider.value);
+  connectStrengthSlider.oninput = () => {
+    syncStrength(connectStrengthSlider.value);
+    if (coop?.phase === "lobby" && coop.myIdx === 0)
+      coop.ws?.send(JSON.stringify({ type: "strength", strength: getElo() }));
+  };
   const getElo = () => parseInt(strengthSlider.value);
 
   // ── Load move mappings ────────────────────────────────────────────────────
@@ -417,6 +585,8 @@
   const pending   = new Map();
   let inferenceId = 0;
   let modelReady  = false;
+  let modelDownloadRequested = false;
+  let coop = null;
 
   const statusDot   = document.getElementById("status-dot");
   const statusLabel = document.getElementById("status-label");
@@ -424,30 +594,49 @@
   const progressBar = document.getElementById("progress-bar");
   const progressFill = document.getElementById("progress-fill");
 
+  function requestModelDownload() {
+    if (modelDownloadRequested || modelReady) return;
+    modelDownloadRequested = true;
+    worker.postMessage({ type: "download" });
+  }
+
+  function syncMaiaStatus() {
+    if (coop?.ws?.readyState === WebSocket.OPEN)
+      coop.ws.send(JSON.stringify({ type: "maia-status", ready: modelReady }));
+  }
+
   function handleModelStatus(status) {
     if (status === "loading") {
+      modelReady = false;
       statusDot.className = "status-dot working";
       statusLabel.textContent = "Checking model cache…";
     } else if (status === "no-cache") {
+      modelReady = false;
       statusDot.className = "status-dot";
-      statusLabel.textContent = "Maia 3 not downloaded —";
-      downloadBtn.style.display = "inline";
+      statusLabel.textContent = "Maia 3 not downloaded — starting download…";
+      downloadBtn.style.display = "none";
+      requestModelDownload();
     } else if (status === "downloading") {
+      modelReady = false;
       statusDot.className = "status-dot working";
       statusLabel.textContent = "Downloading Maia 3…";
       downloadBtn.style.display = "none";
       progressBar.classList.add("visible");
     } else if (status === "ready") {
       modelReady = true;
+      modelDownloadRequested = false;
       statusDot.className = "status-dot ready";
       statusLabel.textContent = "Maia 3 ready";
       downloadBtn.style.display = "none";
       progressBar.classList.remove("visible");
       // If a solo game is already in progress, unblock the player
-      if (gameEl.style.display !== "none" && coop.phase !== "playing") {
+      if (gameEl.style.display !== "none" && coop?.phase !== "playing") {
         if (!chess.isGameOver() && chess.turn() === "w") setStatus("Your turn");
       }
+      maybeRunSoloBotTurn();
+      maybeRunCoopBotTurn();
     }
+    syncMaiaStatus();
   }
 
   worker.onmessage = ({ data: msg }) => {
@@ -462,12 +651,19 @@
     } else if (msg.type === "error") {
       const r = pending.get(msg.id);
       if (r) { pending.delete(msg.id); r.reject(new Error(msg.message)); }
-      else { statusDot.className = "status-dot error"; statusLabel.textContent = `Error: ${msg.message}`; }
+      else {
+        modelReady = false;
+        modelDownloadRequested = false;
+        statusDot.className = "status-dot error";
+        statusLabel.textContent = `Error: ${msg.message}`;
+        downloadBtn.style.display = "inline";
+        syncMaiaStatus();
+      }
     }
   };
 
   worker.postMessage({ type: "init", modelUrl: "/maia3/maia3_simplified.onnx", modelVersion: "3" });
-  downloadBtn.onclick = () => worker.postMessage({ type: "download" });
+  downloadBtn.onclick = () => requestModelDownload();
 
   function runInference(tokens, elo) {
     return new Promise((resolve, reject) => {
@@ -488,8 +684,10 @@
   const gameEl    = document.getElementById("game");
   const statusEl  = document.getElementById("game-status");
   const cpChips   = document.getElementById("cp-chips");
+  const SOLO_GAME_KEY = "local-chess.solo-game";
   let board       = null;
   let botThinking = false;
+  let soloActive  = false;
 
   function setStatus(text, cls = "") {
     statusEl.textContent = text;
@@ -516,12 +714,28 @@
     lbMain.style.display    = "flex";
     lbConnect.style.display = "none";
     lbRoom.style.display    = "none";
+    if (soloActive) clearSoloGame();
     if (location.search.includes("room="))
       history.replaceState(null, "", location.pathname);
   }
 
+  function saveSoloGame() {
+    if (!soloActive || coop.phase !== "off") return;
+    localStorage.setItem(SOLO_GAME_KEY, JSON.stringify({
+      fen: chess.fen(),
+      strength: getElo(),
+      savedAt: Date.now(),
+    }));
+  }
+
+  function clearSoloGame() {
+    soloActive = false;
+    localStorage.removeItem(SOLO_GAME_KEY);
+  }
+
   function startSoloGame() {
     chess.reset();
+    soloActive = true;
     cpChips.innerHTML = "";
     showGame();
     board.setPosition(chess.fen());
@@ -529,6 +743,35 @@
     board.enableMoveInput(inputHandler);
     botThinking = false;
     setStatus(modelReady ? "Your turn" : "Loading Maia…");
+    saveSoloGame();
+  }
+
+  function restoreSoloGame() {
+    if (location.search.includes("room=")) return;
+    const saved = localStorage.getItem(SOLO_GAME_KEY);
+    if (!saved) return;
+    try {
+      const state = JSON.parse(saved);
+      if (!state?.fen) return;
+      chess.load(state.fen);
+      soloActive = true;
+      if (state.strength) syncStrength(String(state.strength));
+      cpChips.innerHTML = "";
+      showGame();
+      board.setPosition(chess.fen(), false);
+      board.removeMarkers(LAST_MOVE);
+      botThinking = false;
+      if (checkGameOver()) return;
+      board.enableMoveInput(inputHandler);
+      if (chess.turn() === "w") {
+        setStatus(modelReady ? "Your turn" : "Loading Maia…");
+      } else {
+        setStatus(modelReady ? "Thinking…" : "Loading Maia…", modelReady ? "thinking" : "");
+        maybeRunSoloBotTurn();
+      }
+    } catch {
+      clearSoloGame();
+    }
   }
 
   function checkGameOver() {
@@ -548,7 +791,7 @@
   }
 
   async function botMove() {
-    if (chess.isGameOver() || !modelReady) return;
+    if (chess.isGameOver() || !modelReady || botThinking) return;
     botThinking = true;
     setStatus("Thinking…", "thinking");
 
@@ -570,7 +813,14 @@
     board.addMarker(LAST_MOVE, uci.slice(2, 4));
 
     botThinking = false;
+    saveSoloGame();
     if (!checkGameOver()) setStatus("Your turn");
+  }
+
+  function maybeRunSoloBotTurn() {
+    if (soloActive && coop?.phase === "off" && gameEl.style.display !== "none"
+      && chess.turn() === "b" && modelReady && !botThinking && !chess.isGameOver())
+      setTimeout(botMove, 300);
   }
 
   function inputHandler(event) {
@@ -589,6 +839,7 @@
             coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
             if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, 300); }
           } else {
+            saveSoloGame();
             if (!checkGameOver()) setTimeout(botMove, 300);
           }
           return true;
@@ -620,16 +871,47 @@
   const cpPlayerList = document.getElementById("cp-player-list");
   const cpStartBtn   = document.getElementById("cp-start");
   const cpLeaveBtn   = document.getElementById("cp-leave");
+  const cpFlowTitle  = document.getElementById("cp-flow-title");
+  const cpFlowKicker = document.getElementById("cp-flow-kicker");
+  const cpRoomMeta   = document.getElementById("cp-room-meta");
+  const cpStrengthSettings = document.getElementById("cp-strength-settings");
   const backBtn      = document.getElementById("back-btn");
 
   const urlRoom = new URLSearchParams(location.search).get("room");
+  const LAST_ROOM_KEY = "local-chess.last-room";
+  const nameKey = (roomId) => `local-chess.room.${roomId}.name`;
+
+  function storedPlayerName(roomId) {
+    return roomId ? localStorage.getItem(nameKey(roomId)) : "";
+  }
+
+  function rememberRoom(roomId, name) {
+    if (!roomId) return;
+    localStorage.setItem(LAST_ROOM_KEY, roomId);
+    if (name) localStorage.setItem(nameKey(roomId), name);
+  }
+
+  function setRoomUrl(roomId) {
+    const target = `${location.pathname}?room=${roomId}`;
+    if (location.search !== `?room=${roomId}`)
+      history.replaceState(null, "", target);
+  }
+
+  async function renderInviteLink(roomId) {
+    if (!roomId) return;
+    if (cpLinkEl.textContent.endsWith(`?room=${roomId}`)) return;
+    const cfg = await fetch("/config").then(r => r.json());
+    cpLinkEl.textContent = `${cfg.base}/?room=${roomId}`;
+  }
 
   // Auto-show join flow if URL has ?room=
   if (urlRoom) {
     lbMain.style.display    = "none";
     lbConnect.style.display = "flex";
     cpConnectBtn.textContent = "Join Game";
-    document.querySelector(".lobby-settings").style.display = "none";
+    cpFlowTitle.textContent = "Join game";
+    cpFlowKicker.textContent = "Room link";
+    cpNameInput.value = storedPlayerName(urlRoom);
   }
 
   document.getElementById("play-solo-btn").onclick = () => startSoloGame();
@@ -638,6 +920,8 @@
     lbMain.style.display    = "none";
     lbConnect.style.display = "flex";
     cpConnectBtn.textContent = "Create Game";
+    cpFlowTitle.textContent = "Create game";
+    cpFlowKicker.textContent = "New room";
   };
 
   lbBackBtn.onclick = () => {
@@ -668,25 +952,65 @@
 
   // ── Coop mode ─────────────────────────────────────────────────────────────
 
-  const coop = {
+  coop = {
     ws: null, roomId: null,
+    playerId: null,
     myIdx: -1,
     phase: "off",
     players: [], activeIdx: 0, midTurn: false, fen: null,
     strength: 1500,
   };
 
+  function allPlayersReady(players) {
+    return players.length > 0 && players.every(player => player.maiaReady);
+  }
+
+  function renderRoomLobby(players, myIdx) {
+    cpPlayerList.innerHTML = "";
+    players.forEach((player, i) => {
+      const row = document.createElement("div");
+      row.className = "player-row";
+
+      const name = document.createElement("div");
+      name.className = "player-name";
+      name.textContent = player.name + (i === myIdx ? " (you)" : "");
+
+      const status = document.createElement("div");
+      const statusText = player.connected
+        ? (player.maiaReady ? "Ready" : "Downloading")
+        : "Offline";
+      status.className = "player-status"
+        + (statusText === "Ready" ? " ready" : "")
+        + (statusText === "Downloading" ? " waiting" : "");
+      status.textContent = statusText;
+
+      row.append(name, status);
+      cpPlayerList.appendChild(row);
+    });
+
+    const host = myIdx === 0;
+    const ready = allPlayersReady(players);
+    cpRoomMeta.textContent = `${players.length} player${players.length === 1 ? "" : "s"} · ${getElo()}`;
+    cpStrengthSettings.style.display = "flex";
+    connectStrengthSlider.disabled = !host || coop.phase !== "lobby";
+    connectStrengthSlider.title = host ? "" : "Only the host can change bot strength.";
+    cpStartBtn.style.display = host ? "inline" : "none";
+    cpStartBtn.disabled = !ready;
+    cpStartBtn.textContent = ready ? "Start Game" : "Waiting for Maia";
+    cpStartBtn.title = ready ? "" : "Everyone needs Maia ready before the game can start.";
+  }
+
   function connectCoop(action) {
-    const name = cpNameInput.value.trim();
+    const roomId = new URLSearchParams(location.search).get("room");
+    const name = cpNameInput.value.trim() || storedPlayerName(roomId);
     if (!name) { cpNameInput.focus(); return; }
-    const roomId = urlRoom;
     const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
     coop.ws = new WebSocket(`${wsProto}//${location.host}`);
     coop.ws.onopen    = () => coop.ws.send(JSON.stringify(
       action === "create"
         ? { type: "create", name,
-            strength: getElo() }
-        : { type: "join", roomId, name }
+            strength: getElo(), maiaReady: modelReady }
+        : { type: "join", roomId, name, maiaReady: modelReady }
     ));
     coop.ws.onmessage = ({ data }) => handleCoopMsg(JSON.parse(data));
     coop.ws.onclose   = () => leaveCoop();
@@ -695,39 +1019,55 @@
 
   async function handleCoopMsg(msg) {
     if (msg.type === "error") {
+      if (msg.code === "waiting-for-maia") {
+        alert(msg.message);
+        return;
+      }
       lbConnect.style.display = "flex";
       lbRoom.style.display    = "none";
-      cpConnectBtn.textContent = urlRoom ? "Join Game" : "Create Game";
+      cpConnectBtn.textContent = new URLSearchParams(location.search).get("room") ? "Join Game" : "Create Game";
       alert(msg.message);
       return;
     }
 
     if (msg.type === "created") {
       coop.roomId = msg.roomId;
-      const cfg   = await fetch("/config").then(r => r.json());
-      cpLinkEl.textContent     = `${cfg.base}/?room=${msg.roomId}`;
+      coop.playerId = msg.playerId;
+      rememberRoom(msg.roomId, cpNameInput.value.trim());
+      setRoomUrl(msg.roomId);
+      renderInviteLink(msg.roomId);
       lbConnect.style.display  = "none";
       lbRoom.style.display     = "flex";
       coop.phase = "lobby";
       return;
     }
 
+    if (msg.type === "joined") {
+      coop.roomId = msg.roomId;
+      coop.playerId = msg.playerId;
+      rememberRoom(msg.roomId, cpNameInput.value.trim() || storedPlayerName(msg.roomId));
+      setRoomUrl(msg.roomId);
+      renderInviteLink(msg.roomId);
+      return;
+    }
+
     if (msg.type === "room-state") {
+      coop.roomId    = msg.roomId;
+      coop.playerId  = msg.playerId;
       coop.players   = msg.players;
       coop.activeIdx = msg.activeIdx;
       coop.midTurn   = msg.midTurn;
       coop.fen       = msg.fen;
       coop.myIdx     = msg.myIdx;
       coop.strength  = msg.strength;
+      if (msg.strength) syncStrength(String(msg.strength));
+      renderInviteLink(msg.roomId);
 
       if (msg.phase === "lobby") {
         coop.phase = "lobby";
         lbConnect.style.display = "none";
         lbRoom.style.display    = "flex";
-        cpPlayerList.textContent = "Players: " + msg.players.map(
-          (p, i) => p.name + (i === msg.myIdx ? " (you)" : "")
-        ).join(", ");
-        cpStartBtn.style.display = msg.myIdx === 0 ? "inline" : "none";
+        renderRoomLobby(msg.players, msg.myIdx);
         return;
       }
 
@@ -774,31 +1114,42 @@
           const who = msg.players[msg.activeIdx]?.name ?? "…";
           setStatus(msg.midTurn ? `${who}: bot thinking…` : `${who}'s turn`);
         }
+        maybeRunCoopBotTurn();
       }
     }
   }
 
+  function maybeRunCoopBotTurn() {
+    if (coop?.phase === "playing" && coop.activeIdx === coop.myIdx && coop.midTurn && modelReady && !botThinking)
+      setTimeout(coopBotMove, 300);
+  }
+
   async function coopBotMove() {
-    if (!modelReady) return;
-    setStatus("Thinking…", "thinking");
-    const fen       = chess.fen();
-    const isBlack   = fen.split(" ")[1] === "b";
-    const elo       = coop.strength;
-    const workFen   = isBlack ? mirrorFEN(fen) : fen;
-    const tokens    = boardToTokens(workFen);
-    const legalMask = buildLegalMask(workFen);
+    if (!modelReady || botThinking) return;
+    botThinking = true;
+    try {
+      setStatus("Thinking…", "thinking");
+      const fen       = chess.fen();
+      const isBlack   = fen.split(" ")[1] === "b";
+      const elo       = coop.strength;
+      const workFen   = isBlack ? mirrorFEN(fen) : fen;
+      const tokens    = boardToTokens(workFen);
+      const legalMask = buildLegalMask(workFen);
 
-    const { logitsMove } = await runInference(tokens, elo);
-    const moveProbs = decodeMoves(logitsMove, legalMask, isBlack);
-    const uci = sampleMove(moveProbs);
+      const { logitsMove } = await runInference(tokens, elo);
+      const moveProbs = decodeMoves(logitsMove, legalMask, isBlack);
+      const uci = sampleMove(moveProbs);
 
-    chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
-    board.setPosition(chess.fen());
-    board.removeMarkers(LAST_MOVE);
-    board.addMarker(LAST_MOVE, uci.slice(0, 2));
-    board.addMarker(LAST_MOVE, uci.slice(2, 4));
+      chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
+      board.setPosition(chess.fen());
+      board.removeMarkers(LAST_MOVE);
+      board.addMarker(LAST_MOVE, uci.slice(0, 2));
+      board.addMarker(LAST_MOVE, uci.slice(2, 4));
 
-    coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
+      coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
+    } finally {
+      botThinking = false;
+    }
   }
 
   function leaveCoop() {
@@ -807,6 +1158,8 @@
     coop.phase = "off";
     showLobby();
   }
+
+  if (!urlRoom) restoreSoloGame();
 </script>
 </body>
 </html>

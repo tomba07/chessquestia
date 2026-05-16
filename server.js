@@ -13,6 +13,7 @@ const express  = require("express");
 const chokidar = require("chokidar");
 const path     = require("path");
 const os       = require("os");
+const fs       = require("fs");
 const { WebSocketServer } = require("ws");
 const { randomUUID }      = require("crypto");
 
@@ -100,14 +101,15 @@ if (process.argv.includes("--tunnel")) {
 
 const wss   = new WebSocketServer({ server: httpServer });
 const rooms = new Map(); // roomId → Room
+const ROOMS_FILE = process.env.ROOMS_FILE || path.join(__dirname, ".local-chess-rooms.json");
 
 /*
   Room shape:
   {
     id:         string,
-    hostWsId:   string,
-    players:    Map<wsId, { name, ws }>,
-    order:      wsId[],          // round-robin order (insertion order)
+    hostPlayerId: string,
+    players:      Map<playerId, { id, name, ws, connected, maiaReady, lastSeen }>,
+    order:        playerId[],    // round-robin order (insertion order)
     phase:      'lobby'|'playing'|'over',
     fen:        string,
     activeIdx:  number,          // index into order[]
@@ -115,20 +117,92 @@ const rooms = new Map(); // roomId → Room
   }
 */
 
+function serializeRoom(room) {
+  return {
+    id: room.id,
+    hostPlayerId: room.hostPlayerId,
+    players: room.order.map(id => {
+      const player = room.players.get(id);
+      return {
+        id,
+        name: player.name,
+        maiaReady: !!player.maiaReady,
+        lastSeen: player.lastSeen || Date.now(),
+      };
+    }),
+    order: room.order,
+    phase: room.phase,
+    fen: room.fen,
+    activeIdx: room.activeIdx,
+    midTurn: room.midTurn,
+    strength: room.strength,
+  };
+}
+
+function persistRooms() {
+  const payload = {
+    version: 1,
+    rooms: [...rooms.values()].map(serializeRoom),
+  };
+  const tmpFile = `${ROOMS_FILE}.tmp`;
+  fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2));
+  fs.renameSync(tmpFile, ROOMS_FILE);
+}
+
+function loadRooms() {
+  if (!fs.existsSync(ROOMS_FILE)) return;
+  try {
+    const payload = JSON.parse(fs.readFileSync(ROOMS_FILE, "utf8"));
+    for (const savedRoom of payload.rooms || []) {
+      const players = new Map();
+      for (const savedPlayer of savedRoom.players || []) {
+        players.set(savedPlayer.id, {
+          id: savedPlayer.id,
+          name: savedPlayer.name,
+          ws: null,
+          connected: false,
+          maiaReady: false,
+          lastSeen: savedPlayer.lastSeen || Date.now(),
+        });
+      }
+      rooms.set(savedRoom.id, {
+        id: savedRoom.id,
+        hostPlayerId: savedRoom.hostPlayerId,
+        players,
+        order: (savedRoom.order || []).filter(id => players.has(id)),
+        phase: savedRoom.phase || "lobby",
+        fen: savedRoom.fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        activeIdx: savedRoom.activeIdx || 0,
+        midTurn: !!savedRoom.midTurn,
+        strength: savedRoom.strength || 1500,
+      });
+    }
+    console.log(`Loaded ${rooms.size} saved room(s)`);
+  } catch (err) {
+    console.warn(`Could not load saved rooms: ${err.message}`);
+  }
+}
+
+loadRooms();
+
 function broadcast(room, buildMsg) {
-  room.order.forEach((wsId, idx) => {
-    const p = room.players.get(wsId);
-    if (!p || p.ws.readyState !== 1) return;
-    p.ws.send(JSON.stringify(buildMsg(wsId, idx)));
+  room.order.forEach((playerId, idx) => {
+    const p = room.players.get(playerId);
+    if (!p?.connected || p.ws?.readyState !== 1) return;
+    p.ws.send(JSON.stringify(buildMsg(playerId, idx)));
   });
 }
 
-function roomState(room, myWsId, myIdx) {
+function roomState(room, myPlayerId, myIdx) {
   return {
     type: "room-state",
     roomId:    room.id,
+    playerId:  myPlayerId,
     phase:     room.phase,
-    players:   room.order.map(id => ({ name: room.players.get(id).name })),
+    players:   room.order.map(id => {
+      const player = room.players.get(id);
+      return { name: player.name, connected: !!player.connected, maiaReady: !!player.maiaReady };
+    }),
     activeIdx: room.activeIdx,
     midTurn:   room.midTurn,
     fen:       room.fen,
@@ -141,8 +215,18 @@ function broadcastRoom(room) {
   broadcast(room, (wsId, idx) => roomState(room, wsId, idx));
 }
 
+function normalizePlayerName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function findPlayerIdByName(room, name) {
+  const wanted = normalizePlayerName(name);
+  if (!wanted) return null;
+  return room.order.find(id => normalizePlayerName(room.players.get(id)?.name) === wanted) || null;
+}
+
 wss.on("connection", (ws) => {
-  const wsId = randomUUID();
+  let currentPlayerId = null;
   let currentRoomId = null;
 
   ws.on("message", (raw) => {
@@ -153,10 +237,19 @@ wss.on("connection", (ws) => {
 
       case "create": {
         const roomId = randomUUID().slice(0, 8);
+        const playerId = randomUUID();
         const room = {
-          id: roomId, hostWsId: wsId,
-          players: new Map([[wsId, { name: msg.name, ws }]]),
-          order: [wsId],
+          id: roomId,
+          hostPlayerId: playerId,
+          players: new Map([[playerId, {
+            id: playerId,
+            name: msg.name,
+            ws,
+            connected: true,
+            maiaReady: !!msg.maiaReady,
+            lastSeen: Date.now(),
+          }]]),
+          order: [playerId],
           phase: "lobby",
           fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
           activeIdx: 0, midTurn: false,
@@ -164,7 +257,10 @@ wss.on("connection", (ws) => {
         };
         rooms.set(roomId, room);
         currentRoomId = roomId;
-        ws.send(JSON.stringify({ type: "created", roomId }));
+        currentPlayerId = playerId;
+        persistRooms();
+        ws.send(JSON.stringify({ type: "created", roomId, playerId }));
+        broadcastRoom(room);
         break;
       }
 
@@ -174,21 +270,82 @@ wss.on("connection", (ws) => {
           ws.send(JSON.stringify({ type: "error", message: "Room not found" }));
           return;
         }
-        if (room.phase !== "lobby") {
+        const playerIdByToken = msg.playerId && room.players.has(msg.playerId) ? msg.playerId : null;
+        const playerIdByName = findPlayerIdByName(room, msg.name);
+        const returningPlayerId = playerIdByToken || playerIdByName;
+        const returningPlayer = returningPlayerId ? room.players.get(returningPlayerId) : null;
+        if (room.phase !== "lobby" && !returningPlayer) {
           ws.send(JSON.stringify({ type: "error", message: "Game already started" }));
           return;
         }
-        room.players.set(wsId, { name: msg.name, ws });
-        room.order.push(wsId);
+        if (returningPlayer?.connected && !playerIdByToken) {
+          ws.send(JSON.stringify({ type: "error", message: "That player is already connected" }));
+          return;
+        }
+        const playerId = returningPlayerId || randomUUID();
+        const existing = room.players.get(playerId);
+        if (existing?.ws?.readyState === 1 && existing.ws !== ws)
+          existing.ws.close(1000, "Reconnected");
+        room.players.set(playerId, {
+          id: playerId,
+          name: msg.name || existing?.name || "Player",
+          ws,
+          connected: true,
+          maiaReady: !!msg.maiaReady,
+          lastSeen: Date.now(),
+        });
+        if (!room.order.includes(playerId)) room.order.push(playerId);
         currentRoomId = msg.roomId;
+        currentPlayerId = playerId;
+        persistRooms();
+        ws.send(JSON.stringify({ type: "joined", roomId: room.id, playerId }));
+        broadcastRoom(room);
+        break;
+      }
+
+      case "maia-status": {
+        const room = rooms.get(currentRoomId);
+        if (!room) return;
+        const player = room.players.get(currentPlayerId);
+        if (!player) return;
+        const maiaReady = !!msg.ready;
+        if (player.maiaReady === maiaReady) return;
+        player.maiaReady = maiaReady;
+        player.lastSeen = Date.now();
+        persistRooms();
+        broadcastRoom(room);
+        break;
+      }
+
+      case "strength": {
+        const room = rooms.get(currentRoomId);
+        if (!room || room.hostPlayerId !== currentPlayerId || room.phase !== "lobby") return;
+        const strength = Math.max(400, Math.min(2800, parseInt(msg.strength, 10) || 1500));
+        if (room.strength === strength) return;
+        room.strength = strength;
+        persistRooms();
         broadcastRoom(room);
         break;
       }
 
       case "start": {
         const room = rooms.get(currentRoomId);
-        if (!room || room.hostWsId !== wsId || room.phase !== "lobby") return;
+        if (!room || room.hostPlayerId !== currentPlayerId || room.phase !== "lobby") return;
+        const waitingFor = room.order
+          .map(id => room.players.get(id))
+          .filter(player => player && !player.maiaReady)
+          .map(player => player.name);
+        if (waitingFor.length) {
+          ws.send(JSON.stringify({
+            type: "error",
+            code: "waiting-for-maia",
+            message: `Waiting for Maia on: ${waitingFor.join(", ")}`,
+          }));
+          broadcastRoom(room);
+          return;
+        }
         room.phase = "playing";
+        persistRooms();
         broadcastRoom(room);
         break;
       }
@@ -196,9 +353,11 @@ wss.on("connection", (ws) => {
       case "move": {
         const room = rooms.get(currentRoomId);
         if (!room || room.phase !== "playing") return;
+        if (room.order[room.activeIdx] !== currentPlayerId) return;
         room.fen = msg.fen;
         if (msg.gameOver) {
           room.phase = "over";
+          persistRooms();
           broadcastRoom(room);
           return;
         }
@@ -210,6 +369,7 @@ wss.on("connection", (ws) => {
           // human move — active player now runs bot locally
           room.midTurn = true;
         }
+        persistRooms();
         broadcastRoom(room);
         break;
       }
@@ -220,18 +380,15 @@ wss.on("connection", (ws) => {
     if (!currentRoomId) return;
     const room = rooms.get(currentRoomId);
     if (!room) return;
+    const player = room.players.get(currentPlayerId);
+    if (!player || player.ws !== ws) return;
 
-    room.players.delete(wsId);
-    room.order = room.order.filter(id => id !== wsId);
-
-    if (room.order.length === 0) {
-      rooms.delete(currentRoomId);
-      return;
-    }
-    // transfer host if needed
-    if (room.hostWsId === wsId) room.hostWsId = room.order[0];
-    // clamp activeIdx
+    player.connected = false;
+    player.maiaReady = false;
+    player.ws = null;
+    player.lastSeen = Date.now();
     if (room.activeIdx >= room.order.length) room.activeIdx = 0;
+    persistRooms();
     broadcastRoom(room);
   });
 });
