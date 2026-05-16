@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chess AI</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.12.7/assets/chessboard.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.12.7/assets/extensions/markers/markers.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #f0ece5;
+      --surface:    #e7e2da;
+      --border:     #c8c2b8;
+      --text:       #1c1917;
+      --text-dim:   #57534e;
+      --text-faint: #a8a29e;
+      --accent:     #2f7d74;
+      --board-size: min(calc(100svh - 150px), min(calc(100svw - 40px), 480px));
+    }
+
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* ── Shared buttons ── */
+    .lb-btn {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 22px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .lb-btn:hover { border-color: var(--accent); }
+    .lb-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .lb-btn.primary:hover { opacity: 0.85; }
+
+    .sm-btn {
+      background: var(--surface);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sm-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── Lobby ── */
+    #lobby {
+      width: var(--board-size);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .lobby-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .lobby-settings {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .lobby-settings label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    #strength-slider {
+      accent-color: var(--accent);
+      cursor: pointer;
+      width: 140px;
+    }
+    #strength-val {
+      font-size: 12px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      min-width: 34px;
+    }
+
+    .lobby-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .lb-btns { display: flex; gap: 10px; justify-content: center; }
+
+    #cp-name {
+      width: 100%;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    #cp-name:focus { border-color: var(--accent); }
+
+    .cp-link-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    #cp-link {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-dim);
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+    }
+
+    #cp-player-list {
+      font-size: 12px;
+      color: var(--text-dim);
+      align-self: flex-start;
+    }
+
+    /* ── Model status ── */
+    .model-status {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .model-status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-faint);
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-dot.ready   { background: var(--accent); }
+    .status-dot.error   { background: #c0392b; }
+    .status-dot.working { background: #e67e22; }
+    #download-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #download-btn:hover { opacity: 0.85; }
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.visible { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.2s;
+    }
+
+    /* ── Game ── */
+    #game {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #board { width: var(--board-size); }
+
+    #cp-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: var(--board-size);
+    }
+    #cp-chips:empty { display: none; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .chip.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .chip.me::after { content: " (you)"; opacity: 0.55; }
+
+    .game-controls {
+      width: var(--board-size);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #game-status {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    #game-status.thinking { color: var(--accent); }
+    #game-status.over     { color: var(--text); font-weight: 600; }
+
+    /* ── Last-move highlight ── */
+    .cm-chessboard .marker.last-move { fill: #2f7d74; opacity: 0.25; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Lobby ── -->
+  <div id="lobby">
+    <div class="lobby-title">Chess AI</div>
+
+    <div class="lobby-settings">
+      <label>
+        Strength
+        <input type="range" id="strength-slider" min="400" max="2800" step="50" value="1500" />
+        <span id="strength-val">1500</span>
+      </label>
+    </div>
+
+    <!-- Default: play solo or start coop -->
+    <div id="lb-main" class="lobby-section">
+      <div class="lb-btns">
+        <button id="play-solo-btn" class="lb-btn primary">Play Solo</button>
+        <button id="play-coop-btn" class="lb-btn">Play with Friends</button>
+      </div>
+    </div>
+
+    <!-- Name + connect button (coop create or join) -->
+    <div id="lb-connect" class="lobby-section" style="display:none">
+      <input id="cp-name" placeholder="Your name" maxlength="20" autocomplete="off" />
+      <div class="lb-btns">
+        <button id="cp-connect-btn" class="lb-btn primary">Create Game</button>
+        <button id="lb-back-btn"    class="lb-btn">Back</button>
+      </div>
+    </div>
+
+    <!-- Room lobby: invite link + player list + start -->
+    <div id="lb-room" class="lobby-section" style="display:none">
+      <div class="cp-link-row">
+        <span id="cp-link"></span>
+        <button id="cp-copy" class="sm-btn">Copy link</button>
+      </div>
+      <div id="cp-player-list"></div>
+      <div class="lb-btns">
+        <button id="cp-start" class="lb-btn primary" style="display:none">Start Game</button>
+        <button id="cp-leave" class="sm-btn">Leave</button>
+      </div>
+    </div>
+
+    <div class="model-status">
+      <div class="model-status-row">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-label">Checking model cache…</span>
+        <button id="download-btn" style="display:none">Download 44 MB</button>
+      </div>
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Game ── -->
+  <div id="game">
+    <div id="board"></div>
+    <div id="cp-chips"></div>
+    <div class="game-controls">
+      <div id="game-status">…</div>
+      <button id="back-btn" class="sm-btn">← Lobby</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { Chessboard, COLOR, INPUT_EVENT_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.12.7/src/Chessboard.js";
+  import { Markers } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.12.7/src/extensions/markers/Markers.js";
+  import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1/dist/esm/chess.js";
+
+  const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
+  const CDN       = "https://cdn.jsdelivr.net/npm/cm-chessboard@8.12.7/assets/";
+
+  const strengthSlider = document.getElementById("strength-slider");
+  const strengthVal    = document.getElementById("strength-val");
+  strengthSlider.oninput = () => { strengthVal.textContent = strengthSlider.value; };
+  const getElo = () => parseInt(strengthSlider.value);
+
+  // ── Load move mappings ────────────────────────────────────────────────────
+
+  const [allMovesMaia3, allMovesMaia3Reversed] = await Promise.all([
+    fetch("/data/all_moves_maia3.json").then(r => r.json()),
+    fetch("/data/all_moves_maia3_reversed.json").then(r => r.json()),
+  ]);
+
+  // ── Board encoding (ported from CSSLab tensor.ts) ─────────────────────────
+
+  const PIECE_TYPES = "PNBRQKpnbrqk";
+
+  function mirrorSquare(sq) { return sq[0] + (9 - parseInt(sq[1])); }
+
+  function mirrorMove(uci) {
+    return mirrorSquare(uci.slice(0, 2)) + mirrorSquare(uci.slice(2, 4)) + uci.slice(4);
+  }
+
+  function mirrorFEN(fen) {
+    const [pos, , castling, ep, hm, fm] = fen.split(" ");
+    const flip = { K: "k", Q: "q", k: "K", q: "Q" };
+    const mirroredPos = pos.split("/").reverse()
+      .map(r => r.replace(/[A-Za-z]/g, c => /[A-Z]/.test(c) ? c.toLowerCase() : c.toUpperCase()))
+      .join("/");
+    const mirroredCastling = castling === "-" ? "-" : castling.replace(/[KQkq]/g, c => flip[c]);
+    return `${mirroredPos} w ${mirroredCastling} ${ep !== "-" ? mirrorSquare(ep) : "-"} ${hm} ${fm}`;
+  }
+
+  function boardToTokens(fen) {
+    const tensor = new Float32Array(64 * 12);
+    fen.split(" ")[0].split("/").forEach((row, rank) => {
+      let file = 0;
+      for (const c of row) {
+        const n = parseInt(c);
+        if (isNaN(n)) {
+          const pi = PIECE_TYPES.indexOf(c);
+          if (pi >= 0) tensor[((7 - rank) * 8 + file) * 12 + pi] = 1;
+          file++;
+        } else file += n;
+      }
+    });
+    return tensor;
+  }
+
+  function buildLegalMask(workingFen) {
+    const mask = new Float32Array(4352);
+    for (const m of new Chess(workingFen).moves({ verbose: true })) {
+      const idx = allMovesMaia3[m.from + m.to + (m.promotion || "")];
+      if (idx !== undefined) mask[idx] = 1;
+    }
+    return mask;
+  }
+
+  function decodeMoves(logitsMove, legalMask, isBlack) {
+    const legalIdx = Array.from(legalMask.keys()).filter(i => legalMask[i] > 0);
+    const logits   = legalIdx.map(i => logitsMove[i]);
+    const max      = Math.max(...logits);
+    const exps     = logits.map(l => Math.exp(l - max));
+    const sum      = exps.reduce((a, b) => a + b, 0);
+    return Object.fromEntries(legalIdx.map((idx, j) => {
+      let move = allMovesMaia3Reversed[String(idx)];
+      if (isBlack) move = mirrorMove(move);
+      return [move, exps[j] / sum];
+    }));
+  }
+
+  function sampleMove(probs) {
+    const moves = Object.keys(probs), weights = Object.values(probs);
+    let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < moves.length; i++) { r -= weights[i]; if (r <= 0) return moves[i]; }
+    return moves[moves.length - 1];
+  }
+
+  // ── Web Worker (Maia 3 ONNX inference) ───────────────────────────────────
+
+  const worker    = new Worker("/maia-worker.js");
+  const pending   = new Map();
+  let inferenceId = 0;
+  let modelReady  = false;
+
+  const statusDot   = document.getElementById("status-dot");
+  const statusLabel = document.getElementById("status-label");
+  const downloadBtn = document.getElementById("download-btn");
+  const progressBar = document.getElementById("progress-bar");
+  const progressFill = document.getElementById("progress-fill");
+
+  function handleModelStatus(status) {
+    if (status === "loading") {
+      statusDot.className = "status-dot working";
+      statusLabel.textContent = "Checking model cache…";
+    } else if (status === "no-cache") {
+      statusDot.className = "status-dot";
+      statusLabel.textContent = "Maia 3 not downloaded —";
+      downloadBtn.style.display = "inline";
+    } else if (status === "downloading") {
+      statusDot.className = "status-dot working";
+      statusLabel.textContent = "Downloading Maia 3…";
+      downloadBtn.style.display = "none";
+      progressBar.classList.add("visible");
+    } else if (status === "ready") {
+      modelReady = true;
+      statusDot.className = "status-dot ready";
+      statusLabel.textContent = "Maia 3 ready";
+      downloadBtn.style.display = "none";
+      progressBar.classList.remove("visible");
+      // If a solo game is already in progress, unblock the player
+      if (gameEl.style.display !== "none" && coop.phase !== "playing") {
+        if (!chess.isGameOver() && chess.turn() === "w") setStatus("Your turn");
+      }
+    }
+  }
+
+  worker.onmessage = ({ data: msg }) => {
+    if (msg.type === "inference-result") {
+      const r = pending.get(msg.id);
+      pending.delete(msg.id);
+      r?.resolve({ logitsMove: new Float32Array(msg.logitsMove) });
+    } else if (msg.type === "status") {
+      handleModelStatus(msg.status);
+    } else if (msg.type === "progress") {
+      progressFill.style.width = `${msg.progress}%`;
+    } else if (msg.type === "error") {
+      const r = pending.get(msg.id);
+      if (r) { pending.delete(msg.id); r.reject(new Error(msg.message)); }
+      else { statusDot.className = "status-dot error"; statusLabel.textContent = `Error: ${msg.message}`; }
+    }
+  };
+
+  worker.postMessage({ type: "init", modelUrl: "/maia3/maia3_simplified.onnx", modelVersion: "3" });
+  downloadBtn.onclick = () => worker.postMessage({ type: "download" });
+
+  function runInference(tokens, elo) {
+    return new Promise((resolve, reject) => {
+      const id = inferenceId++;
+      pending.set(id, { resolve, reject });
+      const t = tokens.slice();
+      worker.postMessage(
+        { type: "inference", id, tokens: t.buffer, eloSelfs: [elo], eloOppos: [elo], batchSize: 1 },
+        [t.buffer],
+      );
+    });
+  }
+
+  // ── Game state ────────────────────────────────────────────────────────────
+
+  const chess     = new Chess();
+  const lobbyEl   = document.getElementById("lobby");
+  const gameEl    = document.getElementById("game");
+  const statusEl  = document.getElementById("game-status");
+  const cpChips   = document.getElementById("cp-chips");
+  let board       = null;
+  let botThinking = false;
+
+  function setStatus(text, cls = "") {
+    statusEl.textContent = text;
+    statusEl.className   = cls;
+  }
+
+  function showGame() {
+    lobbyEl.style.display = "none";
+    gameEl.style.display  = "flex";
+    if (!board) {
+      board = new Chessboard(document.getElementById("board"), {
+        position: chess.fen(),
+        orientation: COLOR.white,
+        assetsUrl: CDN,
+        style: { pieces: { file: CDN + "pieces/staunty.svg" } },
+        extensions: [{ class: Markers }],
+      });
+    }
+  }
+
+  function showLobby() {
+    gameEl.style.display  = "none";
+    lobbyEl.style.display = "flex";
+    lbMain.style.display    = "flex";
+    lbConnect.style.display = "none";
+    lbRoom.style.display    = "none";
+    if (location.search.includes("room="))
+      history.replaceState(null, "", location.pathname);
+  }
+
+  function startSoloGame() {
+    chess.reset();
+    cpChips.innerHTML = "";
+    showGame();
+    board.setPosition(chess.fen());
+    board.removeMarkers(LAST_MOVE);
+    board.enableMoveInput(inputHandler);
+    botThinking = false;
+    setStatus(modelReady ? "Your turn" : "Loading Maia…");
+  }
+
+  function checkGameOver() {
+    if (chess.isCheckmate()) {
+      setStatus(chess.turn() === "w" ? "Black wins — Checkmate!" : "White wins — Checkmate!", "over");
+      board.disableMoveInput();
+      return true;
+    }
+    if (chess.isDraw()) {
+      const reason = chess.isStalemate() ? "Stalemate"
+        : chess.isInsufficientMaterial() ? "Insufficient material" : "Draw";
+      setStatus(reason, "over");
+      board.disableMoveInput();
+      return true;
+    }
+    return false;
+  }
+
+  async function botMove() {
+    if (chess.isGameOver() || !modelReady) return;
+    botThinking = true;
+    setStatus("Thinking…", "thinking");
+
+    const fen        = chess.fen();
+    const isBlack    = fen.split(" ")[1] === "b";
+    const elo        = getElo();
+    const workingFen = isBlack ? mirrorFEN(fen) : fen;
+    const tokens     = boardToTokens(workingFen);
+    const legalMask  = buildLegalMask(workingFen);
+
+    const { logitsMove } = await runInference(tokens, elo);
+    const moveProbs = decodeMoves(logitsMove, legalMask, isBlack);
+    const uci       = sampleMove(moveProbs);
+
+    chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
+    board.setPosition(chess.fen());
+    board.removeMarkers(LAST_MOVE);
+    board.addMarker(LAST_MOVE, uci.slice(0, 2));
+    board.addMarker(LAST_MOVE, uci.slice(2, 4));
+
+    botThinking = false;
+    if (!checkGameOver()) setStatus("Your turn");
+  }
+
+  function inputHandler(event) {
+    switch (event.type) {
+      case INPUT_EVENT_TYPE.moveInputStarted:
+        if (coop.phase === "playing")
+          return !coop.midTurn && coop.activeIdx === coop.myIdx && modelReady;
+        return chess.turn() === "w" && !botThinking && modelReady && !chess.isGameOver();
+
+      case INPUT_EVENT_TYPE.validateMoveInput: {
+        try {
+          chess.move({ from: event.squareFrom, to: event.squareTo, promotion: "q" });
+          board.removeMarkers(LAST_MOVE);
+          board.setPosition(chess.fen());
+          if (coop.phase === "playing") {
+            coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
+            if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, 300); }
+          } else {
+            if (!checkGameOver()) setTimeout(botMove, 300);
+          }
+          return true;
+        } catch { return false; }
+      }
+    }
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    document.querySelector("#board svg")
+      ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+  }, { capture: true });
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+  new EventSource("/dev-reload").onmessage = (e) => { if (e.data === "reload") location.reload(); };
+
+  // ── Lobby UI ──────────────────────────────────────────────────────────────
+
+  const lbMain       = document.getElementById("lb-main");
+  const lbConnect    = document.getElementById("lb-connect");
+  const lbRoom       = document.getElementById("lb-room");
+  const cpNameInput  = document.getElementById("cp-name");
+  const cpConnectBtn = document.getElementById("cp-connect-btn");
+  const lbBackBtn    = document.getElementById("lb-back-btn");
+  const cpLinkEl     = document.getElementById("cp-link");
+  const cpCopyBtn    = document.getElementById("cp-copy");
+  const cpPlayerList = document.getElementById("cp-player-list");
+  const cpStartBtn   = document.getElementById("cp-start");
+  const cpLeaveBtn   = document.getElementById("cp-leave");
+  const backBtn      = document.getElementById("back-btn");
+
+  const urlRoom = new URLSearchParams(location.search).get("room");
+
+  // Auto-show join flow if URL has ?room=
+  if (urlRoom) {
+    lbMain.style.display    = "none";
+    lbConnect.style.display = "flex";
+    cpConnectBtn.textContent = "Join Game";
+    document.querySelector(".lobby-settings").style.display = "none";
+  }
+
+  document.getElementById("play-solo-btn").onclick = () => startSoloGame();
+
+  document.getElementById("play-coop-btn").onclick = () => {
+    lbMain.style.display    = "none";
+    lbConnect.style.display = "flex";
+    cpConnectBtn.textContent = "Create Game";
+  };
+
+  lbBackBtn.onclick = () => {
+    lbConnect.style.display = "none";
+    lbMain.style.display    = "flex";
+  };
+
+  cpConnectBtn.onclick = () => connectCoop(urlRoom ? "join" : "create");
+
+  cpNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") cpConnectBtn.click();
+  });
+
+  cpStartBtn.onclick = () => coop.ws?.send(JSON.stringify({ type: "start" }));
+  cpLeaveBtn.onclick = () => leaveCoop();
+
+  cpCopyBtn.onclick = () => {
+    navigator.clipboard.writeText(cpLinkEl.textContent).then(() => {
+      cpCopyBtn.textContent = "Copied!";
+      setTimeout(() => { cpCopyBtn.textContent = "Copy link"; }, 1500);
+    });
+  };
+
+  backBtn.onclick = () => {
+    if (coop.phase !== "off") leaveCoop();
+    else showLobby();
+  };
+
+  // ── Coop mode ─────────────────────────────────────────────────────────────
+
+  const coop = {
+    ws: null, roomId: null,
+    myIdx: -1,
+    phase: "off",
+    players: [], activeIdx: 0, midTurn: false, fen: null,
+    strength: 1500,
+  };
+
+  function connectCoop(action) {
+    const name = cpNameInput.value.trim();
+    if (!name) { cpNameInput.focus(); return; }
+    const roomId = urlRoom;
+    const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+    coop.ws = new WebSocket(`${wsProto}//${location.host}`);
+    coop.ws.onopen    = () => coop.ws.send(JSON.stringify(
+      action === "create"
+        ? { type: "create", name,
+            strength: getElo() }
+        : { type: "join", roomId, name }
+    ));
+    coop.ws.onmessage = ({ data }) => handleCoopMsg(JSON.parse(data));
+    coop.ws.onclose   = () => leaveCoop();
+    coop.ws.onerror   = () => leaveCoop();
+  }
+
+  async function handleCoopMsg(msg) {
+    if (msg.type === "error") {
+      lbConnect.style.display = "flex";
+      lbRoom.style.display    = "none";
+      cpConnectBtn.textContent = urlRoom ? "Join Game" : "Create Game";
+      alert(msg.message);
+      return;
+    }
+
+    if (msg.type === "created") {
+      coop.roomId = msg.roomId;
+      const cfg   = await fetch("/config").then(r => r.json());
+      cpLinkEl.textContent     = `${cfg.base}/?room=${msg.roomId}`;
+      lbConnect.style.display  = "none";
+      lbRoom.style.display     = "flex";
+      coop.phase = "lobby";
+      return;
+    }
+
+    if (msg.type === "room-state") {
+      coop.players   = msg.players;
+      coop.activeIdx = msg.activeIdx;
+      coop.midTurn   = msg.midTurn;
+      coop.fen       = msg.fen;
+      coop.myIdx     = msg.myIdx;
+      coop.strength  = msg.strength;
+
+      if (msg.phase === "lobby") {
+        coop.phase = "lobby";
+        lbConnect.style.display = "none";
+        lbRoom.style.display    = "flex";
+        cpPlayerList.textContent = "Players: " + msg.players.map(
+          (p, i) => p.name + (i === msg.myIdx ? " (you)" : "")
+        ).join(", ");
+        cpStartBtn.style.display = msg.myIdx === 0 ? "inline" : "none";
+        return;
+      }
+
+      if (msg.phase === "playing" || msg.phase === "over") {
+        if (coop.phase !== "playing" && coop.phase !== "over") {
+          chess.load(msg.fen);
+          cpChips.innerHTML = "";
+          showGame();
+          board.setPosition(msg.fen, false);
+          board.removeMarkers(LAST_MOVE);
+          board.enableMoveInput(inputHandler);
+        }
+        coop.phase = msg.phase;
+
+        // Render chips
+        cpChips.innerHTML = "";
+        msg.players.forEach((p, i) => {
+          const chip = document.createElement("span");
+          chip.className = "chip"
+            + (i === msg.activeIdx && !msg.midTurn ? " active" : "")
+            + (i === msg.myIdx ? " me" : "");
+          chip.textContent = p.name;
+          cpChips.appendChild(chip);
+        });
+        if (msg.midTurn) {
+          const bot = document.createElement("span");
+          bot.className = "chip active";
+          bot.textContent = "Maia";
+          cpChips.appendChild(bot);
+        }
+
+        if (msg.fen !== chess.fen()) {
+          chess.load(msg.fen);
+          board.setPosition(msg.fen);
+        }
+
+        if (msg.phase === "over") {
+          board.disableMoveInput();
+        } else if (msg.activeIdx === msg.myIdx && !msg.midTurn) {
+          board.enableMoveInput(inputHandler);
+          setStatus(modelReady ? "Your turn" : "Download Maia to play");
+        } else {
+          board.disableMoveInput();
+          const who = msg.players[msg.activeIdx]?.name ?? "…";
+          setStatus(msg.midTurn ? `${who}: bot thinking…` : `${who}'s turn`);
+        }
+      }
+    }
+  }
+
+  async function coopBotMove() {
+    if (!modelReady) return;
+    setStatus("Thinking…", "thinking");
+    const fen       = chess.fen();
+    const isBlack   = fen.split(" ")[1] === "b";
+    const elo       = coop.strength;
+    const workFen   = isBlack ? mirrorFEN(fen) : fen;
+    const tokens    = boardToTokens(workFen);
+    const legalMask = buildLegalMask(workFen);
+
+    const { logitsMove } = await runInference(tokens, elo);
+    const moveProbs = decodeMoves(logitsMove, legalMask, isBlack);
+    const uci = sampleMove(moveProbs);
+
+    chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
+    board.setPosition(chess.fen());
+    board.removeMarkers(LAST_MOVE);
+    board.addMarker(LAST_MOVE, uci.slice(0, 2));
+    board.addMarker(LAST_MOVE, uci.slice(2, 4));
+
+    coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
+  }
+
+  function leaveCoop() {
+    coop.ws?.close();
+    coop.ws    = null;
+    coop.phase = "off";
+    showLobby();
+  }
+</script>
+</body>
+</html>

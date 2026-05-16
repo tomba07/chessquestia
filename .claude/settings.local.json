@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:official-stockfish.github.io)",
+      "WebFetch(domain:maiachess.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(lc0 --version)",
+      "WebFetch(domain:python-chess.readthedocs.io)",
+      "WebFetch(domain:lczero.org)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:unpkg.com)",
+      "WebFetch(domain:lczerolens.readthedocs.io)",
+      "WebFetch(domain:onnxruntime.ai)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:lichess.org)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -sI \"https://github.com/CSSLab/maia-platform-frontend/raw/main/public/maia3/maia3_simplified.onnx\")",
+      "Bash(curl -sI \"https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/main/public/maia3/maia3_simplified.onnx\")",
+      "Bash(curl -s --range 0-200 \"https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/main/public/maia3/maia3_simplified.onnx\")",
+      "Bash(gh api *)",
+      "Bash(npm install *)",
+      "Bash(timeout 3 node server.js)",
+      "Bash(node /Users/D056968/Dev/playground/local-chess/download_assets.js)",
+      "Bash(npm audit *)",
+      "Bash(lsof -ti:5678)",
+      "Bash(xargs kill -9)",
+      "Bash(node *)"
+    ]
+  }
+}
