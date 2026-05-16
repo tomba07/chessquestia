@@ -862,7 +862,8 @@
   }, { capture: true });
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
-  new EventSource("/dev-reload").onmessage = (e) => { if (e.data === "reload") location.reload(); };
+  if (["localhost", "127.0.0.1"].includes(location.hostname))
+    new EventSource("/dev-reload").onmessage = (e) => { if (e.data === "reload") location.reload(); };
 
   // ── Lobby UI ──────────────────────────────────────────────────────────────
 

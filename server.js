@@ -19,6 +19,7 @@ const { randomUUID }      = require("crypto");
 
 const PORT = process.env.PORT || 5678;
 const app  = express();
+app.set("trust proxy", true);
 
 // ── LAN IP ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,11 @@ app.use((req, res, next) => {
 // ── Config endpoint ───────────────────────────────────────────────────────────
 
 app.get("/config", (req, res) => {
-  res.json({ base: publicBase ?? `http://${getLanIp()}:${PORT}` });
+  const requestBase = req.protocol + "://" + req.get("host");
+  res.json({
+    base: publicBase ?? requestBase,
+    dev: process.env.NODE_ENV !== "production",
+  });
 });
 
 // ── Hot reload (SSE, dev only) ────────────────────────────────────────────────
@@ -145,6 +150,7 @@ function persistRooms() {
     version: 1,
     rooms: [...rooms.values()].map(serializeRoom),
   };
+  fs.mkdirSync(path.dirname(ROOMS_FILE), { recursive: true });
   const tmpFile = `${ROOMS_FILE}.tmp`;
   fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2));
   fs.renameSync(tmpFile, ROOMS_FILE);
