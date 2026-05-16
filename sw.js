@@ -1,4 +1,4 @@
-const CACHE = "chess-ai-v1";
+const CACHE = "chessquestia-v1";
 const SHELL = ["./index.html", "./manifest.json", "./sw.js"];
 
 self.addEventListener("install", (e) => {

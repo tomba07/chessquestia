@@ -101,7 +101,8 @@ if (process.argv.includes("--tunnel")) {
 
 const wss   = new WebSocketServer({ server: httpServer });
 const rooms = new Map(); // roomId → Room
-const ROOMS_FILE = process.env.ROOMS_FILE || path.join(__dirname, ".local-chess-rooms.json");
+const ROOMS_FILE = process.env.ROOMS_FILE || path.join(__dirname, ".chessquestia-rooms.json");
+const LEGACY_ROOMS_FILE = path.join(__dirname, ".local-chess-rooms.json");
 
 /*
   Room shape:
@@ -150,9 +151,10 @@ function persistRooms() {
 }
 
 function loadRooms() {
-  if (!fs.existsSync(ROOMS_FILE)) return;
+  const roomsFile = fs.existsSync(ROOMS_FILE) ? ROOMS_FILE : LEGACY_ROOMS_FILE;
+  if (!fs.existsSync(roomsFile)) return;
   try {
-    const payload = JSON.parse(fs.readFileSync(ROOMS_FILE, "utf8"));
+    const payload = JSON.parse(fs.readFileSync(roomsFile, "utf8"));
     for (const savedRoom of payload.rooms || []) {
       const players = new Map();
       for (const savedPlayer of savedRoom.players || []) {
@@ -178,6 +180,7 @@ function loadRooms() {
       });
     }
     console.log(`Loaded ${rooms.size} saved room(s)`);
+    if (roomsFile === LEGACY_ROOMS_FILE) persistRooms();
   } catch (err) {
     console.warn(`Could not load saved rooms: ${err.message}`);
   }

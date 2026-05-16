@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chess AI</title>
+  <title>Chessquestia</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.12.7/assets/chessboard.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.12.7/assets/extensions/markers/markers.css" />
@@ -393,7 +393,7 @@
 
   <!-- ── Lobby ── -->
   <div id="lobby">
-    <div class="lobby-title">Local Chess</div>
+    <div class="lobby-title">Chessquestia</div>
 
     <!-- Default: play solo or start coop -->
     <div id="lb-main" class="lobby-section lobby-panel">
@@ -684,7 +684,12 @@
   const gameEl    = document.getElementById("game");
   const statusEl  = document.getElementById("game-status");
   const cpChips   = document.getElementById("cp-chips");
-  const SOLO_GAME_KEY = "local-chess.solo-game";
+  const STORAGE_PREFIX = "chessquestia";
+  const LEGACY_STORAGE_PREFIX = "local-chess";
+  const storageKey = (suffix) => `${STORAGE_PREFIX}.${suffix}`;
+  const legacyStorageKey = (suffix) => `${LEGACY_STORAGE_PREFIX}.${suffix}`;
+  const SOLO_GAME_KEY = storageKey("solo-game");
+  const LEGACY_SOLO_GAME_KEY = legacyStorageKey("solo-game");
   let board       = null;
   let botThinking = false;
   let soloActive  = false;
@@ -731,6 +736,7 @@
   function clearSoloGame() {
     soloActive = false;
     localStorage.removeItem(SOLO_GAME_KEY);
+    localStorage.removeItem(LEGACY_SOLO_GAME_KEY);
   }
 
   function startSoloGame() {
@@ -748,7 +754,7 @@
 
   function restoreSoloGame() {
     if (location.search.includes("room=")) return;
-    const saved = localStorage.getItem(SOLO_GAME_KEY);
+    const saved = localStorage.getItem(SOLO_GAME_KEY) || localStorage.getItem(LEGACY_SOLO_GAME_KEY);
     if (!saved) return;
     try {
       const state = JSON.parse(saved);
@@ -878,16 +884,19 @@
   const backBtn      = document.getElementById("back-btn");
 
   const urlRoom = new URLSearchParams(location.search).get("room");
-  const LAST_ROOM_KEY = "local-chess.last-room";
-  const nameKey = (roomId) => `local-chess.room.${roomId}.name`;
+  const LAST_ROOM_KEY = storageKey("last-room");
+  const LEGACY_LAST_ROOM_KEY = legacyStorageKey("last-room");
+  const nameKey = (roomId) => storageKey(`room.${roomId}.name`);
+  const legacyNameKey = (roomId) => legacyStorageKey(`room.${roomId}.name`);
 
   function storedPlayerName(roomId) {
-    return roomId ? localStorage.getItem(nameKey(roomId)) : "";
+    return roomId ? (localStorage.getItem(nameKey(roomId)) || localStorage.getItem(legacyNameKey(roomId)) || "") : "";
   }
 
   function rememberRoom(roomId, name) {
     if (!roomId) return;
     localStorage.setItem(LAST_ROOM_KEY, roomId);
+    localStorage.removeItem(LEGACY_LAST_ROOM_KEY);
     if (name) localStorage.setItem(nameKey(roomId), name);
   }
 

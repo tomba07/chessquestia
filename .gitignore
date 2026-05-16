@@ -1,5 +1,6 @@
 .DS_Store
 node_modules/
+.chessquestia-rooms.json
 .local-chess-rooms.json
 
 # Old Python setup

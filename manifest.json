@@ -1,7 +1,7 @@
 {
-  "name": "Chess AI",
-  "short_name": "Chess AI",
-  "description": "Human-like chess opponents powered by Maia 3",
+  "name": "Chessquestia",
+  "short_name": "Chessquestia",
+  "description": "Solo and coop chess against Maia 3",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0d1117",
