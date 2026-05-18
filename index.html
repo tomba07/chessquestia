@@ -889,16 +889,22 @@
   const LEGACY_LAST_ROOM_KEY = legacyStorageKey("last-room");
   const nameKey = (roomId) => storageKey(`room.${roomId}.name`);
   const legacyNameKey = (roomId) => legacyStorageKey(`room.${roomId}.name`);
+  const playerKey = (roomId) => storageKey(`room.${roomId}.playerId`);
 
   function storedPlayerName(roomId) {
     return roomId ? (localStorage.getItem(nameKey(roomId)) || localStorage.getItem(legacyNameKey(roomId)) || "") : "";
   }
 
-  function rememberRoom(roomId, name) {
+  function storedPlayerId(roomId) {
+    return roomId ? (localStorage.getItem(playerKey(roomId)) || "") : "";
+  }
+
+  function rememberRoom(roomId, name, playerId) {
     if (!roomId) return;
     localStorage.setItem(LAST_ROOM_KEY, roomId);
     localStorage.removeItem(LEGACY_LAST_ROOM_KEY);
     if (name) localStorage.setItem(nameKey(roomId), name);
+    if (playerId) localStorage.setItem(playerKey(roomId), playerId);
   }
 
   function setRoomUrl(roomId) {
@@ -969,6 +975,9 @@
     phase: "off",
     players: [], activeIdx: 0, midTurn: false, fen: null,
     strength: 1500,
+    leaving: false,
+    reconnectTimer: null,
+    reconnectAttempts: 0,
   };
 
   function allPlayersReady(players) {
@@ -1010,21 +1019,74 @@
     cpStartBtn.title = ready ? "" : "Everyone needs Maia ready before the game can start.";
   }
 
-  function connectCoop(action) {
-    const roomId = new URLSearchParams(location.search).get("room");
-    const name = cpNameInput.value.trim() || storedPlayerName(roomId);
+  function clearReconnectTimer() {
+    if (!coop?.reconnectTimer) return;
+    clearTimeout(coop.reconnectTimer);
+    coop.reconnectTimer = null;
+  }
+
+  function connectCoop(action, opts = {}) {
+    const roomId = opts.roomId || new URLSearchParams(location.search).get("room") || coop.roomId;
+    const name = opts.name || cpNameInput.value.trim() || storedPlayerName(roomId);
     if (!name) { cpNameInput.focus(); return; }
+    clearReconnectTimer();
+    coop.leaving = false;
     const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
-    coop.ws = new WebSocket(`${wsProto}//${location.host}`);
-    coop.ws.onopen    = () => coop.ws.send(JSON.stringify(
+    const ws = new WebSocket(`${wsProto}//${location.host}`);
+    coop.ws = ws;
+    ws.onopen = () => ws.send(JSON.stringify(
       action === "create"
         ? { type: "create", name,
             strength: getElo(), maiaReady: modelReady }
-        : { type: "join", roomId, name, maiaReady: modelReady }
+        : {
+            type: "join",
+            roomId,
+            name,
+            playerId: opts.playerId || coop.playerId || storedPlayerId(roomId),
+            maiaReady: modelReady,
+          }
     ));
-    coop.ws.onmessage = ({ data }) => handleCoopMsg(JSON.parse(data));
-    coop.ws.onclose   = () => leaveCoop();
-    coop.ws.onerror   = () => leaveCoop();
+    ws.onmessage = ({ data }) => handleCoopMsg(JSON.parse(data));
+    ws.onclose   = () => {
+      if (coop.ws !== ws) return;
+      handleCoopDisconnect();
+    };
+    ws.onerror   = () => ws.close();
+  }
+
+  function handleCoopDisconnect() {
+    coop.ws = null;
+    if (coop.leaving || coop.phase === "off") {
+      coop.leaving = false;
+      return;
+    }
+
+    const roomId = coop.roomId || new URLSearchParams(location.search).get("room");
+    const name = cpNameInput.value.trim() || storedPlayerName(roomId);
+    if (!roomId || !name) {
+      leaveCoop();
+      return;
+    }
+
+    if (coop.phase === "lobby") {
+      lbConnect.style.display = "none";
+      lbRoom.style.display = "flex";
+      cpRoomMeta.textContent = "Reconnecting…";
+      cpStartBtn.disabled = true;
+    } else if (coop.phase === "playing") {
+      board?.disableMoveInput();
+      setStatus("Reconnecting…", "thinking");
+    }
+
+    const delay = Math.min(1000 * 2 ** coop.reconnectAttempts, 8000);
+    coop.reconnectAttempts += 1;
+    coop.reconnectTimer = setTimeout(() => {
+      connectCoop("join", {
+        roomId,
+        name,
+        playerId: coop.playerId || storedPlayerId(roomId),
+      });
+    }, delay);
   }
 
   async function handleCoopMsg(msg) {
@@ -1043,7 +1105,8 @@
     if (msg.type === "created") {
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;
-      rememberRoom(msg.roomId, cpNameInput.value.trim());
+      coop.reconnectAttempts = 0;
+      rememberRoom(msg.roomId, cpNameInput.value.trim(), msg.playerId);
       setRoomUrl(msg.roomId);
       renderInviteLink(msg.roomId);
       lbConnect.style.display  = "none";
@@ -1055,7 +1118,8 @@
     if (msg.type === "joined") {
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;
-      rememberRoom(msg.roomId, cpNameInput.value.trim() || storedPlayerName(msg.roomId));
+      coop.reconnectAttempts = 0;
+      rememberRoom(msg.roomId, cpNameInput.value.trim() || storedPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
       renderInviteLink(msg.roomId);
       return;
@@ -1070,6 +1134,7 @@
       coop.fen       = msg.fen;
       coop.myIdx     = msg.myIdx;
       coop.strength  = msg.strength;
+      coop.reconnectAttempts = 0;
       if (msg.strength) syncStrength(String(msg.strength));
       renderInviteLink(msg.roomId);
 
@@ -1163,6 +1228,8 @@
   }
 
   function leaveCoop() {
+    clearReconnectTimer();
+    coop.leaving = true;
     coop.ws?.close();
     coop.ws    = null;
     coop.phase = "off";
