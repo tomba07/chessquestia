@@ -31,7 +31,7 @@ function getLanIp() {
   return "127.0.0.1";
 }
 
-let publicBase = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || null; // also overridden by --tunnel
+let publicBase = process.env.PUBLIC_BASE_URL || null; // also overridden by --tunnel
 
 // ── COOP/COEP headers ─────────────────────────────────────────────────────────
 

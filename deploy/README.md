@@ -75,6 +75,24 @@ docker compose logs -f
 
 ## Updating
 
+From your local checkout, run:
+
+```sh
+./deploy/update-vm.sh
+```
+
+The script syncs the current working tree to the VM, rebuilds the Docker stack, restarts changed containers, and checks the app health endpoint.
+
+You can override the target if needed:
+
+```sh
+VM_HOST=root@165.227.2.163 \
+CHESSQUESTIA_DOMAIN=chessquestia.mteschke.com \
+./deploy/update-vm.sh
+```
+
+Or update manually on the VM:
+
 ```sh
 cd /opt/apps/chessquestia
 git pull
