@@ -110,8 +110,8 @@ docker compose up -d --build
 
 ## Persistent data
 
-Room state is stored in the `chessquestia_data` Docker volume at `/data/chessquestia-rooms.json`.
-User and session state is stored in the same Docker volume at `/data/chessquestia-auth.json`.
+Room, move, user, and session state is stored in the `chessquestia_data` Docker volume at `/data/chessquestia.sqlite`.
+On first startup, existing JSON state is migrated from `/data/chessquestia-rooms.json` and `/data/chessquestia-auth.json` if the database is empty.
 
 Back it up with:
 

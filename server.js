@@ -16,8 +16,14 @@ const os       = require("os");
 const fs       = require("fs");
 const { WebSocketServer } = require("ws");
 const { createHash, randomBytes, randomUUID } = require("crypto");
+const { DatabaseSync } = require("node:sqlite");
 
 const PORT = process.env.PORT || 5678;
+const DATA_DIR = process.env.DATA_DIR || (process.env.ROOMS_FILE ? path.dirname(process.env.ROOMS_FILE) : __dirname);
+const ROOMS_FILE = process.env.ROOMS_FILE || path.join(DATA_DIR, ".chessquestia-rooms.json");
+const LEGACY_ROOMS_FILE = path.join(__dirname, ".local-chess-rooms.json");
+const AUTH_FILE = process.env.AUTH_FILE || path.join(DATA_DIR, ".chessquestia-auth.json");
+const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, "chessquestia.sqlite");
 const app  = express();
 app.set("trust proxy", true);
 
@@ -35,6 +41,83 @@ let publicBase = process.env.PUBLIC_BASE_URL || null; // also overridden by --tu
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 const authEnabled = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+
+// ── SQLite persistence ────────────────────────────────────────────────────────
+
+fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
+const db = new DatabaseSync(DB_FILE);
+db.exec(`
+  PRAGMA journal_mode = WAL;
+  PRAGMA foreign_keys = ON;
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    provider_sub TEXT,
+    email TEXT,
+    email_verified INTEGER NOT NULL DEFAULT 0,
+    name TEXT NOT NULL,
+    picture TEXT,
+    created_at INTEGER NOT NULL,
+    last_login_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+  CREATE TABLE IF NOT EXISTS rooms (
+    id TEXT PRIMARY KEY,
+    host_player_id TEXT NOT NULL,
+    host_user_id TEXT,
+    phase TEXT NOT NULL,
+    fen TEXT NOT NULL,
+    active_idx INTEGER NOT NULL,
+    mid_turn INTEGER NOT NULL,
+    strength INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS room_players (
+    room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    id TEXT NOT NULL,
+    user_id TEXT,
+    name TEXT NOT NULL,
+    maia_ready INTEGER NOT NULL DEFAULT 0,
+    last_seen INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (room_id, id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_room_players_user_id ON room_players(user_id);
+
+  CREATE TABLE IF NOT EXISTS moves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    player_id TEXT NOT NULL,
+    user_id TEXT,
+    previous_fen TEXT,
+    fen TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_moves_room_id ON moves(room_id);
+`);
+
+function inTransaction(fn) {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = fn();
+    db.exec("COMMIT");
+    return result;
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
 
 // ── COOP/COEP headers ─────────────────────────────────────────────────────────
 
@@ -59,50 +142,77 @@ app.get("/config", (req, res) => {
 
 // ── Auth/session persistence ─────────────────────────────────────────────────
 
-const AUTH_FILE = process.env.AUTH_FILE || path.join(__dirname, ".chessquestia-auth.json");
 const SESSION_COOKIE = "cq_session";
 const OAUTH_STATE_COOKIE = "cq_oauth_state";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 90;
 const OAUTH_STATE_TTL_MS = 1000 * 60 * 10;
 const oauthStates = new Map();
 
-let authStore = {
-  version: 1,
-  users: {},
-  sessions: {},
-};
-
-function loadAuthStore() {
-  if (!fs.existsSync(AUTH_FILE)) return;
-  try {
-    const payload = JSON.parse(fs.readFileSync(AUTH_FILE, "utf8"));
-    authStore = {
-      version: 1,
-      users: payload.users || {},
-      sessions: payload.sessions || {},
-    };
-  } catch (err) {
-    console.warn(`Could not load auth store: ${err.message}`);
-  }
+function userFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    provider: row.provider,
+    providerSub: row.provider_sub,
+    email: row.email,
+    emailVerified: !!row.email_verified,
+    name: row.name,
+    picture: row.picture,
+    createdAt: row.created_at,
+    lastLoginAt: row.last_login_at,
+  };
 }
 
-function persistAuthStore() {
-  fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
-  const tmpFile = `${AUTH_FILE}.tmp`;
-  fs.writeFileSync(tmpFile, JSON.stringify(authStore, null, 2));
-  fs.renameSync(tmpFile, AUTH_FILE);
+function migrateAuthJson() {
+  if (!fs.existsSync(AUTH_FILE)) return;
+  const existingUsers = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
+  const existingSessions = db.prepare("SELECT COUNT(*) AS count FROM sessions").get().count;
+  if (existingUsers || existingSessions) return;
+
+  try {
+    const payload = JSON.parse(fs.readFileSync(AUTH_FILE, "utf8"));
+    inTransaction(() => {
+      const insertUser = db.prepare(`
+        INSERT OR IGNORE INTO users
+          (id, provider, provider_sub, email, email_verified, name, picture, created_at, last_login_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const user of Object.values(payload.users || {})) {
+        insertUser.run(
+          user.id,
+          user.provider || "google",
+          user.providerSub || user.provider_sub || "",
+          user.email || "",
+          user.emailVerified || user.email_verified ? 1 : 0,
+          user.name || user.email || "Player",
+          user.picture || "",
+          user.createdAt || user.created_at || Date.now(),
+          user.lastLoginAt || user.last_login_at || Date.now(),
+        );
+      }
+
+      const insertSession = db.prepare(`
+        INSERT OR IGNORE INTO sessions (hash, user_id, created_at, expires_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const [hash, session] of Object.entries(payload.sessions || {})) {
+        if (!session?.userId) continue;
+        insertSession.run(
+          hash,
+          session.userId,
+          session.createdAt || Date.now(),
+          session.expiresAt || 0,
+        );
+      }
+    });
+    console.log("Migrated auth JSON into SQLite");
+  } catch (err) {
+    console.warn(`Could not migrate auth JSON: ${err.message}`);
+  }
 }
 
 function cleanupExpiredSessions() {
-  const now = Date.now();
-  let changed = false;
-  for (const [hash, session] of Object.entries(authStore.sessions)) {
-    if (!session?.expiresAt || session.expiresAt <= now) {
-      delete authStore.sessions[hash];
-      changed = true;
-    }
-  }
-  if (changed) persistAuthStore();
+  db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(Date.now());
 }
 
 function parseCookies(req) {
@@ -159,42 +269,51 @@ function publicUser(user) {
 function currentUser(req) {
   const token = parseCookies(req)[SESSION_COOKIE];
   if (!token) return null;
-  const session = authStore.sessions[sessionHash(token)];
-  if (!session || session.expiresAt <= Date.now()) return null;
-  return authStore.users[session.userId] || null;
+  return userFromRow(db.prepare(`
+    SELECT u.*
+    FROM sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.hash = ? AND s.expires_at > ?
+  `).get(sessionHash(token), Date.now()));
 }
 
 function createSession(userId) {
   const token = randomBytes(32).toString("base64url");
-  authStore.sessions[sessionHash(token)] = {
-    userId,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + SESSION_TTL_MS,
-  };
-  persistAuthStore();
+  db.prepare(`
+    INSERT INTO sessions (hash, user_id, created_at, expires_at)
+    VALUES (?, ?, ?, ?)
+  `).run(sessionHash(token), userId, Date.now(), Date.now() + SESSION_TTL_MS);
   return token;
 }
 
 function upsertGoogleUser(profile) {
   const userId = `google:${profile.sub}`;
-  const existing = authStore.users[userId] || {};
-  authStore.users[userId] = {
-    ...existing,
-    id: userId,
-    provider: "google",
-    providerSub: profile.sub,
-    email: profile.email || existing.email || "",
-    emailVerified: !!profile.email_verified,
-    name: profile.name || profile.given_name || existing.name || profile.email || "Player",
-    picture: profile.picture || existing.picture || "",
-    createdAt: existing.createdAt || Date.now(),
-    lastLoginAt: Date.now(),
-  };
-  persistAuthStore();
-  return authStore.users[userId];
+  const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  db.prepare(`
+    INSERT INTO users
+      (id, provider, provider_sub, email, email_verified, name, picture, created_at, last_login_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      email = excluded.email,
+      email_verified = excluded.email_verified,
+      name = excluded.name,
+      picture = excluded.picture,
+      last_login_at = excluded.last_login_at
+  `).run(
+    userId,
+    "google",
+    profile.sub,
+    profile.email || existing?.email || "",
+    profile.email_verified ? 1 : 0,
+    profile.name || profile.given_name || existing?.name || profile.email || "Player",
+    profile.picture || existing?.picture || "",
+    existing?.created_at || Date.now(),
+    Date.now(),
+  );
+  return userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
 }
 
-loadAuthStore();
+migrateAuthJson();
 cleanupExpiredSessions();
 
 app.get("/api/me", (req, res) => {
@@ -281,11 +400,26 @@ app.get("/auth/google/callback", async (req, res) => {
 app.get("/auth/logout", (req, res) => {
   const token = parseCookies(req)[SESSION_COOKIE];
   if (token) {
-    delete authStore.sessions[sessionHash(token)];
-    persistAuthStore();
+    db.prepare("DELETE FROM sessions WHERE hash = ?").run(sessionHash(token));
   }
   res.setHeader("Set-Cookie", clearCookieHeader(SESSION_COOKIE));
   res.redirect(safeNextPath(req.query.next || "/"));
+});
+
+app.use((req, res, next) => {
+  if (!authEnabled) {
+    next();
+    return;
+  }
+  if (!["GET", "HEAD"].includes(req.method) || !["/", "/index.html"].includes(req.path)) {
+    next();
+    return;
+  }
+  if (currentUser(req)) {
+    next();
+    return;
+  }
+  res.redirect(`/auth/google?next=${encodeURIComponent(safeNextPath(req.originalUrl || "/"))}`);
 });
 
 // ── Hot reload (SSE, dev only) ────────────────────────────────────────────────
@@ -341,8 +475,6 @@ if (process.argv.includes("--tunnel")) {
 
 const wss   = new WebSocketServer({ server: httpServer });
 const rooms = new Map(); // roomId → Room
-const ROOMS_FILE = process.env.ROOMS_FILE || path.join(__dirname, ".chessquestia-rooms.json");
-const LEGACY_ROOMS_FILE = path.join(__dirname, ".local-chess-rooms.json");
 const INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 /*
@@ -387,55 +519,138 @@ function serializeRoom(room) {
   };
 }
 
-function persistRooms() {
-  const payload = {
-    version: 1,
-    rooms: [...rooms.values()].map(serializeRoom),
-  };
-  fs.mkdirSync(path.dirname(ROOMS_FILE), { recursive: true });
-  const tmpFile = `${ROOMS_FILE}.tmp`;
-  fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2));
-  fs.renameSync(tmpFile, ROOMS_FILE);
+function saveSerializedRoomToDb(room) {
+  inTransaction(() => {
+    db.prepare(`
+      INSERT INTO rooms
+        (id, host_player_id, host_user_id, phase, fen, active_idx, mid_turn, strength, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        host_player_id = excluded.host_player_id,
+        host_user_id = excluded.host_user_id,
+        phase = excluded.phase,
+        fen = excluded.fen,
+        active_idx = excluded.active_idx,
+        mid_turn = excluded.mid_turn,
+        strength = excluded.strength,
+        updated_at = excluded.updated_at
+    `).run(
+      room.id,
+      room.hostPlayerId,
+      room.hostUserId || null,
+      room.phase || "lobby",
+      room.fen || INITIAL_FEN,
+      room.activeIdx || 0,
+      room.midTurn ? 1 : 0,
+      room.strength || 1500,
+      room.createdAt || Date.now(),
+      room.updatedAt || Date.now(),
+    );
+
+    db.prepare("DELETE FROM room_players WHERE room_id = ?").run(room.id);
+    const insertPlayer = db.prepare(`
+      INSERT INTO room_players
+        (room_id, id, user_id, name, maia_ready, last_seen, position)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const playersById = new Map((room.players || []).map(player => [player.id, player]));
+    const orderedIds = (room.order || room.players?.map(player => player.id) || []).filter(id => playersById.has(id));
+    orderedIds.forEach((id, position) => {
+      const player = playersById.get(id);
+      insertPlayer.run(
+        room.id,
+        player.id,
+        player.userId || null,
+        player.name || "Player",
+        player.maiaReady ? 1 : 0,
+        player.lastSeen || Date.now(),
+        position,
+      );
+    });
+
+    db.prepare("DELETE FROM moves WHERE room_id = ?").run(room.id);
+    const insertMove = db.prepare(`
+      INSERT INTO moves (room_id, player_id, user_id, previous_fen, fen, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    for (const move of room.moveHistory || []) {
+      insertMove.run(
+        room.id,
+        move.playerId || "",
+        move.userId || null,
+        move.previousFen || null,
+        move.fen,
+        move.at || move.createdAt || Date.now(),
+      );
+    }
+  });
 }
 
-function loadRooms() {
+function persistRooms() {
+  for (const room of rooms.values())
+    saveSerializedRoomToDb(serializeRoom(room));
+}
+
+function migrateRoomsJson() {
+  const existingRooms = db.prepare("SELECT COUNT(*) AS count FROM rooms").get().count;
+  if (existingRooms) return;
+
   const roomsFile = fs.existsSync(ROOMS_FILE) ? ROOMS_FILE : LEGACY_ROOMS_FILE;
   if (!fs.existsSync(roomsFile)) return;
   try {
     const payload = JSON.parse(fs.readFileSync(roomsFile, "utf8"));
-    for (const savedRoom of payload.rooms || []) {
+    for (const savedRoom of payload.rooms || [])
+      saveSerializedRoomToDb(savedRoom);
+    console.log(`Migrated ${(payload.rooms || []).length} room(s) from JSON into SQLite`);
+  } catch (err) {
+    console.warn(`Could not migrate room JSON: ${err.message}`);
+  }
+}
+
+function loadRooms() {
+  migrateRoomsJson();
+  try {
+    const savedRooms = db.prepare("SELECT * FROM rooms ORDER BY updated_at DESC").all();
+    for (const savedRoom of savedRooms) {
+      const savedPlayers = db.prepare("SELECT * FROM room_players WHERE room_id = ? ORDER BY position").all(savedRoom.id);
+      const savedMoves = db.prepare("SELECT * FROM moves WHERE room_id = ? ORDER BY id").all(savedRoom.id);
       const players = new Map();
-      for (const savedPlayer of savedRoom.players || []) {
+      for (const savedPlayer of savedPlayers) {
         players.set(savedPlayer.id, {
           id: savedPlayer.id,
-          userId: savedPlayer.userId || null,
+          userId: savedPlayer.user_id || null,
           name: savedPlayer.name,
           ws: null,
           connected: false,
-          maiaReady: false,
-          lastSeen: savedPlayer.lastSeen || Date.now(),
+          maiaReady: !!savedPlayer.maia_ready,
+          lastSeen: savedPlayer.last_seen || Date.now(),
         });
       }
       rooms.set(savedRoom.id, {
         id: savedRoom.id,
-        hostPlayerId: savedRoom.hostPlayerId,
-        hostUserId: savedRoom.hostUserId || null,
+        hostPlayerId: savedRoom.host_player_id,
+        hostUserId: savedRoom.host_user_id || null,
         players,
-        order: (savedRoom.order || []).filter(id => players.has(id)),
+        order: savedPlayers.map(player => player.id).filter(id => players.has(id)),
         phase: savedRoom.phase || "lobby",
         fen: savedRoom.fen || INITIAL_FEN,
-        activeIdx: savedRoom.activeIdx || 0,
-        midTurn: !!savedRoom.midTurn,
+        activeIdx: savedRoom.active_idx || 0,
+        midTurn: !!savedRoom.mid_turn,
         strength: savedRoom.strength || 1500,
-        createdAt: savedRoom.createdAt || Date.now(),
-        updatedAt: savedRoom.updatedAt || Date.now(),
-        moveHistory: Array.isArray(savedRoom.moveHistory) ? savedRoom.moveHistory : [],
+        createdAt: savedRoom.created_at || Date.now(),
+        updatedAt: savedRoom.updated_at || Date.now(),
+        moveHistory: savedMoves.map(move => ({
+          playerId: move.player_id,
+          userId: move.user_id || null,
+          previousFen: move.previous_fen || null,
+          fen: move.fen,
+          at: move.created_at,
+        })),
       });
     }
     console.log(`Loaded ${rooms.size} saved room(s)`);
-    if (roomsFile === LEGACY_ROOMS_FILE) persistRooms();
   } catch (err) {
-    console.warn(`Could not load saved rooms: ${err.message}`);
+    console.warn(`Could not load rooms from SQLite: ${err.message}`);
   }
 }
 

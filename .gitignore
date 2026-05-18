@@ -2,6 +2,10 @@
 node_modules/
 .chessquestia-rooms.json
 .local-chess-rooms.json
+.chessquestia-auth.json
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 deploy/.env
 
 # Old Python setup

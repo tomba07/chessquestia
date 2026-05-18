@@ -5,7 +5,8 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=5678 \
     ROOMS_FILE=/data/chessquestia-rooms.json \
-    AUTH_FILE=/data/chessquestia-auth.json
+    AUTH_FILE=/data/chessquestia-auth.json \
+    DB_FILE=/data/chessquestia.sqlite
 
 COPY package*.json ./
 RUN npm ci --omit=dev
