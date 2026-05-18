@@ -1,0 +1,9 @@
+.DS_Store
+.git
+.gitignore
+.claude
+node_modules
+npm-debug.log
+.chessquestia-rooms.json
+.local-chess-rooms.json
+deploy

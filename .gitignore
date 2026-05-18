@@ -2,6 +2,7 @@
 node_modules/
 .chessquestia-rooms.json
 .local-chess-rooms.json
+deploy/.env
 
 # Old Python setup
 maia2_models/

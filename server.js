@@ -31,7 +31,7 @@ function getLanIp() {
   return "127.0.0.1";
 }
 
-let publicBase = process.env.RENDER_EXTERNAL_URL || null; // also overridden by --tunnel
+let publicBase = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || null; // also overridden by --tunnel
 
 // ── COOP/COEP headers ─────────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Opener-Policy",   "same-origin");
   res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
   res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
-  res.setHeader("bypass-tunnel-reminder",       "true");
+  if (process.argv.includes("--tunnel")) res.setHeader("bypass-tunnel-reminder", "true");
   next();
 });
 

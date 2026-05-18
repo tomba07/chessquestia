@@ -1,0 +1,4 @@
+{$CHESSQUESTIA_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy chessquestia:5678
+}
