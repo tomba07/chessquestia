@@ -4,21 +4,23 @@ set -euo pipefail
 VM_HOST="${VM_HOST:-root@165.227.2.163}"
 APP_DIR="${APP_DIR:-/opt/apps/chessquestia}"
 DOMAIN="${CHESSQUESTIA_DOMAIN:-chessquestia.mteschke.com}"
+GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
+GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}"
 KNOWN_HOSTS_FILE="${KNOWN_HOSTS_FILE:-}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SSH_OPTS=()
+SSH_CMD=(ssh)
 RSYNC_SSH=(ssh)
 
 if [[ -n "$KNOWN_HOSTS_FILE" ]]; then
-  SSH_OPTS+=(-o "UserKnownHostsFile=$KNOWN_HOSTS_FILE")
+  SSH_CMD+=(-o "UserKnownHostsFile=$KNOWN_HOSTS_FILE")
   RSYNC_SSH+=(-o "UserKnownHostsFile=$KNOWN_HOSTS_FILE")
 fi
 
 echo "Deploying Chessquestia to $VM_HOST"
 echo "Domain: $DOMAIN"
 
-ssh "${SSH_OPTS[@]}" "$VM_HOST" "mkdir -p '$APP_DIR'"
+"${SSH_CMD[@]}" "$VM_HOST" "mkdir -p '$APP_DIR'"
 
 rsync -az --delete \
   --exclude .git \
@@ -30,9 +32,22 @@ rsync -az --delete \
   -e "${RSYNC_SSH[*]}" \
   "$ROOT_DIR/" "$VM_HOST:$APP_DIR/"
 
-ssh "${SSH_OPTS[@]}" "$VM_HOST" "set -euo pipefail
+"${SSH_CMD[@]}" "$VM_HOST" "set -euo pipefail
 cd '$APP_DIR/deploy'
-printf 'CHESSQUESTIA_DOMAIN=%s\n' '$DOMAIN' > .env
+touch .env
+grep -v '^CHESSQUESTIA_DOMAIN=' .env > .env.next || true
+printf 'CHESSQUESTIA_DOMAIN=%s\n' '$DOMAIN' >> .env.next
+if [ -n '$GOOGLE_CLIENT_ID' ]; then
+  grep -v '^GOOGLE_CLIENT_ID=' .env.next > .env.tmp || true
+  printf 'GOOGLE_CLIENT_ID=%s\n' '$GOOGLE_CLIENT_ID' >> .env.tmp
+  mv .env.tmp .env.next
+fi
+if [ -n '$GOOGLE_CLIENT_SECRET' ]; then
+  grep -v '^GOOGLE_CLIENT_SECRET=' .env.next > .env.tmp || true
+  printf 'GOOGLE_CLIENT_SECRET=%s\n' '$GOOGLE_CLIENT_SECRET' >> .env.tmp
+  mv .env.tmp .env.next
+fi
+mv .env.next .env
 docker compose up -d --build
 for i in \$(seq 1 45); do
   container_id=\$(docker compose ps -q chessquestia)

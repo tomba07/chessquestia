@@ -95,6 +95,28 @@
       margin-bottom: 4px;
     }
 
+    .auth-bar {
+      width: 100%;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    #auth-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .lobby-panel {
       width: 100%;
       background: var(--surface-2);
@@ -394,6 +416,10 @@
   <!-- ── Lobby ── -->
   <div id="lobby">
     <div class="lobby-title">Chessquestia</div>
+    <div id="auth-bar" class="auth-bar" style="display:none">
+      <span id="auth-label"></span>
+      <button id="auth-btn" class="sm-btn"></button>
+    </div>
 
     <!-- Default: play solo or start coop -->
     <div id="lb-main" class="lobby-section lobby-panel">
@@ -883,6 +909,9 @@
   const cpRoomMeta   = document.getElementById("cp-room-meta");
   const cpStrengthSettings = document.getElementById("cp-strength-settings");
   const backBtn      = document.getElementById("back-btn");
+  const authBar      = document.getElementById("auth-bar");
+  const authLabel    = document.getElementById("auth-label");
+  const authBtn      = document.getElementById("auth-btn");
 
   const urlRoom = new URLSearchParams(location.search).get("room");
   const LAST_ROOM_KEY = storageKey("last-room");
@@ -913,12 +942,43 @@
       history.replaceState(null, "", target);
   }
 
+  const currentNextPath = () => location.pathname + location.search;
+  let authInfo = { authEnabled: false, user: null, loginUrl: "/auth/google", logoutUrl: "/auth/logout" };
+
+  async function loadAuth() {
+    try {
+      authInfo = await fetch(`/api/me?next=${encodeURIComponent(currentNextPath())}`).then(r => r.json());
+    } catch {
+      authInfo = { authEnabled: false, user: null, loginUrl: "/auth/google", logoutUrl: "/auth/logout" };
+    }
+
+    if (!authInfo.authEnabled) {
+      authBar.style.display = "none";
+      return;
+    }
+
+    authBar.style.display = "flex";
+    if (authInfo.user) {
+      authLabel.textContent = authInfo.user.name || authInfo.user.email || "Signed in";
+      authBtn.textContent = "Sign out";
+      authBtn.onclick = () => { location.href = authInfo.logoutUrl; };
+      if (!cpNameInput.value.trim())
+        cpNameInput.value = authInfo.user.name || authInfo.user.email || "";
+    } else {
+      authLabel.textContent = "Sign in to save games";
+      authBtn.textContent = "Sign in";
+      authBtn.onclick = () => { location.href = authInfo.loginUrl; };
+    }
+  }
+
   async function renderInviteLink(roomId) {
     if (!roomId) return;
     if (cpLinkEl.textContent.endsWith(`?room=${roomId}`)) return;
     const cfg = await fetch("/config").then(r => r.json());
     cpLinkEl.textContent = `${cfg.base}/?room=${roomId}`;
   }
+
+  await loadAuth();
 
   // Auto-show join flow if URL has ?room=
   if (urlRoom) {
@@ -927,12 +987,16 @@
     cpConnectBtn.textContent = "Join Game";
     cpFlowTitle.textContent = "Join game";
     cpFlowKicker.textContent = "Room link";
-    cpNameInput.value = storedPlayerName(urlRoom);
+    cpNameInput.value = authInfo.user?.name || storedPlayerName(urlRoom);
   }
 
   document.getElementById("play-solo-btn").onclick = () => startSoloGame();
 
   document.getElementById("play-coop-btn").onclick = () => {
+    if (authInfo.authEnabled && !authInfo.user) {
+      location.href = authInfo.loginUrl;
+      return;
+    }
     lbMain.style.display    = "none";
     lbConnect.style.display = "flex";
     cpConnectBtn.textContent = "Create Game";
@@ -1027,7 +1091,7 @@
 
   function connectCoop(action, opts = {}) {
     const roomId = opts.roomId || new URLSearchParams(location.search).get("room") || coop.roomId;
-    const name = opts.name || cpNameInput.value.trim() || storedPlayerName(roomId);
+    const name = opts.name || cpNameInput.value.trim() || authInfo.user?.name || storedPlayerName(roomId);
     if (!name) { cpNameInput.focus(); return; }
     clearReconnectTimer();
     coop.leaving = false;
@@ -1062,7 +1126,7 @@
     }
 
     const roomId = coop.roomId || new URLSearchParams(location.search).get("room");
-    const name = cpNameInput.value.trim() || storedPlayerName(roomId);
+    const name = cpNameInput.value.trim() || authInfo.user?.name || storedPlayerName(roomId);
     if (!roomId || !name) {
       leaveCoop();
       return;
@@ -1091,6 +1155,10 @@
 
   async function handleCoopMsg(msg) {
     if (msg.type === "error") {
+      if (msg.code === "auth-required") {
+        location.href = authInfo.loginUrl || `/auth/google?next=${encodeURIComponent(currentNextPath())}`;
+        return;
+      }
       if (msg.code === "waiting-for-maia") {
         alert(msg.message);
         return;
@@ -1106,7 +1174,7 @@
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;
       coop.reconnectAttempts = 0;
-      rememberRoom(msg.roomId, cpNameInput.value.trim(), msg.playerId);
+      rememberRoom(msg.roomId, cpNameInput.value.trim() || authInfo.user?.name, msg.playerId);
       setRoomUrl(msg.roomId);
       renderInviteLink(msg.roomId);
       lbConnect.style.display  = "none";
@@ -1119,7 +1187,7 @@
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;
       coop.reconnectAttempts = 0;
-      rememberRoom(msg.roomId, cpNameInput.value.trim() || storedPlayerName(msg.roomId), msg.playerId);
+      rememberRoom(msg.roomId, cpNameInput.value.trim() || authInfo.user?.name || storedPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
       renderInviteLink(msg.roomId);
       return;

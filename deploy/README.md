@@ -58,6 +58,14 @@ Edit `.env`:
 
 ```txt
 CHESSQUESTIA_DOMAIN=chessquestia.mteschke.com
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+Google login is enabled when both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. In Google Cloud Console, create an OAuth web client and add this authorized redirect URI:
+
+```txt
+https://chessquestia.mteschke.com/auth/google/callback
 ```
 
 Start:
@@ -103,6 +111,7 @@ docker compose up -d --build
 ## Persistent data
 
 Room state is stored in the `chessquestia_data` Docker volume at `/data/chessquestia-rooms.json`.
+User and session state is stored in the same Docker volume at `/data/chessquestia-auth.json`.
 
 Back it up with:
 

@@ -23,6 +23,9 @@ services:
       PORT: 5678
       PUBLIC_BASE_URL: https://${CHESSQUESTIA_DOMAIN}
       ROOMS_FILE: /data/chessquestia-rooms.json
+      AUTH_FILE: /data/chessquestia-auth.json
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     volumes:
       - chessquestia_data:/data
     expose:
