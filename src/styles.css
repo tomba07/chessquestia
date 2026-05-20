@@ -380,35 +380,6 @@
     .opponent-card.selected:hover {
       transform: translateY(-8px) scale(1.035);
     }
-    .opponent-card.selected::after {
-      content: "";
-      position: absolute;
-      inset: 2.2%;
-      border: 5px solid rgba(180, 107, 29, 0.78);
-      border-radius: 8%;
-      box-shadow: inset 0 0 0 2px rgba(255, 246, 209, 0.56), 0 0 18px rgba(180, 107, 29, 0.42);
-      pointer-events: none;
-    }
-    .opponent-card.selected::before {
-      content: "Selected";
-      position: absolute;
-      z-index: 3;
-      top: 4.5%;
-      left: 50%;
-      transform: translateX(-50%);
-      min-width: 42%;
-      border: 2px solid rgba(97, 63, 24, 0.46);
-      border-radius: 999px;
-      background: rgba(177, 107, 29, 0.9);
-      color: #fff5d8;
-      padding: 3px 10px 5px;
-      font-family: var(--story-font);
-      font-size: clamp(15px, 1.2cqw, 20px);
-      font-weight: 800;
-      line-height: 1;
-      text-shadow: 0 1px 0 rgba(41, 31, 18, 0.32);
-      pointer-events: none;
-    }
     .opponent-card:focus-visible {
       outline: 3px solid rgba(180, 107, 29, 0.46);
       outline-offset: 4px;
@@ -1020,15 +991,16 @@
       }
       #lobby::before,
       #lobby::after {
+        position: fixed;
         background-size: auto 100cqh;
         background-position-y: top;
       }
       #lobby::before {
-        left: -29cqw;
+        left: 0;
         width: 44cqw;
       }
       #lobby::after {
-        right: -10cqw;
+        right: 0;
         width: 21cqw;
       }
       .side-menu {
