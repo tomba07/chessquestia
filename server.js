@@ -449,34 +449,70 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-// ── Static files ──────────────────────────────────────────────────────────────
+// ── Static files / React frontend ─────────────────────────────────────────────
 
-app.use(express.static(path.join(__dirname)));
+const ROOT_DIR = __dirname;
+const DIST_DIR = path.join(__dirname, "dist");
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 app.get("/health", (req, res) => res.json({ status: "ok" }));
+app.use("/data", express.static(path.join(ROOT_DIR, "data")));
+app.use("/maia3", express.static(path.join(ROOT_DIR, "maia3")));
+app.use("/ort", express.static(path.join(ROOT_DIR, "ort")));
+for (const asset of ["manifest.json", "sw.js", "maia-worker.js"]) {
+  app.get(`/${asset}`, (req, res) => res.sendFile(path.join(ROOT_DIR, asset)));
+}
+
+async function configureFrontend() {
+  if (IS_PRODUCTION) {
+    app.use(express.static(DIST_DIR));
+    app.get("*", (req, res, next) => {
+      if (!["GET", "HEAD"].includes(req.method)) {
+        next();
+        return;
+      }
+      res.sendFile(path.join(DIST_DIR, "index.html"));
+    });
+    return;
+  }
+
+  const { createServer } = await import("vite");
+  const vite = await createServer({
+    root: ROOT_DIR,
+    appType: "spa",
+    server: { middlewareMode: true },
+  });
+  app.use(vite.middlewares);
+}
 
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
-const httpServer = app.listen(PORT, "0.0.0.0", () => {
-  const base = publicBase ?? `http://${getLanIp()}:${PORT}`;
-  console.log(`Listening on port ${PORT}  (${base})`);
-});
+let httpServer = null;
+let wss = null;
 
-// ── Tunnel (optional) ─────────────────────────────────────────────────────────
+async function startServer() {
+  await configureFrontend();
+  httpServer = app.listen(PORT, "0.0.0.0", () => {
+    const base = publicBase ?? `http://${getLanIp()}:${PORT}`;
+    console.log(`Listening on port ${PORT}  (${base})`);
+  });
 
-if (process.argv.includes("--tunnel")) {
-  require("localtunnel")({ port: PORT }).then(t => {
-    publicBase = t.url;
-    console.log(`Public URL: ${t.url}`);
-    t.on("close", () => { publicBase = null; console.log("Tunnel closed"); });
-  }).catch(err => console.error("Tunnel error:", err.message));
+  if (process.argv.includes("--tunnel")) {
+    require("localtunnel")({ port: PORT }).then(t => {
+      publicBase = t.url;
+      console.log(`Public URL: ${t.url}`);
+      t.on("close", () => { publicBase = null; console.log("Tunnel closed"); });
+    }).catch(err => console.error("Tunnel error:", err.message));
+  }
+
+  wss = new WebSocketServer({ server: httpServer });
+  attachWebSocketHandlers();
 }
 
 // ── WebSocket room management ─────────────────────────────────────────────────
 
-const wss   = new WebSocketServer({ server: httpServer });
 const rooms = new Map(); // roomId → Room
 const INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
 /*
   Room shape:
   {
@@ -701,7 +737,8 @@ function findPlayerIdByUser(room, userId) {
   return room.order.find(id => room.players.get(id)?.userId === userId) || null;
 }
 
-wss.on("connection", (ws, req) => {
+function attachWebSocketHandlers() {
+  wss.on("connection", (ws, req) => {
   const user = currentUser(req);
   let currentPlayerId = null;
   let currentRoomId = null;
@@ -834,7 +871,7 @@ wss.on("connection", (ws, req) => {
           ws.send(JSON.stringify({
             type: "error",
             code: "waiting-for-maia",
-            message: `Waiting for Maia on: ${waitingFor.join(", ")}`,
+            message: `The game is still loading for: ${waitingFor.join(", ")}`,
           }));
           broadcastRoom(room);
           return;
@@ -898,4 +935,10 @@ wss.on("connection", (ws, req) => {
     persistRooms();
     broadcastRoom(room);
   });
+  });
+}
+
+startServer().catch(err => {
+  console.error(err);
+  process.exit(1);
 });

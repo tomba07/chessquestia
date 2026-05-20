@@ -11,3 +11,4 @@ deploy/.env
 # Old Python setup
 maia2_models/
 venv/
+dist/

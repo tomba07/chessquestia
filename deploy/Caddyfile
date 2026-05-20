@@ -2,3 +2,9 @@
   encode zstd gzip
   reverse_proxy chessquestia:5678
 }
+
+geschenk.mteschke.com {
+  encode zstd gzip
+  reverse_proxy /api/* geschenk-api:3000
+  reverse_proxy geschenk-web:80
+}

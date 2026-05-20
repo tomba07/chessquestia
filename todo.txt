@@ -1,0 +1,4 @@
+- improve UI
+- password auth
+- pre-created bots
+- gamelike styling

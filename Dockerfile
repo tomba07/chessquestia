@@ -12,6 +12,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY . .
+RUN npm run build
 RUN mkdir -p /data && chown -R node:node /data /app
 
 USER node

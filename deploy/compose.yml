@@ -13,6 +13,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - default
+      - web
 
   chessquestia:
     build:
@@ -41,3 +44,7 @@ volumes:
   caddy_data:
   caddy_config:
   chessquestia_data:
+
+networks:
+  web:
+    name: web
