@@ -22,7 +22,7 @@
       font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
       font-size: 14px;
       -webkit-font-smoothing: antialiased;
-      background: #f4e6c9 url("/assets/background_parchment.png") center / cover no-repeat;
+      background: #f4e6c9 url("/assets/backgrounds/background_parchment.png") center / cover no-repeat;
       color: var(--text);
       min-height: 100dvh;
       display: grid;
@@ -37,7 +37,7 @@
       display: grid;
       place-items: center;
       gap: 0;
-      background: url("/assets/background_parchment.png") center / 100% 100% no-repeat;
+      background: url("/assets/backgrounds/background_parchment.png") center / 100% 100% no-repeat;
     }
 
     /* ── Shared buttons ── */
@@ -128,14 +128,14 @@
     #lobby::before {
       left: 0;
       width: calc(100cqh * 0.795);
-      background-image: url("/assets/background_tree_left_transparent.png");
+      background-image: url("/assets/backgrounds/background_tree_left_transparent.png");
       background-position: left center;
     }
 
     #lobby::after {
       right: 0;
       width: calc(100cqh * 0.462);
-      background-image: url("/assets/background_tree_right_transparent.png");
+      background-image: url("/assets/backgrounds/background_tree_right_transparent.png");
       background-position: right center;
       mask-image:
         linear-gradient(to left, #000 0 58%, rgba(0, 0, 0, 0.72) 72%, transparent 100%),
@@ -267,8 +267,8 @@
       max-width: none;
       max-height: none;
       top: 22cqh;
-      left: 20cqw;
-      right: 7cqw;
+      left: 9cqw;
+      right: 9cqw;
       bottom: 6cqh;
       transform: none;
       overflow: visible;
@@ -280,7 +280,7 @@
       display: flex;
       flex-direction: row;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: center;
       gap: clamp(30px, 5cqw, 76px);
     }
 
@@ -658,6 +658,17 @@
       filter: saturate(1.06) contrast(1.03);
       transform: translateY(-3px);
     }
+    .mode-card:disabled,
+    .mode-card.disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+      filter: grayscale(0.45);
+    }
+    .mode-card:disabled:hover,
+    .mode-card.disabled:hover {
+      transform: none;
+      filter: grayscale(0.45);
+    }
     .mode-card:focus-visible {
       outline: 3px solid rgba(180, 107, 29, 0.42);
       outline-offset: 4px;
@@ -1001,13 +1012,10 @@
         width: min(100vw, calc(100dvh * 390 / 844));
         height: min(100dvh, calc(100vw * 844 / 390));
         aspect-ratio: 390 / 844;
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
+        display: block;
         min-height: 0;
-        overflow: auto;
-        padding: 16px;
-        gap: 12px;
+        overflow: hidden;
+        padding: 0;
         background-size: cover;
       }
       #lobby::before,
@@ -1024,7 +1032,11 @@
         width: 21cqw;
       }
       .side-menu {
-        position: static;
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        right: 16px;
+        z-index: 4;
         min-height: 38px;
         flex-direction: row;
         align-items: center;
@@ -1064,20 +1076,28 @@
         height: 16px;
       }
       .auth-bar {
-        position: static;
-        width: 100%;
+        position: absolute;
+        top: 60px;
+        left: 16px;
+        right: 16px;
+        width: auto;
         max-width: none;
         border-radius: 10px;
         background: rgba(247, 239, 213, 0.82);
       }
       .lobby-panel {
-        position: static;
+        position: absolute;
+        top: 66px;
+        right: 16px;
+        bottom: 16px;
+        left: 16px;
         transform: none;
-        width: 100%;
+        width: auto;
         max-height: none;
+        overflow: auto;
       }
       #lb-main.lobby-panel {
-        width: 100%;
+        width: auto;
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
@@ -1085,7 +1105,7 @@
         background: transparent;
       }
       #lb-solo.lobby-panel {
-        width: 100%;
+        width: auto;
         max-height: none;
         gap: 18px;
       }

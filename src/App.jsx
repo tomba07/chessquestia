@@ -7,9 +7,9 @@ function SideMenu() {
   return (
     <nav className="side-menu" aria-label="Main navigation">
       <div className="side-brand">Chessquestia</div>
-      <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/solo_icon.png" alt="" />Home</button>
-      <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/profile-icon.png" alt="" />Profile</button>
-      <button id="nav-friends" className="side-link" type="button"><img className="nav-icon" src="/assets/friends-icon.png" alt="" />Friends</button>
+      <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/icons/solo_icon.png" alt="" />Home</button>
+      <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/profile-icon.png" alt="" />Profile</button>
+      <button id="nav-friends" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends</button>
     </nav>
   );
 }
@@ -25,17 +25,17 @@ function PlayPanel() {
       </div>
       <div className="mode-grid">
         <button id="play-solo-btn" className="mode-card" type="button">
-          <img src="/assets/solo_button.png" alt="" />
+          <img src="/assets/buttons/solo_button.png" alt="" />
           <span className="mode-card-copy">
-            <strong><img className="mode-title-icon" src="/assets/solo_icon.png" alt="" />Solo</strong>
+            <strong><img className="mode-title-icon" src="/assets/icons/solo_icon.png" alt="" />Solo</strong>
             <span>Challenge AI opponents and sharpen your skills.</span>
           </span>
         </button>
-        <button id="play-coop-btn" className="mode-card" type="button">
-          <img src="/assets/coop_button.png" alt="" />
+        <button id="play-coop-btn" className="mode-card disabled" type="button" disabled aria-disabled="true">
+          <img src="/assets/buttons/coop_button.png" alt="" />
           <span className="mode-card-copy">
-            <strong><img className="mode-title-icon" src="/assets/coop-icon.png" alt="" />Co-op</strong>
-            <span>Team up with friends and play together.</span>
+            <strong><img className="mode-title-icon" src="/assets/icons/coop-icon.png" alt="" />Co-op</strong>
+            <span>Coming back soon.</span>
           </span>
         </button>
       </div>
@@ -47,7 +47,7 @@ function SinglePlayerSetup() {
   return (
     <div id="lb-solo" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <button id="solo-back-btn" className="bot-back-btn" type="button" aria-label="Back">
-        <img src="/assets/back-icon.png" alt="" />
+        <img src="/assets/icons/back-icon.png" alt="" />
       </button>
       <div className="bot-select-head">
         <h2>Choose your opponent</h2>
@@ -57,36 +57,36 @@ function SinglePlayerSetup() {
       <span id="strength-val" className="sr-only">1500</span>
       <div className="opponent-grid" aria-label="Choose your opponent">
         <button className="opponent-card" type="button" data-opponent-strength="900" aria-pressed="false">
-          <img className="opponent-card-art" src="/assets/imp_card.png" alt="" />
+          <img className="opponent-card-art" src="/assets/cards/imp_card.png" alt="" />
           <span className="opponent-card-copy">
             <strong>Imp</strong>
             <span className="opponent-difficulty easy">Easy</span>
             <span className="opponent-rank" aria-label="One out of five">
-              <img className="filled" src="/assets/solo_icon.png" alt="" />
-              <img src="/assets/solo_icon.png" alt="" />
-              <img src="/assets/solo_icon.png" alt="" />
-              <img src="/assets/solo_icon.png" alt="" />
-              <img src="/assets/solo_icon.png" alt="" />
+              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
+              <img src="/assets/icons/solo_icon.png" alt="" />
+              <img src="/assets/icons/solo_icon.png" alt="" />
+              <img src="/assets/icons/solo_icon.png" alt="" />
+              <img src="/assets/icons/solo_icon.png" alt="" />
             </span>
           </span>
         </button>
         <button className="opponent-card" type="button" data-opponent-strength="1500" aria-pressed="false">
-          <img className="opponent-card-art" src="/assets/witch_card.png" alt="" />
+          <img className="opponent-card-art" src="/assets/cards/witch_card.png" alt="" />
           <span className="opponent-card-copy">
             <strong>Witch</strong>
             <span className="opponent-difficulty medium">Medium</span>
             <span className="opponent-rank" aria-label="Three out of five">
-              <img className="filled" src="/assets/solo_icon.png" alt="" />
-              <img className="filled" src="/assets/solo_icon.png" alt="" />
-              <img className="filled" src="/assets/solo_icon.png" alt="" />
-              <img src="/assets/solo_icon.png" alt="" />
-              <img src="/assets/solo_icon.png" alt="" />
+              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
+              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
+              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
+              <img src="/assets/icons/solo_icon.png" alt="" />
+              <img src="/assets/icons/solo_icon.png" alt="" />
             </span>
           </span>
         </button>
       </div>
       <button id="solo-start-btn" className="bot-continue-btn" type="button" disabled>
-        <img src="/assets/submit-icon.png" alt="" />
+        <img src="/assets/icons/submit-icon.png" alt="" />
         <span>Continue</span>
       </button>
     </div>
@@ -1123,6 +1123,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   };
 
   document.getElementById("play-coop-btn").onclick = () => {
+    return;
     if (authInfo.authEnabled && !authInfo.user) {
       location.href = authInfo.loginUrl;
       return;
