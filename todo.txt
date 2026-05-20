@@ -1,8 +1,9 @@
-- improve UI
-- username (for finding others)
+- restyle play screen
+- restyle profile screen
+- restyle friends screen
 - friend status
 - password auth
-- pre-created bots
 - gamelike styling
 - campaign mode
 - unlockables
+- badges / awards

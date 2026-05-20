@@ -22,7 +22,7 @@
       font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
       font-size: 14px;
       -webkit-font-smoothing: antialiased;
-      background: #080705;
+      background: #f4e6c9 url("/assets/background_parchment.png") center / cover no-repeat;
       color: var(--text);
       min-height: 100dvh;
       display: grid;
@@ -37,6 +37,7 @@
       display: grid;
       place-items: center;
       gap: 0;
+      background: url("/assets/background_parchment.png") center / 100% 100% no-repeat;
     }
 
     /* ── Shared buttons ── */
@@ -92,7 +93,7 @@
       position: relative;
       display: block;
       overflow: hidden;
-      background: #f4e6c9 url("/assets/background_parchment.png") center / cover no-repeat;
+      background: transparent;
       border-radius: 0;
       box-shadow: none;
       container-type: size;
@@ -110,6 +111,18 @@
       background-size: auto 100%;
       display: block;
       opacity: 0.8;
+      mask-image:
+        linear-gradient(to right, #000 0 58%, rgba(0, 0, 0, 0.72) 72%, transparent 100%),
+        linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 7%, #000 15%, #000 85%, rgba(0, 0, 0, 0.55) 93%, transparent 100%);
+      mask-composite: intersect;
+      mask-repeat: no-repeat;
+      mask-size: 100% 100%;
+      -webkit-mask-image:
+        linear-gradient(to right, #000 0 58%, rgba(0, 0, 0, 0.72) 72%, transparent 100%),
+        linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 7%, #000 15%, #000 85%, rgba(0, 0, 0, 0.55) 93%, transparent 100%);
+      -webkit-mask-composite: source-in;
+      -webkit-mask-repeat: no-repeat;
+      -webkit-mask-size: 100% 100%;
     }
 
     #lobby::before {
@@ -124,6 +137,12 @@
       width: calc(100cqh * 0.462);
       background-image: url("/assets/background_tree_right_transparent.png");
       background-position: right center;
+      mask-image:
+        linear-gradient(to left, #000 0 58%, rgba(0, 0, 0, 0.72) 72%, transparent 100%),
+        linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 7%, #000 15%, #000 85%, rgba(0, 0, 0, 0.55) 93%, transparent 100%);
+      -webkit-mask-image:
+        linear-gradient(to left, #000 0 58%, rgba(0, 0, 0, 0.72) 72%, transparent 100%),
+        linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 7%, #000 15%, #000 85%, rgba(0, 0, 0, 0.55) 93%, transparent 100%);
     }
 
     .lobby-title { display: none; }
@@ -131,7 +150,7 @@
     .side-menu {
       position: absolute;
       z-index: 4;
-      top: 5.1cqh;
+      top: 0.6cqh;
       left: 17cqw;
       right: 15cqw;
       min-height: 48px;
@@ -354,14 +373,40 @@
       filter: saturate(1.06) contrast(1.03);
     }
     .opponent-card.selected {
-      filter: drop-shadow(0 0 10px rgba(180, 107, 29, 0.42));
+      transform: translateY(-8px) scale(1.035);
+      filter: drop-shadow(0 16px 16px rgba(81, 50, 17, 0.24)) drop-shadow(0 0 18px rgba(180, 107, 29, 0.48));
+      z-index: 2;
+    }
+    .opponent-card.selected:hover {
+      transform: translateY(-8px) scale(1.035);
     }
     .opponent-card.selected::after {
       content: "";
       position: absolute;
-      inset: 2.5%;
-      border: 3px solid rgba(180, 107, 29, 0.42);
+      inset: 2.2%;
+      border: 5px solid rgba(180, 107, 29, 0.78);
       border-radius: 8%;
+      box-shadow: inset 0 0 0 2px rgba(255, 246, 209, 0.56), 0 0 18px rgba(180, 107, 29, 0.42);
+      pointer-events: none;
+    }
+    .opponent-card.selected::before {
+      content: "Selected";
+      position: absolute;
+      z-index: 3;
+      top: 4.5%;
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 42%;
+      border: 2px solid rgba(97, 63, 24, 0.46);
+      border-radius: 999px;
+      background: rgba(177, 107, 29, 0.9);
+      color: #fff5d8;
+      padding: 3px 10px 5px;
+      font-family: var(--story-font);
+      font-size: clamp(15px, 1.2cqw, 20px);
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: 0 1px 0 rgba(41, 31, 18, 0.32);
       pointer-events: none;
     }
     .opponent-card:focus-visible {
@@ -445,6 +490,15 @@
     .bot-continue-btn:hover {
       transform: translateY(-2px);
       filter: saturate(1.08) contrast(1.04);
+    }
+    .bot-continue-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+      filter: grayscale(0.65);
+    }
+    .bot-continue-btn:disabled:hover {
+      transform: none;
+      filter: grayscale(0.65);
     }
     .bot-continue-btn img {
       position: absolute;
@@ -620,7 +674,7 @@
       position: absolute;
       left: 12%;
       right: 12%;
-      bottom: 7%;
+      bottom: 3%;
       height: 28%;
       display: flex;
       flex-direction: column;
@@ -971,12 +1025,13 @@
       }
       .side-menu {
         position: static;
-        min-height: auto;
+        min-height: 38px;
         flex-direction: row;
         align-items: center;
-        gap: 10px;
+        justify-content: space-between;
+        gap: 2px;
         overflow-x: auto;
-        padding: 6px 8px;
+        padding: 4px 8px;
         background: rgba(247, 239, 213, 0.78);
         border: 1px solid rgba(119, 86, 43, 0.22);
         border-radius: 999px;
@@ -985,22 +1040,28 @@
         display: none;
       }
       .side-link {
-        flex: 0 0 auto;
+        flex: 1 1 0;
         width: auto;
         min-width: 0;
-        min-height: 36px;
+        min-height: 28px;
         justify-content: center;
-        padding: 0 10px;
-        font-size: 18px;
+        gap: 5px;
+        padding: 0 3px;
+        font-size: 14px;
+        line-height: 1;
+        white-space: nowrap;
       }
       .side-link.active::after {
-        left: 38px;
-        right: 10px;
+        left: 50%;
+        right: auto;
+        width: 42px;
+        transform: translateX(-50%);
         bottom: 1px;
+        height: 2px;
       }
       .nav-icon {
-        width: 22px;
-        height: 22px;
+        width: 16px;
+        height: 16px;
       }
       .auth-bar {
         position: static;

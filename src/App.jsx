@@ -53,10 +53,10 @@ function SinglePlayerSetup() {
         <h2>Choose your opponent</h2>
         <span className="home-divider" aria-hidden="true"></span>
       </div>
-      <input type="hidden" id="strength-slider" defaultValue="900" />
-      <span id="strength-val" className="sr-only">900</span>
+      <input type="hidden" id="strength-slider" defaultValue="1500" />
+      <span id="strength-val" className="sr-only">1500</span>
       <div className="opponent-grid" aria-label="Choose your opponent">
-        <button className="opponent-card" type="button" data-opponent-strength="900" aria-pressed="true">
+        <button className="opponent-card" type="button" data-opponent-strength="900" aria-pressed="false">
           <img className="opponent-card-art" src="/assets/imp_card.png" alt="" />
           <span className="opponent-card-copy">
             <strong>Imp</strong>
@@ -85,7 +85,7 @@ function SinglePlayerSetup() {
           </span>
         </button>
       </div>
-      <button id="solo-start-btn" className="bot-continue-btn" type="button">
+      <button id="solo-start-btn" className="bot-continue-btn" type="button" disabled>
         <img src="/assets/submit-icon.png" alt="" />
         <span>Continue</span>
       </button>
@@ -241,12 +241,18 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       card.setAttribute("aria-pressed", selected ? "true" : "false");
     });
   }
+  function clearOpponentSelection() {
+    opponentCards.forEach(card => {
+      card.classList.remove("selected");
+      card.setAttribute("aria-pressed", "false");
+    });
+    if (soloStartBtn) soloStartBtn.disabled = true;
+  }
   function syncStrength(value) {
     strengthSlider.value = value;
     connectStrengthSlider.value = value;
     strengthVal.textContent = value;
     connectStrengthVal.textContent = value;
-    updateOpponentSelection(value);
   }
   strengthSlider.oninput = () => syncStrength(strengthSlider.value);
   connectStrengthSlider.oninput = () => {
@@ -518,6 +524,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function startSoloGame() {
+    if (soloStartBtn.disabled) return;
     if (!modelReady) {
       pendingSoloStart = true;
       showModelLoading("Preparing game...");
@@ -930,6 +937,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function showSoloSetup() {
     setNavActive("play");
+    clearOpponentSelection();
     lbMain.style.display = "none";
     lbSolo.style.display = "flex";
     lbConnect.style.display = "none";
@@ -1101,9 +1109,13 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   });
   document.getElementById("play-solo-btn").onclick = () => showSoloSetup();
   opponentCards.forEach(card => {
-    card.onclick = () => syncStrength(card.dataset.opponentStrength);
+    card.onclick = () => {
+      syncStrength(card.dataset.opponentStrength);
+      updateOpponentSelection(card.dataset.opponentStrength);
+      soloStartBtn.disabled = false;
+    };
   });
-  updateOpponentSelection(strengthSlider.value);
+  clearOpponentSelection();
   soloStartBtn.onclick = () => startSoloGame();
   soloBackBtn.onclick = () => {
     pendingSoloStart = false;
