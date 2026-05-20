@@ -514,6 +514,94 @@
       font-variant-numeric: tabular-nums;
     }
 
+    #lb-profile.lobby-panel {
+      width: 560px;
+      max-height: none;
+      top: 22cqh;
+      left: 50%;
+      right: auto;
+      bottom: auto;
+      transform: translateX(-50%);
+      overflow: visible;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0;
+      gap: 20px;
+      color: var(--ink);
+    }
+    #lb-profile .panel-head {
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--story-font);
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(255, 248, 226, 0.9);
+    }
+    #lb-profile .panel-head::after {
+      content: "";
+      width: 142px;
+      height: 18px;
+      background:
+        linear-gradient(to right, transparent, rgba(149, 106, 45, 0.72) 18%, rgba(149, 106, 45, 0.72) 43%, transparent 43%, transparent 57%, rgba(149, 106, 45, 0.72) 57%, rgba(149, 106, 45, 0.72) 82%, transparent),
+        radial-gradient(circle, rgba(149, 106, 45, 0.72) 0 4px, transparent 5px);
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    #lb-profile .panel-title {
+      font-size: 46px;
+      line-height: 1;
+      font-weight: 800;
+    }
+    #lb-profile .panel-kicker {
+      display: none;
+    }
+
+    #lb-friends.lobby-panel {
+      width: 680px;
+      max-height: none;
+      top: 20cqh;
+      left: 50%;
+      right: auto;
+      bottom: auto;
+      transform: translateX(-50%);
+      overflow: visible;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0;
+      gap: 18px;
+      color: var(--ink);
+    }
+    #lb-friends .panel-head {
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--story-font);
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(255, 248, 226, 0.9);
+    }
+    #lb-friends .panel-head::after {
+      content: "";
+      width: 142px;
+      height: 18px;
+      background:
+        linear-gradient(to right, transparent, rgba(149, 106, 45, 0.72) 18%, rgba(149, 106, 45, 0.72) 43%, transparent 43%, transparent 57%, rgba(149, 106, 45, 0.72) 57%, rgba(149, 106, 45, 0.72) 82%, transparent),
+        radial-gradient(circle, rgba(149, 106, 45, 0.72) 0 4px, transparent 5px);
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    #lb-friends .panel-title {
+      font-size: 46px;
+      line-height: 1;
+      font-weight: 800;
+    }
+    #lb-friends .panel-kicker {
+      display: none;
+    }
+
     .lobby-settings {
       display: flex;
       width: 100%;
@@ -719,70 +807,104 @@
       width: 100%;
       display: flex;
       gap: 8px;
+      border: 2px solid rgba(119, 86, 43, 0.3);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.72), rgba(244, 224, 184, 0.64)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 18px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.32),
+        0 18px 30px rgba(73, 48, 20, 0.11);
     }
 
     .username-card {
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 7px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--surface);
-      padding: 10px;
+      gap: 14px;
+      border: 2px solid rgba(119, 86, 43, 0.3);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.72), rgba(244, 224, 184, 0.64)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 24px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.32),
+        0 18px 30px rgba(73, 48, 20, 0.13);
     }
     .username-card label {
-      color: var(--text-dim);
-      font-size: 12px;
-      font-weight: 700;
+      color: var(--ink);
+      font-family: var(--story-font);
+      font-size: 26px;
+      line-height: 1;
+      font-weight: 800;
+      text-align: center;
     }
     .username-row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
     }
     #profile-username {
       min-width: 0;
       flex: 1;
-      background: #fffaf3;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 9px;
-      font-size: 13px;
+      min-height: 48px;
+      background: rgba(255, 250, 243, 0.82);
+      color: var(--ink);
+      border: 1px solid rgba(119, 86, 43, 0.34);
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-size: 18px;
       font-family: inherit;
       outline: none;
     }
-    #profile-username:focus { border-color: var(--accent); }
+    #profile-username:focus {
+      border-color: #b46b1d;
+      box-shadow: 0 0 0 3px rgba(180, 107, 29, 0.14);
+    }
+    #username-save {
+      min-height: 48px;
+      border-radius: 8px;
+      padding: 0 18px;
+      font-size: 15px;
+      font-weight: 700;
+    }
     #username-help {
-      color: var(--text-faint);
-      font-size: 11px;
-      line-height: 1.3;
+      color: rgba(59, 45, 29, 0.7);
+      font-size: 14px;
+      line-height: 1.35;
+      text-align: center;
     }
 
     #friend-search {
       width: 100%;
-      background: #fffaf3;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 11px;
-      font-size: 13px;
+      min-height: 48px;
+      background: rgba(255, 250, 243, 0.84);
+      color: var(--ink);
+      border: 1px solid rgba(119, 86, 43, 0.34);
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-size: 18px;
       font-family: inherit;
       outline: none;
     }
-    #friend-search:focus { border-color: var(--accent); }
+    #friend-search:focus {
+      border-color: #b46b1d;
+      box-shadow: 0 0 0 3px rgba(180, 107, 29, 0.14);
+    }
     #friend-search:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .friend-message {
       display: none;
       width: 100%;
       color: #9f2f23;
-      background: #fff1ee;
+      background: rgba(255, 241, 238, 0.88);
       border: 1px solid #ecc4bb;
-      border-radius: 6px;
-      padding: 8px 10px;
-      font-size: 12px;
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-size: 14px;
+      box-shadow: 0 8px 18px rgba(73, 48, 20, 0.08);
     }
     .friend-message.visible { display: block; }
 
@@ -790,17 +912,29 @@
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
+      border: 2px solid rgba(119, 86, 43, 0.24);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.66), rgba(244, 224, 184, 0.56)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 16px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.28),
+        0 16px 28px rgba(73, 48, 20, 0.1);
     }
 
     .friend-section:empty { display: none; }
 
     .friend-section-title {
-      color: var(--text-faint);
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+      color: var(--ink);
+      font-family: var(--story-font);
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 800;
+      text-align: center;
+      text-transform: none;
+      letter-spacing: 0;
     }
 
     .friend-card {
@@ -809,10 +943,10 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--surface);
-      padding: 8px 10px;
+      border: 1px solid rgba(119, 86, 43, 0.24);
+      border-radius: 8px;
+      background: rgba(255, 250, 243, 0.72);
+      padding: 10px 12px;
     }
 
     .friend-avatar {
@@ -824,8 +958,8 @@
       justify-content: center;
       border-radius: 50%;
       overflow: hidden;
-      background: var(--accent-soft);
-      color: var(--accent);
+      background: rgba(180, 107, 29, 0.13);
+      color: #8a5620;
       font-size: 14px;
       font-weight: 700;
     }
@@ -850,11 +984,11 @@
     }
     .friend-card-body strong {
       color: var(--text);
-      font-size: 13px;
+      font-size: 14px;
     }
     .friend-card-body span {
       color: var(--text-dim);
-      font-size: 11px;
+      font-size: 12px;
     }
 
     .friend-actions {
@@ -884,6 +1018,7 @@
     .friend-empty {
       min-height: 104px;
       text-align: center;
+      justify-content: center;
     }
     .friend-empty > div {
       display: flex;
@@ -891,8 +1026,8 @@
       gap: 4px;
     }
     .friend-empty strong {
-      color: var(--text);
-      font-size: 13px;
+      color: var(--ink);
+      font-size: 15px;
     }
     .friend-empty span {
       color: var(--text-dim);
@@ -1159,6 +1294,73 @@
       .friend-actions .sm-btn {
         flex: 1;
         min-height: 34px;
+      }
+    }
+
+    @media (max-width: 860px) {
+      #lb-friends.lobby-panel {
+        width: auto;
+        top: 92px;
+        right: 22px;
+        left: 22px;
+        bottom: 18px;
+        transform: none;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      #lb-friends .panel-title {
+        font-size: 36px;
+      }
+      .friend-tools,
+      .friend-section {
+        padding: 14px;
+      }
+      #friend-search {
+        min-height: 44px;
+        font-size: 16px;
+      }
+      .friend-section-title {
+        font-size: 20px;
+      }
+      .friend-card {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .friend-actions {
+        width: 100%;
+      }
+      .friend-actions .sm-btn {
+        flex: 1;
+        min-height: 34px;
+      }
+      #lb-profile.lobby-panel {
+        width: auto;
+        top: 92px;
+        right: 22px;
+        left: 22px;
+        bottom: auto;
+        transform: none;
+        overflow: visible;
+      }
+      #lb-profile .panel-title {
+        font-size: 36px;
+      }
+      .username-card {
+        padding: 18px;
+      }
+      .username-card label {
+        font-size: 23px;
+      }
+      .username-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #username-save {
+        min-height: 42px;
+        font-size: 14px;
+      }
+      #username-help {
+        font-size: 12px;
       }
     }
 
