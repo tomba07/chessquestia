@@ -26,6 +26,7 @@ const AUTH_FILE = process.env.AUTH_FILE || path.join(DATA_DIR, ".chessquestia-au
 const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, "chessquestia.sqlite");
 const app  = express();
 app.set("trust proxy", true);
+app.use(express.json({ limit: "64kb" }));
 
 // ── LAN IP ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ db.exec(`
     id TEXT PRIMARY KEY,
     provider TEXT NOT NULL,
     provider_sub TEXT,
+    username TEXT,
     email TEXT,
     email_verified INTEGER NOT NULL DEFAULT 0,
     name TEXT NOT NULL,
@@ -105,6 +107,28 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_moves_room_id ON moves(room_id);
+
+  CREATE TABLE IF NOT EXISTS friendships (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    friend_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, friend_id),
+    CHECK (user_id < friend_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_friendships_friend_id ON friendships(friend_id);
+
+  CREATE TABLE IF NOT EXISTS friend_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    requester_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    addressee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at INTEGER NOT NULL,
+    responded_at INTEGER,
+    UNIQUE(requester_id, addressee_id),
+    CHECK (requester_id != addressee_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_friend_requests_requester_id ON friend_requests(requester_id);
+  CREATE INDEX IF NOT EXISTS idx_friend_requests_addressee_id ON friend_requests(addressee_id);
 `);
 
 function inTransaction(fn) {
@@ -117,6 +141,40 @@ function inTransaction(fn) {
     db.exec("ROLLBACK");
     throw err;
   }
+}
+
+function columnExists(table, column) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().some(info => info.name === column);
+}
+
+if (!columnExists("users", "username")) {
+  db.exec("ALTER TABLE users ADD COLUMN username TEXT");
+}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL");
+
+function normalizeUsername(username) {
+  return String(username || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 20);
+}
+
+function usernameSeed(profileOrUser) {
+  const email = profileOrUser?.email || "";
+  return normalizeUsername(email.split("@")[0] || profileOrUser?.name || "player") || "player";
+}
+
+function uniqueUsername(seed, existingUserId = null) {
+  const base = normalizeUsername(seed) || "player";
+  for (let i = 0; i < 1000; i += 1) {
+    const candidate = i === 0 ? base : `${base.slice(0, Math.max(1, 20 - String(i).length - 1))}_${i}`;
+    const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(candidate);
+    if (!existing || existing.id === existingUserId) return candidate;
+  }
+  return `player_${randomBytes(4).toString("hex")}`;
 }
 
 // ── COOP/COEP headers ─────────────────────────────────────────────────────────
@@ -154,6 +212,7 @@ function userFromRow(row) {
     id: row.id,
     provider: row.provider,
     providerSub: row.provider_sub,
+    username: row.username,
     email: row.email,
     emailVerified: !!row.email_verified,
     name: row.name,
@@ -174,14 +233,16 @@ function migrateAuthJson() {
     inTransaction(() => {
       const insertUser = db.prepare(`
         INSERT OR IGNORE INTO users
-          (id, provider, provider_sub, email, email_verified, name, picture, created_at, last_login_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, provider, provider_sub, username, email, email_verified, name, picture, created_at, last_login_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const user of Object.values(payload.users || {})) {
+        const username = uniqueUsername(user.username || usernameSeed(user), user.id);
         insertUser.run(
           user.id,
           user.provider || "google",
           user.providerSub || user.provider_sub || "",
+          username,
           user.email || "",
           user.emailVerified || user.email_verified ? 1 : 0,
           user.name || user.email || "Player",
@@ -209,6 +270,17 @@ function migrateAuthJson() {
   } catch (err) {
     console.warn(`Could not migrate auth JSON: ${err.message}`);
   }
+}
+
+function backfillUsernames() {
+  const users = db.prepare("SELECT id, name, email FROM users WHERE username IS NULL OR username = ''").all();
+  if (!users.length) return;
+  inTransaction(() => {
+    const update = db.prepare("UPDATE users SET username = ? WHERE id = ?");
+    for (const user of users) {
+      update.run(uniqueUsername(usernameSeed(user), user.id), user.id);
+    }
+  });
 }
 
 function cleanupExpiredSessions() {
@@ -260,9 +332,23 @@ function publicUser(user) {
   if (!user) return null;
   return {
     id: user.id,
+    username: user.username,
     name: user.name,
     email: user.email,
     picture: user.picture,
+  };
+}
+
+function publicFriendUser(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    email: row.email,
+    picture: row.picture,
+    createdAt: row.created_at,
+    friendshipStatus: row.friendship_status,
   };
 }
 
@@ -286,13 +372,35 @@ function createSession(userId) {
   return token;
 }
 
+function requireApiUser(req, res) {
+  const user = currentUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Sign in required" });
+    return null;
+  }
+  return user;
+}
+
+function friendshipPair(userId, friendId) {
+  return userId < friendId ? [userId, friendId] : [friendId, userId];
+}
+
+function createFriendship(userId, friendId) {
+  const [firstId, secondId] = friendshipPair(userId, friendId);
+  db.prepare(`
+    INSERT OR IGNORE INTO friendships (user_id, friend_id, created_at)
+    VALUES (?, ?, ?)
+  `).run(firstId, secondId, Date.now());
+}
+
 function upsertGoogleUser(profile) {
   const userId = `google:${profile.sub}`;
   const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  const username = existing?.username || uniqueUsername(usernameSeed(profile), userId);
   db.prepare(`
     INSERT INTO users
-      (id, provider, provider_sub, email, email_verified, name, picture, created_at, last_login_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, provider, provider_sub, username, email, email_verified, name, picture, created_at, last_login_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       email = excluded.email,
       email_verified = excluded.email_verified,
@@ -303,6 +411,7 @@ function upsertGoogleUser(profile) {
     userId,
     "google",
     profile.sub,
+    username,
     profile.email || existing?.email || "",
     profile.email_verified ? 1 : 0,
     profile.name || profile.given_name || existing?.name || profile.email || "Player",
@@ -314,6 +423,7 @@ function upsertGoogleUser(profile) {
 }
 
 migrateAuthJson();
+backfillUsernames();
 cleanupExpiredSessions();
 
 app.get("/api/me", (req, res) => {
@@ -324,6 +434,215 @@ app.get("/api/me", (req, res) => {
     loginUrl: `/auth/google?next=${next}`,
     logoutUrl: `/auth/logout?next=${next}`,
   });
+});
+
+app.patch("/api/me", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const username = normalizeUsername(req.body?.username);
+  if (username.length < 3) {
+    res.status(400).json({ error: "Username must be at least 3 characters" });
+    return;
+  }
+
+  const existing = db.prepare("SELECT id FROM users WHERE username = ? AND id != ?").get(username, user.id);
+  if (existing) {
+    res.status(409).json({ error: "Username is already taken" });
+    return;
+  }
+
+  db.prepare("UPDATE users SET username = ? WHERE id = ?").run(username, user.id);
+  res.json({ user: publicUser(currentUser(req)) });
+});
+
+app.get("/api/friends", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const friends = db.prepare(`
+    SELECT u.id, u.username, u.name, u.email, u.picture, f.created_at
+    FROM friendships f
+    JOIN users u ON u.id = CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END
+    WHERE f.user_id = ? OR f.friend_id = ?
+    ORDER BY LOWER(u.username)
+  `).all(user.id, user.id, user.id).map(publicFriendUser);
+
+  res.json({ friends });
+});
+
+app.get("/api/friends/requests", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const incoming = db.prepare(`
+    SELECT fr.id, fr.created_at, u.id AS user_id, u.username, u.name, u.email, u.picture
+    FROM friend_requests fr
+    JOIN users u ON u.id = fr.requester_id
+    WHERE fr.addressee_id = ? AND fr.status = 'pending'
+    ORDER BY fr.created_at DESC
+  `).all(user.id);
+
+  const outgoing = db.prepare(`
+    SELECT fr.id, fr.created_at, u.id AS user_id, u.username, u.name, u.email, u.picture
+    FROM friend_requests fr
+    JOIN users u ON u.id = fr.addressee_id
+    WHERE fr.requester_id = ? AND fr.status = 'pending'
+    ORDER BY fr.created_at DESC
+  `).all(user.id);
+
+  res.json({ incoming, outgoing });
+});
+
+app.get("/api/friends/search", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const query = String(req.query.q || "").trim().toLowerCase();
+  if (!query) {
+    res.json({ users: [] });
+    return;
+  }
+
+  const users = db.prepare(`
+    SELECT u.id, u.username, u.name, u.email, u.picture,
+      CASE
+        WHEN f.user_id IS NOT NULL THEN 'friend'
+        WHEN outgoing.id IS NOT NULL THEN 'outgoing_pending'
+        WHEN incoming.id IS NOT NULL THEN 'incoming_pending'
+        ELSE 'none'
+      END AS friendship_status
+    FROM users u
+    LEFT JOIN friendships f
+      ON ((f.user_id = ? AND f.friend_id = u.id) OR (f.user_id = u.id AND f.friend_id = ?))
+    LEFT JOIN friend_requests outgoing
+      ON outgoing.requester_id = ? AND outgoing.addressee_id = u.id AND outgoing.status = 'pending'
+    LEFT JOIN friend_requests incoming
+      ON incoming.requester_id = u.id AND incoming.addressee_id = ? AND incoming.status = 'pending'
+    WHERE u.id != ?
+      AND LOWER(u.username) LIKE ?
+    ORDER BY LOWER(u.username)
+    LIMIT 20
+  `).all(user.id, user.id, user.id, user.id, user.id, `%${query}%`).map(publicFriendUser);
+
+  res.json({ users });
+});
+
+app.post("/api/friends/requests", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const targetUserId = String(req.body?.userId || req.body?.user_id || "");
+  if (!targetUserId) {
+    res.status(400).json({ error: "Invalid user" });
+    return;
+  }
+  if (targetUserId === user.id) {
+    res.status(400).json({ error: "You cannot add yourself" });
+    return;
+  }
+
+  const target = db.prepare("SELECT * FROM users WHERE id = ?").get(targetUserId);
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const [firstId, secondId] = friendshipPair(user.id, targetUserId);
+  const existingFriendship = db.prepare(`
+    SELECT 1 FROM friendships WHERE user_id = ? AND friend_id = ?
+  `).get(firstId, secondId);
+  if (existingFriendship) {
+    res.status(400).json({ error: "You are already friends" });
+    return;
+  }
+
+  const incoming = db.prepare(`
+    SELECT id FROM friend_requests
+    WHERE requester_id = ? AND addressee_id = ? AND status = 'pending'
+  `).get(targetUserId, user.id);
+  if (incoming) {
+    res.status(409).json({ error: `${target.name || target.email} already sent you a request` });
+    return;
+  }
+
+  db.prepare(`
+    INSERT INTO friend_requests (requester_id, addressee_id, status, created_at, responded_at)
+    VALUES (?, ?, 'pending', ?, NULL)
+    ON CONFLICT(requester_id, addressee_id) DO UPDATE SET
+      status = 'pending',
+      created_at = excluded.created_at,
+      responded_at = NULL
+    WHERE friend_requests.status != 'pending'
+  `).run(user.id, targetUserId, Date.now());
+
+  res.json({ message: `Friend request sent to ${target.name || target.email}` });
+});
+
+app.post("/api/friends/requests/:id/accept", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const requestId = Number(req.params.id);
+  if (!Number.isInteger(requestId)) {
+    res.status(400).json({ error: "Invalid friend request" });
+    return;
+  }
+
+  const request = db.prepare(`
+    SELECT fr.id, fr.requester_id, u.name, u.email
+    FROM friend_requests fr
+    JOIN users u ON u.id = fr.requester_id
+    WHERE fr.id = ? AND fr.addressee_id = ? AND fr.status = 'pending'
+  `).get(requestId, user.id);
+  if (!request) {
+    res.status(404).json({ error: "Friend request not found" });
+    return;
+  }
+
+  inTransaction(() => {
+    createFriendship(user.id, request.requester_id);
+    db.prepare(`
+      UPDATE friend_requests
+      SET status = 'accepted', responded_at = ?
+      WHERE id = ?
+    `).run(Date.now(), requestId);
+  });
+
+  res.json({ message: `You are now friends with ${request.name || request.email}` });
+});
+
+app.post("/api/friends/requests/:id/decline", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const requestId = Number(req.params.id);
+  if (!Number.isInteger(requestId)) {
+    res.status(400).json({ error: "Invalid friend request" });
+    return;
+  }
+
+  const result = db.prepare(`
+    UPDATE friend_requests
+    SET status = 'declined', responded_at = ?
+    WHERE id = ? AND addressee_id = ? AND status = 'pending'
+  `).run(Date.now(), requestId, user.id);
+  if (!result.changes) {
+    res.status(404).json({ error: "Friend request not found" });
+    return;
+  }
+
+  res.json({ message: "Friend request declined" });
+});
+
+app.delete("/api/friends/:id", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const friendId = String(req.params.id || "");
+  const [firstId, secondId] = friendshipPair(user.id, friendId);
+  db.prepare("DELETE FROM friendships WHERE user_id = ? AND friend_id = ?").run(firstId, secondId);
+  res.json({ message: "Friend removed" });
 });
 
 app.get("/auth/google", (req, res) => {

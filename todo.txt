@@ -1,4 +1,8 @@
 - improve UI
+- username (for finding others)
+- friend status
 - password auth
 - pre-created bots
 - gamelike styling
+- campaign mode
+- unlockables

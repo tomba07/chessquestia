@@ -7,8 +7,9 @@ function SideMenu() {
   return (
     <nav className="side-menu" aria-label="Main navigation">
       <div className="side-brand">Chessquestia</div>
-      <button id="nav-play" className="side-link active" type="button">Play</button>
-      <button id="nav-friends" className="side-link" type="button">Friends</button>
+      <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/solo_icon.png" alt="" />Home</button>
+      <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/profile-icon.png" alt="" />Profile</button>
+      <button id="nav-friends" className="side-link" type="button"><img className="nav-icon" src="/assets/friends-icon.png" alt="" />Friends</button>
     </nav>
   );
 }
@@ -16,24 +17,26 @@ function SideMenu() {
 function PlayPanel() {
   return (
     <div id="lb-main" className="lobby-section lobby-panel">
-      <div className="panel-head">
-        <div className="panel-title">Choose a game mode</div>
+      <div className="home-copy">
+        <div>Welcome back,</div>
+        <strong id="welcome-name">Wanderer</strong>
+        <span className="home-divider" aria-hidden="true"></span>
+        <p>Every move shapes your story.</p>
       </div>
       <div className="mode-grid">
         <button id="play-solo-btn" className="mode-card" type="button">
-          <span className="mode-icon mode-icon-solo" aria-hidden="true">
-            <span></span>
+          <img src="/assets/solo_button.png" alt="" />
+          <span className="mode-card-copy">
+            <strong><img className="mode-title-icon" src="/assets/solo_icon.png" alt="" />Solo</strong>
+            <span>Challenge AI opponents and sharpen your skills.</span>
           </span>
-          <strong>Single Player</strong>
-          <span className="mode-description">Play against the computer.</span>
         </button>
         <button id="play-coop-btn" className="mode-card" type="button">
-          <span className="mode-icon mode-icon-coop" aria-hidden="true">
-            <span></span>
-            <span></span>
+          <img src="/assets/coop_button.png" alt="" />
+          <span className="mode-card-copy">
+            <strong><img className="mode-title-icon" src="/assets/coop-icon.png" alt="" />Co-op</strong>
+            <span>Team up with friends and play together.</span>
           </span>
-          <strong>Co-op Mode</strong>
-          <span className="mode-description">Team up and play against the computer.</span>
         </button>
       </div>
     </div>
@@ -43,21 +46,49 @@ function PlayPanel() {
 function SinglePlayerSetup() {
   return (
     <div id="lb-solo" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
-        <div className="panel-title">Single player</div>
-        <div className="panel-kicker">Maia 3</div>
+      <button id="solo-back-btn" className="bot-back-btn" type="button" aria-label="Back">
+        <img src="/assets/back-icon.png" alt="" />
+      </button>
+      <div className="bot-select-head">
+        <h2>Choose your opponent</h2>
+        <span className="home-divider" aria-hidden="true"></span>
       </div>
-      <div className="lobby-settings">
-        <label>
-          <span>Bot strength</span>
-          <span id="strength-val">1500</span>
-        </label>
-        <input type="range" id="strength-slider" min="400" max="2800" step="50" defaultValue="1500" />
+      <input type="hidden" id="strength-slider" defaultValue="900" />
+      <span id="strength-val" className="sr-only">900</span>
+      <div className="opponent-grid" aria-label="Choose your opponent">
+        <button className="opponent-card" type="button" data-opponent-strength="900" aria-pressed="true">
+          <img className="opponent-card-art" src="/assets/imp_card.png" alt="" />
+          <span className="opponent-card-copy">
+            <strong>Imp</strong>
+            <span className="opponent-difficulty easy">Easy</span>
+            <span className="opponent-rank" aria-label="One out of five">
+              <img className="filled" src="/assets/solo_icon.png" alt="" />
+              <img src="/assets/solo_icon.png" alt="" />
+              <img src="/assets/solo_icon.png" alt="" />
+              <img src="/assets/solo_icon.png" alt="" />
+              <img src="/assets/solo_icon.png" alt="" />
+            </span>
+          </span>
+        </button>
+        <button className="opponent-card" type="button" data-opponent-strength="1500" aria-pressed="false">
+          <img className="opponent-card-art" src="/assets/witch_card.png" alt="" />
+          <span className="opponent-card-copy">
+            <strong>Witch</strong>
+            <span className="opponent-difficulty medium">Medium</span>
+            <span className="opponent-rank" aria-label="Three out of five">
+              <img className="filled" src="/assets/solo_icon.png" alt="" />
+              <img className="filled" src="/assets/solo_icon.png" alt="" />
+              <img className="filled" src="/assets/solo_icon.png" alt="" />
+              <img src="/assets/solo_icon.png" alt="" />
+              <img src="/assets/solo_icon.png" alt="" />
+            </span>
+          </span>
+        </button>
       </div>
-      <div className="lb-btns">
-        <button id="solo-start-btn" className="lb-btn primary" type="button">Start Game</button>
-        <button id="solo-back-btn" className="lb-btn" type="button">Back</button>
-      </div>
+      <button id="solo-start-btn" className="bot-continue-btn" type="button">
+        <img src="/assets/submit-icon.png" alt="" />
+        <span>Continue</span>
+      </button>
     </div>
   );
 }
@@ -69,7 +100,32 @@ function FriendsPanel() {
         <div className="panel-title">Friends</div>
         <div className="panel-kicker">Players</div>
       </div>
-      <div className="empty-state">No friends yet</div>
+      <div className="friend-tools">
+        <input id="friend-search" placeholder="Search username" autoComplete="off" autoCapitalize="none" />
+      </div>
+      <div id="friend-message" className="friend-message"></div>
+      <div id="friend-requests" className="friend-section"></div>
+      <div id="friend-results" className="friend-section"></div>
+      <div id="friend-list" className="friend-section"></div>
+    </div>
+  );
+}
+
+function ProfilePanel() {
+  return (
+    <div id="lb-profile" className="lobby-section lobby-panel" style={{ display: "none" }}>
+      <div className="panel-head">
+        <div className="panel-title">Profile</div>
+        <div className="panel-kicker">Identity</div>
+      </div>
+      <div className="username-card">
+        <label htmlFor="profile-username">Your username</label>
+        <div className="username-row">
+          <input id="profile-username" minLength="3" maxLength="20" autoCapitalize="none" autoComplete="off" />
+          <button id="username-save" className="sm-btn primary-mini" type="button">Save</button>
+        </div>
+        <p id="username-help">Other players can search for this username.</p>
+      </div>
     </div>
   );
 }
@@ -143,6 +199,7 @@ function Lobby() {
       </div>
       <PlayPanel />
       <SinglePlayerSetup />
+      <ProfilePanel />
       <FriendsPanel />
       <CoopNamePanel />
       <CoopRoomPanel />
@@ -176,11 +233,20 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const strengthVal    = document.getElementById("strength-val");
   const connectStrengthSlider = document.getElementById("connect-strength-slider");
   const connectStrengthVal = document.getElementById("connect-strength-val");
+  let opponentCards = [];
+  function updateOpponentSelection(value) {
+    opponentCards.forEach(card => {
+      const selected = card.dataset.opponentStrength === String(value);
+      card.classList.toggle("selected", selected);
+      card.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  }
   function syncStrength(value) {
     strengthSlider.value = value;
     connectStrengthSlider.value = value;
     strengthVal.textContent = value;
     connectStrengthVal.textContent = value;
+    updateOpponentSelection(value);
   }
   strengthSlider.oninput = () => syncStrength(strengthSlider.value);
   connectStrengthSlider.oninput = () => {
@@ -581,6 +647,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const lbSolo       = document.getElementById("lb-solo");
   const lbConnect    = document.getElementById("lb-connect");
   const lbRoom       = document.getElementById("lb-room");
+  const lbProfile    = document.getElementById("lb-profile");
   const lbFriends    = document.getElementById("lb-friends");
   const cpNameInput  = document.getElementById("cp-name");
   const cpConnectBtn = document.getElementById("cp-connect-btn");
@@ -599,13 +666,255 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const authLabel    = document.getElementById("auth-label");
   const authBtn      = document.getElementById("auth-btn");
   const navPlay      = document.getElementById("nav-play");
+  const navProfile   = document.getElementById("nav-profile");
   const navFriends   = document.getElementById("nav-friends");
+  const welcomeName  = document.getElementById("welcome-name");
   const soloStartBtn = document.getElementById("solo-start-btn");
   const soloBackBtn  = document.getElementById("solo-back-btn");
+  opponentCards = Array.from(document.querySelectorAll("[data-opponent-strength]"));
+  const friendSearch = document.getElementById("friend-search");
+  const profileUsername = document.getElementById("profile-username");
+  const usernameSaveBtn = document.getElementById("username-save");
+  const usernameHelp = document.getElementById("username-help");
+  const friendMessage = document.getElementById("friend-message");
+  const friendRequestsEl = document.getElementById("friend-requests");
+  const friendResultsEl = document.getElementById("friend-results");
+  const friendListEl = document.getElementById("friend-list");
 
   function setNavActive(target) {
     navPlay.classList.toggle("active", target === "play");
+    navProfile.classList.toggle("active", target === "profile");
     navFriends.classList.toggle("active", target === "friends");
+  }
+
+  const friendState = {
+    loaded: false,
+    loading: false,
+    searching: false,
+    searchQuery: "",
+    friends: [],
+    incoming: [],
+    outgoing: [],
+    results: [],
+    error: "",
+    busyKey: "",
+  };
+  let friendSearchTimer = null;
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    }[ch]));
+  }
+
+  function friendName(person) {
+    return person?.username || person?.name || person?.email || "Player";
+  }
+
+  function friendMeta(person) {
+    return person?.name || person?.email || "Chessquestia player";
+  }
+
+  function friendAvatar(person) {
+    const name = friendName(person);
+    if (person?.picture) return `<img src="${escapeHtml(person.picture)}" alt="">`;
+    return `<span>${escapeHtml(name.charAt(0).toUpperCase() || "P")}</span>`;
+  }
+
+  function friendRow(person, meta, actionHtml = "") {
+    return `
+      <article class="friend-card">
+        <div class="friend-avatar">${friendAvatar(person)}</div>
+        <div class="friend-card-body">
+          <strong>${escapeHtml(friendName(person))}</strong>
+          <span>${escapeHtml(meta || friendMeta(person))}</span>
+        </div>
+        ${actionHtml}
+      </article>
+    `;
+  }
+
+  async function apiJson(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Request failed");
+    return payload;
+  }
+
+  function renderFriends() {
+    friendMessage.textContent = friendState.error;
+    friendMessage.className = `friend-message${friendState.error ? " visible" : ""}`;
+
+    if (authInfo.authEnabled && !authInfo.user) {
+      friendSearch.disabled = true;
+      profileUsername.disabled = true;
+      usernameSaveBtn.disabled = true;
+      friendRequestsEl.innerHTML = "";
+      friendResultsEl.innerHTML = "";
+      friendListEl.innerHTML = `
+        <div class="empty-state friend-empty">
+          <div>
+            <strong>Sign in to add friends</strong>
+            <span>Friends are connected to your Google account.</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    friendSearch.disabled = false;
+    profileUsername.disabled = false;
+    usernameSaveBtn.disabled = false;
+    if (document.activeElement !== profileUsername)
+      profileUsername.value = authInfo.user?.username || "";
+    usernameHelp.textContent = authInfo.user?.username
+      ? `Other players can find you as ${authInfo.user.username}.`
+      : "Choose a username so other players can find you.";
+
+    const incomingHtml = friendState.incoming.map(request => friendRow(
+      { name: request.name, email: request.email, picture: request.picture },
+      "Wants to be friends",
+      `<div class="friend-actions">
+        <button class="sm-btn primary-mini" type="button" data-friend-action="accept" data-request-id="${request.id}" ${friendState.busyKey === `accept:${request.id}` ? "disabled" : ""}>Accept</button>
+        <button class="sm-btn" type="button" data-friend-action="decline" data-request-id="${request.id}" ${friendState.busyKey === `decline:${request.id}` ? "disabled" : ""}>Decline</button>
+      </div>`
+    )).join("");
+    const outgoingHtml = friendState.outgoing.map(request => friendRow(
+      { name: request.name, email: request.email, picture: request.picture },
+      "Request sent",
+      `<span class="friend-status-label">Pending</span>`
+    )).join("");
+    friendRequestsEl.innerHTML = incomingHtml || outgoingHtml
+      ? `<div class="friend-section-title">Requests</div>${incomingHtml}${outgoingHtml}`
+      : "";
+
+    if (friendState.searchQuery.trim()) {
+      const resultHtml = friendState.results.map(user => {
+        let action = "";
+        if (user.friendshipStatus === "friend") action = `<span class="friend-status-label">Friend</span>`;
+        else if (user.friendshipStatus === "outgoing_pending") action = `<span class="friend-status-label">Sent</span>`;
+        else if (user.friendshipStatus === "incoming_pending") action = `<span class="friend-status-label">Request received</span>`;
+        else action = `<button class="sm-btn primary-mini" type="button" data-friend-action="add" data-user-id="${escapeHtml(user.id)}" ${friendState.busyKey === `add:${user.id}` ? "disabled" : ""}>Add</button>`;
+        return friendRow(user, friendMeta(user), action);
+      }).join("");
+      friendResultsEl.innerHTML = `
+        <div class="friend-section-title">Search results</div>
+        ${friendState.searching ? `<div class="empty-state friend-empty">Searching...</div>` : resultHtml || `<div class="empty-state friend-empty">No players found.</div>`}
+      `;
+    } else {
+      friendResultsEl.innerHTML = "";
+    }
+
+    if (friendState.loading) {
+      friendListEl.innerHTML = `<div class="empty-state friend-empty">Loading friends...</div>`;
+      return;
+    }
+
+    const friendsHtml = friendState.friends.map(friend => friendRow(
+      friend,
+      friendMeta(friend),
+      `<button class="sm-btn" type="button" data-friend-action="remove" data-user-id="${escapeHtml(friend.id)}" ${friendState.busyKey === `remove:${friend.id}` ? "disabled" : ""}>Remove</button>`
+    )).join("");
+    friendListEl.innerHTML = `
+      <div class="friend-section-title">Friends</div>
+      ${friendsHtml || `<div class="empty-state friend-empty"><div><strong>No friends yet</strong><span>Search for someone who has signed in once.</span></div></div>`}
+    `;
+  }
+
+  async function saveUsername() {
+    const username = profileUsername.value.trim();
+    usernameSaveBtn.disabled = true;
+    usernameHelp.textContent = "Saving...";
+    friendState.error = "";
+    try {
+      const payload = await apiJson("/api/me", {
+        method: "PATCH",
+        body: JSON.stringify({ username }),
+      });
+      authInfo.user = payload.user;
+      usernameHelp.textContent = `Saved as ${payload.user.username}.`;
+      renderFriends();
+    } catch (err) {
+      usernameHelp.textContent = err.message;
+    } finally {
+      usernameSaveBtn.disabled = false;
+    }
+  }
+
+  async function loadFriends() {
+    friendState.loading = true;
+    friendState.error = "";
+    renderFriends();
+
+    try {
+      const [friendsPayload, requestsPayload] = await Promise.all([
+        apiJson("/api/friends"),
+        apiJson("/api/friends/requests"),
+      ]);
+      friendState.friends = friendsPayload.friends || [];
+      friendState.incoming = requestsPayload.incoming || [];
+      friendState.outgoing = requestsPayload.outgoing || [];
+      friendState.loaded = true;
+    } catch (err) {
+      friendState.error = err.message;
+      friendState.friends = [];
+      friendState.incoming = [];
+      friendState.outgoing = [];
+    } finally {
+      friendState.loading = false;
+      renderFriends();
+    }
+  }
+
+  async function searchFriends() {
+    const query = friendState.searchQuery.trim();
+    if (!query) {
+      friendState.results = [];
+      friendState.searching = false;
+      renderFriends();
+      return;
+    }
+
+    friendState.searching = true;
+    friendState.error = "";
+    renderFriends();
+    try {
+      const payload = await apiJson(`/api/friends/search?q=${encodeURIComponent(query)}`);
+      friendState.results = payload.users || [];
+    } catch (err) {
+      friendState.error = err.message;
+      friendState.results = [];
+    } finally {
+      friendState.searching = false;
+      renderFriends();
+    }
+  }
+
+  async function runFriendAction(key, action) {
+    friendState.busyKey = key;
+    friendState.error = "";
+    renderFriends();
+    try {
+      await action();
+      await loadFriends();
+      if (friendState.searchQuery.trim()) await searchFriends();
+    } catch (err) {
+      friendState.error = err.message;
+      renderFriends();
+    } finally {
+      friendState.busyKey = "";
+      renderFriends();
+    }
   }
 
   function showPlayView() {
@@ -615,6 +924,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbSolo.style.display = "none";
     lbConnect.style.display = "none";
     lbRoom.style.display = "none";
+    lbProfile.style.display = "none";
     lbFriends.style.display = "none";
   }
 
@@ -624,6 +934,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbSolo.style.display = "flex";
     lbConnect.style.display = "none";
     lbRoom.style.display = "none";
+    lbProfile.style.display = "none";
     lbFriends.style.display = "none";
   }
 
@@ -634,7 +945,20 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbSolo.style.display = "none";
     lbConnect.style.display = "flex";
     lbRoom.style.display = "none";
+    lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+  }
+
+  function showProfileView() {
+    setNavActive("profile");
+    hideModelLoading();
+    lbMain.style.display = "none";
+    lbSolo.style.display = "none";
+    lbConnect.style.display = "none";
+    lbRoom.style.display = "none";
+    lbProfile.style.display = "flex";
+    lbFriends.style.display = "none";
+    renderFriends();
   }
 
   function showFriendsView() {
@@ -644,7 +968,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbSolo.style.display = "none";
     lbConnect.style.display = "none";
     lbRoom.style.display = "none";
+    lbProfile.style.display = "none";
     lbFriends.style.display = "flex";
+    if (!friendState.loaded && !friendState.loading) loadFriends();
+    else renderFriends();
   }
 
   const urlRoom = new URLSearchParams(location.search).get("room");
@@ -694,6 +1021,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     authBar.style.display = "flex";
     if (authInfo.user) {
       authLabel.textContent = authInfo.user.name || authInfo.user.email || "Signed in";
+      welcomeName.textContent = authInfo.user.username || authInfo.user.name || "Wanderer";
       authBtn.textContent = "Sign out";
       authBtn.onclick = () => { location.href = authInfo.logoutUrl; };
       if (!cpNameInput.value.trim())
@@ -706,6 +1034,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       lbSolo.style.display = "none";
       lbConnect.style.display = "none";
       lbRoom.style.display = "none";
+      lbProfile.style.display = "none";
       lbFriends.style.display = "none";
     }
   }
@@ -729,8 +1058,52 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   navPlay.onclick = () => showPlayView();
+  navProfile.onclick = () => {
+    if (authInfo.authEnabled && !authInfo.user) {
+      location.href = authInfo.loginUrl;
+      return;
+    }
+    showProfileView();
+  };
   navFriends.onclick = () => showFriendsView();
+  friendSearch.addEventListener("input", () => {
+    friendSearch.value = friendSearch.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").slice(0, 20);
+    friendState.searchQuery = friendSearch.value;
+    window.clearTimeout(friendSearchTimer);
+    friendSearchTimer = window.setTimeout(searchFriends, 250);
+    renderFriends();
+  });
+  profileUsername.addEventListener("input", () => {
+    profileUsername.value = profileUsername.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").slice(0, 20);
+  });
+  profileUsername.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") saveUsername();
+  });
+  usernameSaveBtn.onclick = () => saveUsername();
+  lbFriends.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-friend-action]");
+    if (!button) return;
+    const action = button.dataset.friendAction;
+    const userId = button.dataset.userId;
+    const requestId = button.dataset.requestId;
+    if (action === "add" && userId) {
+      runFriendAction(`add:${userId}`, () => apiJson("/api/friends/requests", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      }));
+    } else if (action === "accept" && requestId) {
+      runFriendAction(`accept:${requestId}`, () => apiJson(`/api/friends/requests/${requestId}/accept`, { method: "POST" }));
+    } else if (action === "decline" && requestId) {
+      runFriendAction(`decline:${requestId}`, () => apiJson(`/api/friends/requests/${requestId}/decline`, { method: "POST" }));
+    } else if (action === "remove" && userId) {
+      runFriendAction(`remove:${userId}`, () => apiJson(`/api/friends/${encodeURIComponent(userId)}`, { method: "DELETE" }));
+    }
+  });
   document.getElementById("play-solo-btn").onclick = () => showSoloSetup();
+  opponentCards.forEach(card => {
+    card.onclick = () => syncStrength(card.dataset.opponentStrength);
+  });
+  updateOpponentSelection(strengthSlider.value);
   soloStartBtn.onclick = () => startSoloGame();
   soloBackBtn.onclick = () => {
     pendingSoloStart = false;
@@ -880,6 +1253,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       lbSolo.style.display = "none";
       lbConnect.style.display = "none";
       lbRoom.style.display = "flex";
+      lbProfile.style.display = "none";
       lbFriends.style.display = "none";
       cpRoomMeta.textContent = "Reconnecting…";
       cpStartBtn.disabled = true;
@@ -927,6 +1301,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       lbSolo.style.display = "none";
       lbConnect.style.display = "none";
       lbRoom.style.display = "flex";
+      lbProfile.style.display = "none";
       lbFriends.style.display = "none";
       coop.phase = "lobby";
       return;
@@ -961,6 +1336,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         lbSolo.style.display = "none";
         lbConnect.style.display = "none";
         lbRoom.style.display = "flex";
+        lbProfile.style.display = "none";
         lbFriends.style.display = "none";
         renderRoomLobby(msg.players, msg.myIdx);
         return;
