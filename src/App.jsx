@@ -35,11 +35,34 @@ function PlayPanel() {
           <img src="/assets/buttons/coop_button.png" alt="" />
           <span className="mode-card-copy">
             <strong><img className="mode-title-icon" src="/assets/icons/coop-icon.png" alt="" />Co-op</strong>
-            <span>Coming back soon.</span>
+            <span>Coming soon....</span>
           </span>
         </button>
       </div>
     </div>
+  );
+}
+
+const SOLO_OPPONENTS = [
+  { name: "Snib the Candle Goblin", elo: 500, card: "snib_card.png", rank: 1, tone: "easy", theme: "imp" },
+  { name: "Muckroot the Bog Imp", elo: 600, card: "muckroot_card.png", rank: 2, tone: "easy", theme: "imp" },
+  { name: "Gribble Thornnose", elo: 700, card: "gribble_card.png", rank: 3, tone: "medium", theme: "imp" },
+  { name: "Vexi Blackcap", elo: 800, card: "vexi_card.png", rank: 4, tone: "medium", theme: "witch" },
+  { name: "Drogar Gategrunt", elo: 900, card: "drogar_card.png", rank: 5, tone: "hard", theme: "imp" },
+];
+
+function OpponentRank({ rank }) {
+  return (
+    <span className="opponent-rank" aria-label={`${rank} out of five`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <img
+          key={index}
+          className={index < rank ? "filled" : ""}
+          src="/assets/icons/solo_icon.png"
+          alt=""
+        />
+      ))}
+    </span>
   );
 }
 
@@ -56,34 +79,22 @@ function SinglePlayerSetup() {
       <input type="hidden" id="strength-slider" defaultValue="1500" />
       <span id="strength-val" className="sr-only">1500</span>
       <div className="opponent-grid" aria-label="Choose your opponent">
-        <button className="opponent-card" type="button" data-opponent-strength="900" aria-pressed="false">
-          <img className="opponent-card-art" src="/assets/cards/imp_card.png" alt="" />
-          <span className="opponent-card-copy">
-            <strong>Imp</strong>
-            <span className="opponent-difficulty easy">Easy</span>
-            <span className="opponent-rank" aria-label="One out of five">
-              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
-              <img src="/assets/icons/solo_icon.png" alt="" />
-              <img src="/assets/icons/solo_icon.png" alt="" />
-              <img src="/assets/icons/solo_icon.png" alt="" />
-              <img src="/assets/icons/solo_icon.png" alt="" />
+        {SOLO_OPPONENTS.map((opponent) => (
+          <button
+            key={opponent.elo}
+            className="opponent-card"
+            type="button"
+            data-opponent-strength={opponent.elo}
+            data-opponent-theme={opponent.theme}
+            aria-pressed="false"
+          >
+            <img className="opponent-card-art" src={`/assets/cards/${opponent.card}`} alt="" />
+            <span className="opponent-card-copy">
+              <strong>{opponent.name}</strong>
+              <OpponentRank rank={opponent.rank} />
             </span>
-          </span>
-        </button>
-        <button className="opponent-card" type="button" data-opponent-strength="1500" aria-pressed="false">
-          <img className="opponent-card-art" src="/assets/cards/witch_card.png" alt="" />
-          <span className="opponent-card-copy">
-            <strong>Witch</strong>
-            <span className="opponent-difficulty medium">Medium</span>
-            <span className="opponent-rank" aria-label="Three out of five">
-              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
-              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
-              <img className="filled" src="/assets/icons/solo_icon.png" alt="" />
-              <img src="/assets/icons/solo_icon.png" alt="" />
-              <img src="/assets/icons/solo_icon.png" alt="" />
-            </span>
-          </span>
-        </button>
+          </button>
+        ))}
       </div>
       <button id="solo-start-btn" className="bot-continue-btn" type="button" disabled>
         <img src="/assets/icons/submit-icon.png" alt="" />
@@ -211,12 +222,17 @@ function Lobby() {
 function GameView() {
   return (
     <div id="game">
-      <div id="board"></div>
-      <div id="cp-chips"></div>
-      <div className="game-controls">
+      <button id="back-btn" className="game-back-btn" type="button" aria-label="Back to lobby">
+        <img src="/assets/icons/back-icon.png" alt="" />
+      </button>
+      <div className="game-score-plaque" aria-live="polite">
+        <div id="game-score">+0</div>
         <div id="game-status">...</div>
-        <button id="back-btn" className="sm-btn" type="button">Exit Game</button>
       </div>
+      <div className="game-board-frame">
+        <div id="board"></div>
+      </div>
+      <div id="cp-chips"></div>
     </div>
   );
 }
@@ -455,6 +471,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const lobbyEl   = document.getElementById("lobby");
   const gameEl    = document.getElementById("game");
   const statusEl  = document.getElementById("game-status");
+  const gameScoreEl = document.getElementById("game-score");
   const cpChips   = document.getElementById("cp-chips");
   const STORAGE_PREFIX = "chessquestia";
   const LEGACY_STORAGE_PREFIX = "local-chess";
@@ -465,14 +482,36 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   let board       = null;
   let botThinking = false;
   let soloActive  = false;
+  let selectedOpponentTheme = "imp";
 
   function setStatus(text, cls = "") {
     statusEl.textContent = text;
     statusEl.className   = cls;
   }
 
+  const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  function updateGameScore() {
+    const score = chess.board().flat().reduce((total, piece) => {
+      if (!piece) return total;
+      const value = pieceValues[piece.type] || 0;
+      return total + (piece.color === "w" ? value : -value);
+    }, 0);
+    gameScoreEl.textContent = score === 0 ? "+0" : score > 0 ? `+${score}` : String(score);
+    gameScoreEl.className = score > 0 ? "ahead" : score < 0 ? "behind" : "";
+  }
+
+  function opponentThemeForStrength(value) {
+    return parseInt(value, 10) <= 1000 ? "imp" : "witch";
+  }
+
+  function setGameOpponentTheme(value = getElo(), theme = selectedOpponentTheme) {
+    gameEl.dataset.opponent = theme || opponentThemeForStrength(value);
+  }
+
   function showGame() {
     lobbyEl.style.display = "none";
+    setGameOpponentTheme();
+    updateGameScore();
     gameEl.style.display  = "flex";
     if (!board) {
       board = new Chessboard(document.getElementById("board"), {
@@ -494,11 +533,24 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       history.replaceState(null, "", location.pathname);
   }
 
+  function shouldWarnBeforeExitingGame() {
+    return gameEl.style.display !== "none" && !chess.isGameOver();
+  }
+
+  function confirmExitGame() {
+    if (!shouldWarnBeforeExitingGame()) return true;
+    const message = coop?.phase !== "off"
+      ? "Exit this game? You will leave the current room."
+      : "Exit this game? Your current solo game will be discarded.";
+    return window.confirm(message);
+  }
+
   function saveSoloGame() {
     if (!soloActive || coop.phase !== "off") return;
     localStorage.setItem(SOLO_GAME_KEY, JSON.stringify({
       fen: chess.fen(),
       strength: getElo(),
+      opponentTheme: selectedOpponentTheme,
       savedAt: Date.now(),
     }));
   }
@@ -517,6 +569,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     showGame();
     board.setPosition(chess.fen());
     board.removeMarkers(LAST_MOVE);
+    updateGameScore();
     board.enableMoveInput(inputHandler);
     botThinking = false;
     setStatus("Your turn");
@@ -545,10 +598,12 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       chess.load(state.fen);
       soloActive = true;
       if (state.strength) syncStrength(String(state.strength));
+      selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
       cpChips.innerHTML = "";
       showGame();
       board.setPosition(chess.fen(), false);
       board.removeMarkers(LAST_MOVE);
+      updateGameScore();
       botThinking = false;
       if (checkGameOver()) return;
       board.enableMoveInput(inputHandler);
@@ -600,6 +655,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     board.removeMarkers(LAST_MOVE);
     board.addMarker(LAST_MOVE, uci.slice(0, 2));
     board.addMarker(LAST_MOVE, uci.slice(2, 4));
+    updateGameScore();
 
     botThinking = false;
     saveSoloGame();
@@ -624,6 +680,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
           chess.move({ from: event.squareFrom, to: event.squareTo, promotion: "q" });
           board.removeMarkers(LAST_MOVE);
           board.setPosition(chess.fen());
+          updateGameScore();
           if (coop.phase === "playing") {
             coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
             if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, 300); }
@@ -1111,6 +1168,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   opponentCards.forEach(card => {
     card.onclick = () => {
       syncStrength(card.dataset.opponentStrength);
+      selectedOpponentTheme = card.dataset.opponentTheme || opponentThemeForStrength(card.dataset.opponentStrength);
       updateOpponentSelection(card.dataset.opponentStrength);
       soloStartBtn.disabled = false;
     };
@@ -1153,9 +1211,16 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   };
 
   backBtn.onclick = () => {
+    if (!confirmExitGame()) return;
     if (coop.phase !== "off") leaveCoop();
     else showLobby();
   };
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!shouldWarnBeforeExitingGame()) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
 
   // ── Coop mode ─────────────────────────────────────────────────────────────
 
@@ -1362,6 +1427,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
           showGame();
           board.setPosition(msg.fen, false);
           board.removeMarkers(LAST_MOVE);
+          updateGameScore();
           board.enableMoveInput(inputHandler);
         }
         coop.phase = msg.phase;
@@ -1386,6 +1452,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         if (msg.fen !== chess.fen()) {
           chess.load(msg.fen);
           board.setPosition(msg.fen);
+          updateGameScore();
         }
 
         if (msg.phase === "over") {
@@ -1429,6 +1496,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       board.removeMarkers(LAST_MOVE);
       board.addMarker(LAST_MOVE, uci.slice(0, 2));
       board.addMarker(LAST_MOVE, uci.slice(2, 4));
+      updateGameScore();
 
       coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
     } finally {

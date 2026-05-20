@@ -1,9 +1,9 @@
-- restyle play screen
 - restyle profile screen
 - restyle friends screen
 - friend status
 - password auth
-- gamelike styling
 - campaign mode
 - unlockables
 - badges / awards
+- bot reactions
+- chessnut integration

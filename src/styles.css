@@ -289,16 +289,21 @@
     }
 
     #lb-solo.lobby-panel {
-      width: min(980px, 78cqw);
+      width: min(980px, 70cqw);
       max-height: none;
-      top: 12cqh;
-      overflow: visible;
+      top: 9cqh;
+      bottom: 3cqh;
+      overflow: hidden;
       background: transparent;
       border: 0;
       border-radius: 0;
       box-shadow: none;
-      padding: 0;
-      gap: clamp(18px, 2.6cqh, 30px);
+      padding: 0 0 1cqh;
+      gap: clamp(12px, 1.8cqh, 22px);
+      scrollbar-width: none;
+    }
+    #lb-solo.lobby-panel::-webkit-scrollbar {
+      display: none;
     }
 
     .bot-back-btn {
@@ -328,6 +333,7 @@
 
     .bot-select-head {
       width: 100%;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -339,7 +345,7 @@
     }
     .bot-select-head h2 {
       margin: 0;
-      font-size: clamp(34px, 3.2cqw, 50px);
+      font-size: clamp(32px, 3cqw, 46px);
       line-height: 1.05;
       font-weight: 800;
       letter-spacing: 0;
@@ -347,17 +353,26 @@
 
     .opponent-grid {
       width: 100%;
-      display: flex;
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 2px 4px 10px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       align-items: center;
+      align-content: start;
       justify-content: center;
-      gap: clamp(26px, 4cqw, 58px);
+      gap: clamp(12px, 1.8cqw, 24px);
+      scrollbar-width: thin;
     }
 
     .opponent-card {
-      width: clamp(230px, 22cqw, 315px);
+      width: min(100%, clamp(170px, min(20cqw, 28cqh), 236px));
       aspect-ratio: 1074 / 1464;
       position: relative;
       display: block;
+      justify-self: center;
       background: transparent;
       border: 0;
       padding: 0;
@@ -405,32 +420,26 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      gap: clamp(5px, 0.8cqw, 10px);
+      gap: clamp(3px, 0.45cqw, 7px);
       pointer-events: none;
     }
     .opponent-card-copy strong {
-      font-size: clamp(27px, 2.4cqw, 38px);
-      line-height: 1.05;
+      max-width: 100%;
+      font-size: clamp(15px, 1.45cqw, 22px);
+      line-height: 0.96;
       font-weight: 800;
+      text-wrap: balance;
     }
-    .opponent-difficulty {
-      font-size: clamp(17px, 1.35cqw, 22px);
-      line-height: 1;
-      font-weight: 800;
-    }
-    .opponent-difficulty.easy { color: #638c45; }
-    .opponent-difficulty.medium { color: #b77a25; }
-
     .opponent-rank {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 5px;
-      margin-top: 4px;
+      gap: 3px;
+      margin-top: 2px;
     }
     .opponent-rank img {
-      width: clamp(16px, 1.3cqw, 22px);
-      height: clamp(16px, 1.3cqw, 22px);
+      width: clamp(11px, 1cqw, 16px);
+      height: clamp(11px, 1cqw, 16px);
       object-fit: contain;
       opacity: 0.22;
       filter: grayscale(0.25);
@@ -441,9 +450,10 @@
     }
 
     .bot-continue-btn {
-      width: clamp(250px, 24cqw, 360px);
+      width: clamp(230px, 22cqw, 330px);
       aspect-ratio: 1686 / 362;
       position: relative;
+      flex: 0 0 auto;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -992,6 +1002,7 @@
       #lobby::before,
       #lobby::after {
         position: fixed;
+        opacity: 0.2;
         background-size: auto 100cqh;
         background-position-y: top;
       }
@@ -1068,6 +1079,19 @@
         max-height: none;
         overflow: auto;
       }
+      #lb-main.lobby-panel,
+      #lb-solo.lobby-panel,
+      #lb-connect.lobby-panel,
+      #lb-room.lobby-panel,
+      #lb-friends.lobby-panel,
+      #lb-profile.lobby-panel {
+        top: 66px;
+        right: 16px;
+        bottom: 16px;
+        left: 16px;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
       #lb-main.lobby-panel {
         width: auto;
         flex-direction: column;
@@ -1079,7 +1103,9 @@
       #lb-solo.lobby-panel {
         width: auto;
         max-height: none;
-        gap: 18px;
+        overflow: hidden;
+        padding-bottom: 24px;
+        gap: 14px;
       }
       .bot-back-btn {
         width: 54px;
@@ -1088,17 +1114,22 @@
         margin-bottom: -10px;
       }
       .bot-select-head h2 {
-        font-size: 34px;
+        font-size: 30px;
       }
       .opponent-grid {
-        flex-direction: column;
-        gap: 18px;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        flex: 1 1 auto;
+        overflow-y: auto;
       }
       .opponent-card {
-        width: min(100%, 300px);
+        width: min(100%, 260px);
+        flex: 0 0 auto;
       }
       .bot-continue-btn {
-        width: min(100%, 330px);
+        width: min(100%, 280px);
+        flex: 0 0 auto;
+        margin-bottom: 8px;
       }
       .home-copy {
         width: min(100%, 340px);
@@ -1201,18 +1232,163 @@
     /* ── Game ── */
     #game {
       display: none;
+      width: 100vw;
+      height: 100dvh;
+      min-height: 0;
+      position: relative;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      justify-content: flex-start;
+      overflow: hidden;
+      padding: 0;
+      --game-frame-size: 590px;
+      --game-board-inset: 30px;
+      --game-board-size: calc(var(--game-frame-size) - var(--game-board-inset) - var(--game-board-inset));
+      background: #d8c29d;
+      color: var(--ink);
+      font-family: var(--story-font);
+    }
+    #game::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.8;
+      background: var(--game-bg, url("/assets/backgrounds/witch_bg.png")) center / cover no-repeat;
+    }
+    #game::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 44%, rgba(255, 246, 218, 0.18), transparent 38%),
+        linear-gradient(to bottom, rgba(34, 22, 12, 0.1), transparent 22%, transparent 72%, rgba(30, 19, 11, 0.16));
+    }
+    #game[data-opponent="imp"] {
+      --game-bg: url("/assets/backgrounds/imp_bg.png");
+    }
+    #game[data-opponent="witch"] {
+      --game-bg: url("/assets/backgrounds/witch_bg.png");
     }
 
-    #board { width: var(--board-size); }
+    .game-back-btn {
+      width: 72px;
+      aspect-ratio: 364 / 328;
+      position: absolute;
+      z-index: 3;
+      top: 28px;
+      left: 28px;
+      display: block;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      transition: transform 0.16s ease, filter 0.16s ease;
+    }
+    .game-back-btn:hover {
+      transform: translateX(-2px);
+      filter: saturate(1.05) contrast(1.04);
+    }
+    .game-back-btn img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .game-score-plaque {
+      width: 320px;
+      aspect-ratio: 2172 / 724;
+      position: absolute;
+      z-index: 2;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0;
+      background: url("/assets/backgrounds/count_bg.png") center / contain no-repeat;
+      text-align: center;
+      filter: drop-shadow(0 12px 22px rgba(44, 27, 14, 0.18));
+    }
+    #game-score {
+      position: absolute;
+      top: 39%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 50px;
+      line-height: 0.82;
+      font-weight: 800;
+      color: #5b3b21;
+      text-shadow: 0 2px 0 rgba(255, 245, 219, 0.72);
+    }
+    #game-score.behind {
+      color: #71432a;
+    }
+
+    #game-status {
+      width: 62%;
+      position: absolute;
+      top: 62%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: 0;
+      font-size: 13px;
+      line-height: 1;
+      color: rgba(76, 51, 30, 0.72);
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font-weight: 700;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+    #game-status.thinking { color: var(--accent); }
+    #game-status.over     { color: var(--text); font-weight: 800; }
+
+    .game-board-frame {
+      width: var(--game-frame-size);
+      aspect-ratio: 1;
+      position: relative;
+      z-index: 1;
+      margin-top: 132px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      background: url("/assets/backgrounds/board_bg.png") center / contain no-repeat;
+      filter: drop-shadow(0 22px 38px rgba(39, 24, 12, 0.22));
+    }
+
+    #board {
+      width: var(--game-board-size);
+      aspect-ratio: 1;
+    }
+    #board .cm-chessboard {
+      width: 100%;
+      height: 100%;
+    }
+    #game .cm-chessboard.default .board .square.white {
+      fill: #f1ddb5;
+    }
+    #game .cm-chessboard.default .board .square.black {
+      fill: #c89c66;
+    }
+    #game .cm-chessboard.default .coordinates {
+      fill: rgba(255, 247, 226, 0.86);
+      font-family: var(--story-font);
+      font-weight: 700;
+    }
 
     #cp-chips {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       gap: 6px;
-      width: var(--board-size);
+      width: var(--game-board-size);
     }
     #cp-chips:empty { display: none; }
 
@@ -1222,9 +1398,10 @@
       padding: 3px 10px;
       border-radius: 12px;
       font-size: 11px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-dim);
+      background: rgba(247, 239, 213, 0.82);
+      border: 1px solid rgba(119, 86, 43, 0.26);
+      color: #5d4b34;
+      backdrop-filter: blur(2px);
     }
     .chip.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
     .chip.me::after { content: " (you)"; opacity: 0.55; }
@@ -1235,13 +1412,37 @@
       align-items: center;
       gap: 10px;
     }
-    #game-status {
-      flex: 1;
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-    #game-status.thinking { color: var(--accent); }
-    #game-status.over     { color: var(--text); font-weight: 600; }
-
     /* ── Last-move highlight ── */
-    .cm-chessboard .marker.last-move { fill: #2f7d74; opacity: 0.25; }
+    .cm-chessboard .marker.last-move { fill: #6f9a7a; opacity: 0.34; }
+
+    @media (max-width: 860px) {
+      #game {
+        --game-frame-size: 360px;
+        --game-board-inset: 19px;
+        background-position: center;
+      }
+      .game-back-btn {
+        width: 56px;
+        top: 14px;
+        left: 12px;
+      }
+      .game-score-plaque {
+        width: 178px;
+        top: 12px;
+      }
+      #game-score {
+        font-size: 31px;
+      }
+      #game-status {
+        max-width: none;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 10px;
+      }
+      .game-board-frame {
+        margin-top: 94px;
+      }
+      #cp-chips {
+        bottom: 12px;
+      }
+    }
