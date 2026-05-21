@@ -31,11 +31,11 @@ function PlayPanel() {
             <span>Challenge AI opponents and sharpen your skills.</span>
           </span>
         </button>
-        <button id="play-coop-btn" className="mode-card disabled" type="button" disabled aria-disabled="true">
+        <button id="play-coop-btn" className="mode-card" type="button">
           <img src="/assets/buttons/coop_button.png" alt="" />
           <span className="mode-card-copy">
             <strong><img className="mode-title-icon" src="/assets/icons/coop-icon.png" alt="" />Co-op</strong>
-            <span>Coming soon....</span>
+            <span>Team up with friends and play together.</span>
           </span>
         </button>
       </div>
@@ -45,7 +45,7 @@ function PlayPanel() {
 
 const SOLO_OPPONENTS = [
   { name: "Snib the Candle Goblin", elo: 500, card: "snib_card.png", rank: 1, tone: "easy", theme: "imp" },
-  { name: "Muckroot the Bog Imp", elo: 600, card: "muckroot_card.png", rank: 2, tone: "easy", theme: "imp" },
+  { name: "Muckroot the Bog Imp", elo: 600, card: "muckroot_card.png", rank: 2, tone: "easy", theme: "muckroot" },
   { name: "Gribble Thornnose", elo: 700, card: "gribble_card.png", rank: 3, tone: "medium", theme: "imp" },
   { name: "Vexi Blackcap", elo: 800, card: "vexi_card.png", rank: 4, tone: "medium", theme: "witch" },
   { name: "Drogar Gategrunt", elo: 900, card: "drogar_card.png", rank: 5, tone: "hard", theme: "imp" },
@@ -79,20 +79,29 @@ function SinglePlayerSetup() {
       <input type="hidden" id="strength-slider" defaultValue="1500" />
       <span id="strength-val" className="sr-only">1500</span>
       <div className="opponent-grid" aria-label="Choose your opponent">
-        {SOLO_OPPONENTS.map((opponent) => (
+        {SOLO_OPPONENTS.map((opponent, index) => (
           <button
             key={opponent.elo}
-            className="opponent-card"
+            className={`opponent-card${index > 0 ? " locked" : ""}`}
             type="button"
             data-opponent-strength={opponent.elo}
             data-opponent-theme={opponent.theme}
+            data-opponent-index={index}
+            data-unlocked-src={`/assets/cards/${opponent.card}`}
             aria-pressed="false"
+            aria-disabled={index > 0 ? "true" : "false"}
+            disabled={index > 0}
           >
-            <img className="opponent-card-art" src={`/assets/cards/${opponent.card}`} alt="" />
+            <img
+              className="opponent-card-art"
+              src={index > 0 ? "/assets/cards/locked_card.png" : `/assets/cards/${opponent.card}`}
+              alt=""
+            />
             <span className="opponent-card-copy">
               <strong>{opponent.name}</strong>
               <OpponentRank rank={opponent.rank} />
             </span>
+            <span className="opponent-locked-copy">Locked</span>
           </button>
         ))}
       </div>
@@ -109,6 +118,7 @@ function FriendsPanel() {
     <div id="lb-friends" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
         <div className="panel-title">Friends</div>
+        <span className="home-divider" aria-hidden="true"></span>
         <div className="panel-kicker">Players</div>
       </div>
       <div className="friend-tools">
@@ -127,6 +137,7 @@ function ProfilePanel() {
     <div id="lb-profile" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
         <div className="panel-title">Profile</div>
+        <span className="home-divider" aria-hidden="true"></span>
         <div className="panel-kicker">Identity</div>
       </div>
       <div className="username-card">
@@ -137,6 +148,13 @@ function ProfilePanel() {
         </div>
         <p id="username-help">Other players can search for this username.</p>
       </div>
+      <div id="profile-account-card" className="profile-account-card" style={{ display: "none" }}>
+        <div>
+          <span>Signed in as</span>
+          <strong id="profile-account-name"></strong>
+        </div>
+        <button id="profile-auth-btn" className="sm-btn" type="button"></button>
+      </div>
     </div>
   );
 }
@@ -146,9 +164,14 @@ function CoopNamePanel() {
     <div id="lb-connect" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
         <div className="panel-title" id="cp-flow-title">Create game</div>
+        <span className="home-divider" aria-hidden="true"></span>
         <div className="panel-kicker" id="cp-flow-kicker">New room</div>
       </div>
-      <input id="cp-name" placeholder="Your name" maxLength="20" autoComplete="off" />
+      <div className="coop-account-card">
+        <span>Signed in as</span>
+        <strong id="cp-account-name">Player</strong>
+        <small id="cp-account-detail">Ready to play co-op.</small>
+      </div>
       <div className="lb-btns">
         <button id="cp-connect-btn" className="lb-btn primary" type="button">Create Game</button>
         <button id="lb-back-btn" className="lb-btn" type="button">Back</button>
@@ -162,6 +185,7 @@ function CoopRoomPanel() {
     <div id="lb-room" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
         <div className="panel-title">Waiting room</div>
+        <span className="home-divider" aria-hidden="true"></span>
         <div className="panel-kicker" id="cp-room-meta">Lobby</div>
       </div>
       <div className="cp-link-row">
@@ -176,6 +200,11 @@ function CoopRoomPanel() {
         <input type="range" id="connect-strength-slider" min="400" max="2800" step="50" defaultValue="1500" />
       </div>
       <div id="cp-player-list"></div>
+      <div className="room-invite-panel">
+        <div className="friend-section-title">Invite friends</div>
+        <div id="cp-invite-message" className="friend-message"></div>
+        <div id="cp-invite-list" className="room-invite-list"></div>
+      </div>
       <div className="lb-btns room-actions">
         <button id="cp-start" className="lb-btn primary" style={{ display: "none" }} type="button">Start Game</button>
         <button id="cp-leave" className="sm-btn" type="button">Leave</button>
@@ -479,10 +508,13 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const legacyStorageKey = (suffix) => `${LEGACY_STORAGE_PREFIX}.${suffix}`;
   const SOLO_GAME_KEY = storageKey("solo-game");
   const LEGACY_SOLO_GAME_KEY = legacyStorageKey("solo-game");
+  const SOLO_PROGRESS_KEY = storageKey("solo-progress");
   let board       = null;
   let botThinking = false;
   let soloActive  = false;
   let selectedOpponentTheme = "imp";
+  let selectedOpponentIndex = 0;
+  let unlockedOpponentCount = 1;
 
   function setStatus(text, cls = "") {
     statusEl.textContent = text;
@@ -506,6 +538,45 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function setGameOpponentTheme(value = getElo(), theme = selectedOpponentTheme) {
     gameEl.dataset.opponent = theme || opponentThemeForStrength(value);
+  }
+
+  function readSoloProgress() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SOLO_PROGRESS_KEY) || "{}");
+      const unlocked = Number(saved.unlocked || 1);
+      return Math.min(SOLO_OPPONENTS.length, Math.max(1, unlocked));
+    } catch {
+      return 1;
+    }
+  }
+
+  function saveSoloProgress() {
+    localStorage.setItem(SOLO_PROGRESS_KEY, JSON.stringify({
+      unlocked: unlockedOpponentCount,
+      updatedAt: Date.now(),
+    }));
+  }
+
+  function applyOpponentLocks() {
+    unlockedOpponentCount = readSoloProgress();
+    opponentCards.forEach((card, index) => {
+      const unlocked = index < unlockedOpponentCount;
+      const art = card.querySelector(".opponent-card-art");
+      card.disabled = !unlocked;
+      card.classList.toggle("locked", !unlocked);
+      card.setAttribute("aria-disabled", unlocked ? "false" : "true");
+      if (art) art.src = unlocked ? card.dataset.unlockedSrc : "/assets/cards/locked_card.png";
+    });
+  }
+
+  function unlockNextOpponent() {
+    if (selectedOpponentIndex + 1 >= SOLO_OPPONENTS.length) return false;
+    const nextUnlockedCount = selectedOpponentIndex + 2;
+    if (unlockedOpponentCount >= nextUnlockedCount) return false;
+    unlockedOpponentCount = nextUnlockedCount;
+    saveSoloProgress();
+    applyOpponentLocks();
+    return true;
   }
 
   function showGame() {
@@ -551,6 +622,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       fen: chess.fen(),
       strength: getElo(),
       opponentTheme: selectedOpponentTheme,
+      opponentIndex: selectedOpponentIndex,
       savedAt: Date.now(),
     }));
   }
@@ -598,6 +670,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       chess.load(state.fen);
       soloActive = true;
       if (state.strength) syncStrength(String(state.strength));
+      selectedOpponentIndex = Number(state.opponentIndex || 0);
       selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
       cpChips.innerHTML = "";
       showGame();
@@ -620,7 +693,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function checkGameOver() {
     if (chess.isCheckmate()) {
-      setStatus(chess.turn() === "w" ? "Black wins — Checkmate!" : "White wins — Checkmate!", "over");
+      const playerWonSolo = soloActive && coop?.phase === "off" && chess.turn() === "b";
+      const unlockedNext = playerWonSolo && unlockNextOpponent();
+      const message = chess.turn() === "w" ? "Black wins — Checkmate!" : "White wins — Checkmate!";
+      setStatus(unlockedNext ? `${message} New opponent unlocked.` : message, "over");
       board.disableMoveInput();
       return true;
     }
@@ -713,7 +789,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const lbRoom       = document.getElementById("lb-room");
   const lbProfile    = document.getElementById("lb-profile");
   const lbFriends    = document.getElementById("lb-friends");
-  const cpNameInput  = document.getElementById("cp-name");
+  const cpAccountName = document.getElementById("cp-account-name");
+  const cpAccountDetail = document.getElementById("cp-account-detail");
   const cpConnectBtn = document.getElementById("cp-connect-btn");
   const lbBackBtn    = document.getElementById("lb-back-btn");
   const cpLinkEl     = document.getElementById("cp-link");
@@ -725,10 +802,15 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const cpFlowKicker = document.getElementById("cp-flow-kicker");
   const cpRoomMeta   = document.getElementById("cp-room-meta");
   const cpStrengthSettings = document.getElementById("cp-strength-settings");
+  const cpInviteMessage = document.getElementById("cp-invite-message");
+  const cpInviteList = document.getElementById("cp-invite-list");
   const backBtn      = document.getElementById("back-btn");
   const authBar      = document.getElementById("auth-bar");
   const authLabel    = document.getElementById("auth-label");
   const authBtn      = document.getElementById("auth-btn");
+  const profileAccountCard = document.getElementById("profile-account-card");
+  const profileAccountName = document.getElementById("profile-account-name");
+  const profileAuthBtn = document.getElementById("profile-auth-btn");
   const navPlay      = document.getElementById("nav-play");
   const navProfile   = document.getElementById("nav-profile");
   const navFriends   = document.getElementById("nav-friends");
@@ -759,11 +841,19 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     friends: [],
     incoming: [],
     outgoing: [],
+    invites: [],
     results: [],
     error: "",
     busyKey: "",
   };
   let friendSearchTimer = null;
+  const coopInviteState = {
+    loading: false,
+    error: "",
+    friends: [],
+    sent: new Set(),
+    busyKey: "",
+  };
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, ch => ({
@@ -825,6 +915,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       usernameSaveBtn.disabled = true;
       friendRequestsEl.innerHTML = "";
       friendResultsEl.innerHTML = "";
+      friendState.invites = [];
       friendListEl.innerHTML = `
         <div class="empty-state friend-empty">
           <div>
@@ -845,6 +936,15 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       ? `Other players can find you as ${authInfo.user.username}.`
       : "Choose a username so other players can find you.";
 
+    const inviteHtml = friendState.invites.map(invite => friendRow(
+      invite.inviter,
+      `Invited you to room ${invite.roomId}`,
+      `<div class="friend-actions">
+        <button class="sm-btn primary-mini" type="button" data-friend-action="join-invite" data-room-id="${escapeHtml(invite.roomId)}">Join</button>
+        <button class="sm-btn" type="button" data-friend-action="dismiss-invite" data-invite-id="${invite.id}" ${friendState.busyKey === `dismiss-invite:${invite.id}` ? "disabled" : ""}>Dismiss</button>
+      </div>`
+    )).join("");
+
     const incomingHtml = friendState.incoming.map(request => friendRow(
       { name: request.name, email: request.email, picture: request.picture },
       "Wants to be friends",
@@ -858,8 +958,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       "Request sent",
       `<span class="friend-status-label">Pending</span>`
     )).join("");
-    friendRequestsEl.innerHTML = incomingHtml || outgoingHtml
+    const inviteSection = inviteHtml
+      ? `<div class="friend-section-title">Game invites</div>${inviteHtml}`
+      : "";
+    const requestSection = incomingHtml || outgoingHtml
       ? `<div class="friend-section-title">Requests</div>${incomingHtml}${outgoingHtml}`
+      : "";
+    friendRequestsEl.innerHTML = inviteSection || requestSection
+      ? `${inviteSection}${requestSection}`
       : "";
 
     if (friendState.searchQuery.trim()) {
@@ -921,19 +1027,22 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     renderFriends();
 
     try {
-      const [friendsPayload, requestsPayload] = await Promise.all([
+      const [friendsPayload, requestsPayload, invitesPayload] = await Promise.all([
         apiJson("/api/friends"),
         apiJson("/api/friends/requests"),
+        apiJson("/api/coop/invites"),
       ]);
       friendState.friends = friendsPayload.friends || [];
       friendState.incoming = requestsPayload.incoming || [];
       friendState.outgoing = requestsPayload.outgoing || [];
+      friendState.invites = invitesPayload.invites || [];
       friendState.loaded = true;
     } catch (err) {
       friendState.error = err.message;
       friendState.friends = [];
       friendState.incoming = [];
       friendState.outgoing = [];
+      friendState.invites = [];
     } finally {
       friendState.loading = false;
       renderFriends();
@@ -994,6 +1103,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function showSoloSetup() {
     setNavActive("play");
+    applyOpponentLocks();
     clearOpponentSelection();
     lbMain.style.display = "none";
     lbSolo.style.display = "flex";
@@ -1012,6 +1122,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+    renderCoopAccount(urlRoom || coop?.roomId);
   }
 
   function showProfileView() {
@@ -1035,7 +1146,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "flex";
-    if (!friendState.loaded && !friendState.loading) loadFriends();
+    if (!friendState.loading) loadFriends();
     else renderFriends();
   }
 
@@ -1062,6 +1173,22 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (playerId) localStorage.setItem(playerKey(roomId), playerId);
   }
 
+  function coopPlayerName(roomId) {
+    return authInfo.user?.username
+      || authInfo.user?.name
+      || authInfo.user?.email
+      || storedPlayerName(roomId)
+      || "Player";
+  }
+
+  function renderCoopAccount(roomId) {
+    const name = coopPlayerName(roomId);
+    cpAccountName.textContent = name;
+    cpAccountDetail.textContent = authInfo.user?.email && authInfo.user.email !== name
+      ? authInfo.user.email
+      : "Ready to play co-op.";
+  }
+
   function setRoomUrl(roomId) {
     const target = `${location.pathname}?room=${roomId}`;
     if (location.search !== `?room=${roomId}`)
@@ -1080,21 +1207,29 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
     if (!authInfo.authEnabled) {
       authBar.style.display = "none";
+      profileAccountCard.style.display = "none";
       return;
     }
 
-    authBar.style.display = "flex";
+    authBar.style.display = "none";
+    profileAccountCard.style.display = "flex";
     if (authInfo.user) {
-      authLabel.textContent = authInfo.user.name || authInfo.user.email || "Signed in";
+      const accountName = authInfo.user.name || authInfo.user.email || "Signed in";
+      authLabel.textContent = accountName;
+      profileAccountName.textContent = accountName;
       welcomeName.textContent = authInfo.user.username || authInfo.user.name || "Wanderer";
       authBtn.textContent = "Sign out";
       authBtn.onclick = () => { location.href = authInfo.logoutUrl; };
-      if (!cpNameInput.value.trim())
-        cpNameInput.value = authInfo.user.name || authInfo.user.email || "";
+      profileAuthBtn.textContent = "Sign out";
+      profileAuthBtn.onclick = () => { location.href = authInfo.logoutUrl; };
+      renderCoopAccount(urlRoom || coop?.roomId);
     } else {
       authLabel.textContent = "Sign in to save games";
       authBtn.textContent = "Sign in";
       authBtn.onclick = () => { location.href = authInfo.loginUrl; };
+      profileAccountName.textContent = "Not signed in";
+      profileAuthBtn.textContent = "Sign in";
+      profileAuthBtn.onclick = () => { location.href = authInfo.loginUrl; };
       lbMain.style.display = "none";
       lbSolo.style.display = "none";
       lbConnect.style.display = "none";
@@ -1119,7 +1254,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     cpConnectBtn.textContent = "Join Game";
     cpFlowTitle.textContent = "Join game";
     cpFlowKicker.textContent = "Room link";
-    cpNameInput.value = authInfo.user?.name || storedPlayerName(urlRoom);
+    renderCoopAccount(urlRoom);
   }
 
   navPlay.onclick = () => showPlayView();
@@ -1151,6 +1286,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     const action = button.dataset.friendAction;
     const userId = button.dataset.userId;
     const requestId = button.dataset.requestId;
+    const inviteId = button.dataset.inviteId;
+    const roomId = button.dataset.roomId;
     if (action === "add" && userId) {
       runFriendAction(`add:${userId}`, () => apiJson("/api/friends/requests", {
         method: "POST",
@@ -1162,17 +1299,24 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       runFriendAction(`decline:${requestId}`, () => apiJson(`/api/friends/requests/${requestId}/decline`, { method: "POST" }));
     } else if (action === "remove" && userId) {
       runFriendAction(`remove:${userId}`, () => apiJson(`/api/friends/${encodeURIComponent(userId)}`, { method: "DELETE" }));
+    } else if (action === "join-invite" && roomId) {
+      location.href = `${location.pathname}?room=${encodeURIComponent(roomId)}`;
+    } else if (action === "dismiss-invite" && inviteId) {
+      runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
     }
   });
   document.getElementById("play-solo-btn").onclick = () => showSoloSetup();
   opponentCards.forEach(card => {
     card.onclick = () => {
+      if (card.disabled || card.classList.contains("locked")) return;
       syncStrength(card.dataset.opponentStrength);
+      selectedOpponentIndex = Number(card.dataset.opponentIndex || 0);
       selectedOpponentTheme = card.dataset.opponentTheme || opponentThemeForStrength(card.dataset.opponentStrength);
       updateOpponentSelection(card.dataset.opponentStrength);
       soloStartBtn.disabled = false;
     };
   });
+  applyOpponentLocks();
   clearOpponentSelection();
   soloStartBtn.onclick = () => startSoloGame();
   soloBackBtn.onclick = () => {
@@ -1181,7 +1325,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   };
 
   document.getElementById("play-coop-btn").onclick = () => {
-    return;
     if (authInfo.authEnabled && !authInfo.user) {
       location.href = authInfo.loginUrl;
       return;
@@ -1196,10 +1339,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   cpConnectBtn.onclick = () => connectCoop(urlRoom ? "join" : "create");
 
-  cpNameInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") cpConnectBtn.click();
-  });
-
   cpStartBtn.onclick = () => coop.ws?.send(JSON.stringify({ type: "start" }));
   cpLeaveBtn.onclick = () => leaveCoop();
 
@@ -1210,17 +1349,17 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     });
   };
 
+  cpInviteList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-coop-invite-user-id]");
+    if (!button) return;
+    sendCoopInvite(button.dataset.coopInviteUserId);
+  });
+
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
     if (coop.phase !== "off") leaveCoop();
     else showLobby();
   };
-
-  window.addEventListener("beforeunload", (event) => {
-    if (!shouldWarnBeforeExitingGame()) return;
-    event.preventDefault();
-    event.returnValue = "";
-  });
 
   // ── Coop mode ─────────────────────────────────────────────────────────────
 
@@ -1238,6 +1377,86 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function allPlayersReady(players) {
     return players.length > 0 && players.every(player => player.maiaReady);
+  }
+
+  function renderCoopInviteFriends() {
+    cpInviteMessage.textContent = coopInviteState.error;
+    cpInviteMessage.className = `friend-message${coopInviteState.error ? " visible" : ""}`;
+
+    if (!authInfo.user) {
+      cpInviteList.innerHTML = `
+        <div class="empty-state friend-empty">
+          <div>
+            <strong>Sign in to invite friends</strong>
+            <span>Co-op rooms are connected to your account.</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (coopInviteState.loading) {
+      cpInviteList.innerHTML = `<div class="empty-state friend-empty">Loading friends...</div>`;
+      return;
+    }
+
+    const joinedUserIds = new Set((coop.players || []).map(player => player.userId).filter(Boolean));
+    const friends = coopInviteState.friends.filter(friend => !joinedUserIds.has(friend.id));
+    cpInviteList.innerHTML = friends.map(friend => {
+      const sent = coopInviteState.sent.has(friend.id);
+      const busy = coopInviteState.busyKey === friend.id;
+      return friendRow(
+        friend,
+        sent ? "Invite sent" : friendMeta(friend),
+        `<button class="sm-btn ${sent ? "" : "primary-mini"}" type="button" data-coop-invite-user-id="${escapeHtml(friend.id)}" ${sent || busy ? "disabled" : ""}>${busy ? "Sending..." : sent ? "Sent" : "Invite"}</button>`
+      );
+    }).join("") || `
+      <div class="empty-state friend-empty">
+        <div>
+          <strong>No friends to invite</strong>
+          <span>Add friends first, then invite them here.</span>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadCoopInviteFriends() {
+    if (!authInfo.user || !coop.roomId) {
+      renderCoopInviteFriends();
+      return;
+    }
+    coopInviteState.loading = true;
+    coopInviteState.error = "";
+    renderCoopInviteFriends();
+    try {
+      const payload = await apiJson("/api/friends");
+      coopInviteState.friends = payload.friends || [];
+    } catch (err) {
+      coopInviteState.error = err.message;
+      coopInviteState.friends = [];
+    } finally {
+      coopInviteState.loading = false;
+      renderCoopInviteFriends();
+    }
+  }
+
+  async function sendCoopInvite(userId) {
+    if (!coop.roomId || !userId) return;
+    coopInviteState.busyKey = userId;
+    coopInviteState.error = "";
+    renderCoopInviteFriends();
+    try {
+      await apiJson("/api/coop/invites", {
+        method: "POST",
+        body: JSON.stringify({ roomId: coop.roomId, userId }),
+      });
+      coopInviteState.sent.add(userId);
+    } catch (err) {
+      coopInviteState.error = err.message;
+    } finally {
+      coopInviteState.busyKey = "";
+      renderCoopInviteFriends();
+    }
   }
 
   function renderRoomLobby(players, myIdx) {
@@ -1275,6 +1494,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     cpStartBtn.title = ready ? "" : "The game is loading on all players' devices.";
     if (ready) hideModelLoading();
     else showModelLoading("Preparing game...");
+    renderCoopInviteFriends();
   }
 
   function clearReconnectTimer() {
@@ -1285,8 +1505,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function connectCoop(action, opts = {}) {
     const roomId = opts.roomId || new URLSearchParams(location.search).get("room") || coop.roomId;
-    const name = opts.name || cpNameInput.value.trim() || authInfo.user?.name || storedPlayerName(roomId);
-    if (!name) { cpNameInput.focus(); return; }
+    const name = opts.name || coopPlayerName(roomId);
     clearReconnectTimer();
     coop.leaving = false;
     const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -1320,7 +1539,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     }
 
     const roomId = coop.roomId || new URLSearchParams(location.search).get("room");
-    const name = cpNameInput.value.trim() || authInfo.user?.name || storedPlayerName(roomId);
+    const name = coopPlayerName(roomId);
     if (!roomId || !name) {
       leaveCoop();
       return;
@@ -1372,9 +1591,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;
       coop.reconnectAttempts = 0;
-      rememberRoom(msg.roomId, cpNameInput.value.trim() || authInfo.user?.name, msg.playerId);
+      coopInviteState.sent.clear();
+      rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
       renderInviteLink(msg.roomId);
+      loadCoopInviteFriends();
       lbMain.style.display = "none";
       lbSolo.style.display = "none";
       lbConnect.style.display = "none";
@@ -1389,9 +1610,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;
       coop.reconnectAttempts = 0;
-      rememberRoom(msg.roomId, cpNameInput.value.trim() || authInfo.user?.name || storedPlayerName(msg.roomId), msg.playerId);
+      rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
       renderInviteLink(msg.roomId);
+      loadCoopInviteFriends();
       return;
     }
 
@@ -1416,6 +1638,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         lbRoom.style.display = "flex";
         lbProfile.style.display = "none";
         lbFriends.style.display = "none";
+        if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
         renderRoomLobby(msg.players, msg.myIdx);
         return;
       }

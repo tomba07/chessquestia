@@ -1,5 +1,4 @@
-- restyle profile screen
-- restyle friends screen
+- deployment script
 - friend status
 - password auth
 - campaign mode

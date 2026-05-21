@@ -41,7 +41,10 @@ function getLanIp() {
 let publicBase = process.env.PUBLIC_BASE_URL || null; // also overridden by --tunnel
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
-const authEnabled = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+const googleAuthEnabled = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+const isDev = process.env.NODE_ENV !== "production";
+const localAuthEnabled = process.env.LOCAL_AUTH === "1" || (isDev && process.env.LOCAL_AUTH !== "0");
+const authEnabled = googleAuthEnabled || localAuthEnabled;
 
 // ── SQLite persistence ────────────────────────────────────────────────────────
 
@@ -129,6 +132,20 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_friend_requests_requester_id ON friend_requests(requester_id);
   CREATE INDEX IF NOT EXISTS idx_friend_requests_addressee_id ON friend_requests(addressee_id);
+
+  CREATE TABLE IF NOT EXISTS room_invites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    inviter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    invitee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at INTEGER NOT NULL,
+    responded_at INTEGER,
+    UNIQUE(room_id, invitee_id),
+    CHECK (inviter_id != invitee_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_room_invites_invitee_id ON room_invites(invitee_id);
+  CREATE INDEX IF NOT EXISTS idx_room_invites_room_id ON room_invites(room_id);
 `);
 
 function inTransaction(fn) {
@@ -393,6 +410,19 @@ function createFriendship(userId, friendId) {
   `).run(firstId, secondId, Date.now());
 }
 
+function areFriends(userId, friendId) {
+  const [firstId, secondId] = friendshipPair(userId, friendId);
+  return !!db.prepare(`
+    SELECT 1 FROM friendships WHERE user_id = ? AND friend_id = ?
+  `).get(firstId, secondId);
+}
+
+function roomHasUser(roomId, userId) {
+  return !!db.prepare(`
+    SELECT 1 FROM room_players WHERE room_id = ? AND user_id = ?
+  `).get(roomId, userId);
+}
+
 function upsertGoogleUser(profile) {
   const userId = `google:${profile.sub}`;
   const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
@@ -422,6 +452,31 @@ function upsertGoogleUser(profile) {
   return userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
 }
 
+function upsertLocalUser() {
+  const userId = "local:dev";
+  const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  const username = existing?.username || uniqueUsername("local_player", userId);
+  db.prepare(`
+    INSERT INTO users
+      (id, provider, provider_sub, username, email, email_verified, name, picture, created_at, last_login_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      last_login_at = excluded.last_login_at
+  `).run(
+    userId,
+    "local",
+    "dev",
+    username,
+    existing?.email || "local@chessquestia.dev",
+    1,
+    existing?.name || "Local Player",
+    existing?.picture || "",
+    existing?.created_at || Date.now(),
+    Date.now(),
+  );
+  return userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
+}
+
 migrateAuthJson();
 backfillUsernames();
 cleanupExpiredSessions();
@@ -431,7 +486,7 @@ app.get("/api/me", (req, res) => {
   res.json({
     authEnabled,
     user: publicUser(currentUser(req)),
-    loginUrl: `/auth/google?next=${next}`,
+    loginUrl: `${googleAuthEnabled ? "/auth/google" : "/auth/local"}?next=${next}`,
     logoutUrl: `/auth/logout?next=${next}`,
   });
 });
@@ -645,8 +700,127 @@ app.delete("/api/friends/:id", (req, res) => {
   res.json({ message: "Friend removed" });
 });
 
+app.get("/api/coop/invites", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const invites = db.prepare(`
+    SELECT
+      ri.id,
+      ri.room_id,
+      ri.created_at,
+      rooms.phase,
+      inviter.id AS inviter_id,
+      inviter.username AS inviter_username,
+      inviter.name AS inviter_name,
+      inviter.email AS inviter_email,
+      inviter.picture AS inviter_picture
+    FROM room_invites ri
+    JOIN rooms ON rooms.id = ri.room_id
+    JOIN users inviter ON inviter.id = ri.inviter_id
+    WHERE ri.invitee_id = ?
+      AND ri.status = 'pending'
+      AND rooms.phase = 'lobby'
+    ORDER BY ri.created_at DESC
+  `).all(user.id).map(row => ({
+    id: row.id,
+    roomId: row.room_id,
+    createdAt: row.created_at,
+    phase: row.phase,
+    inviter: publicFriendUser({
+      id: row.inviter_id,
+      username: row.inviter_username,
+      name: row.inviter_name,
+      email: row.inviter_email,
+      picture: row.inviter_picture,
+      created_at: row.created_at,
+    }),
+  }));
+
+  res.json({ invites });
+});
+
+app.post("/api/coop/invites", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const roomId = String(req.body?.roomId || req.body?.room_id || "").trim();
+  const inviteeId = String(req.body?.userId || req.body?.inviteeId || req.body?.invitee_id || "").trim();
+  if (!roomId || !inviteeId) {
+    res.status(400).json({ error: "Invalid invite" });
+    return;
+  }
+  if (inviteeId === user.id) {
+    res.status(400).json({ error: "You are already in this room" });
+    return;
+  }
+
+  const room = db.prepare("SELECT id, phase FROM rooms WHERE id = ?").get(roomId);
+  if (!room) {
+    res.status(404).json({ error: "Room not found" });
+    return;
+  }
+  if (room.phase !== "lobby") {
+    res.status(400).json({ error: "This game has already started" });
+    return;
+  }
+  if (!roomHasUser(roomId, user.id)) {
+    res.status(403).json({ error: "Join the room before inviting friends" });
+    return;
+  }
+
+  const invitee = db.prepare("SELECT * FROM users WHERE id = ?").get(inviteeId);
+  if (!invitee) {
+    res.status(404).json({ error: "Player not found" });
+    return;
+  }
+  if (!areFriends(user.id, inviteeId)) {
+    res.status(403).json({ error: "You can only invite friends" });
+    return;
+  }
+  if (roomHasUser(roomId, inviteeId)) {
+    res.status(400).json({ error: `${invitee.username || invitee.name || "That player"} is already in this room` });
+    return;
+  }
+
+  db.prepare(`
+    INSERT INTO room_invites (room_id, inviter_id, invitee_id, status, created_at, responded_at)
+    VALUES (?, ?, ?, 'pending', ?, NULL)
+    ON CONFLICT(room_id, invitee_id) DO UPDATE SET
+      inviter_id = excluded.inviter_id,
+      status = 'pending',
+      created_at = excluded.created_at,
+      responded_at = NULL
+  `).run(roomId, user.id, inviteeId, Date.now());
+
+  res.json({ message: `Invite sent to ${invitee.username || invitee.name || invitee.email}` });
+});
+
+app.post("/api/coop/invites/:id/dismiss", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const inviteId = Number(req.params.id);
+  if (!Number.isInteger(inviteId)) {
+    res.status(400).json({ error: "Invalid invite" });
+    return;
+  }
+
+  const result = db.prepare(`
+    UPDATE room_invites
+    SET status = 'dismissed', responded_at = ?
+    WHERE id = ? AND invitee_id = ? AND status = 'pending'
+  `).run(Date.now(), inviteId, user.id);
+  if (!result.changes) {
+    res.status(404).json({ error: "Invite not found" });
+    return;
+  }
+
+  res.json({ message: "Invite dismissed" });
+});
+
 app.get("/auth/google", (req, res) => {
-  if (!authEnabled) {
+  if (!googleAuthEnabled) {
     res.status(503).send("Google sign-in is not configured.");
     return;
   }
@@ -670,7 +844,7 @@ app.get("/auth/google", (req, res) => {
 
 app.get("/auth/google/callback", async (req, res) => {
   try {
-    if (!authEnabled) throw new Error("Google sign-in is not configured.");
+    if (!googleAuthEnabled) throw new Error("Google sign-in is not configured.");
     const state = String(req.query.state || "");
     const cookies = parseCookies(req);
     const saved = oauthStates.get(state);
@@ -716,6 +890,20 @@ app.get("/auth/google/callback", async (req, res) => {
   }
 });
 
+app.get("/auth/local", (req, res) => {
+  if (!localAuthEnabled) {
+    res.status(404).send("Local sign-in is not enabled.");
+    return;
+  }
+  const user = upsertLocalUser();
+  const sessionToken = createSession(user.id);
+  res.setHeader("Set-Cookie", cookieHeader(SESSION_COOKIE, sessionToken, {
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    secure: isSecureRequest(req),
+  }));
+  res.redirect(safeNextPath(req.query.next || "/"));
+});
+
 app.get("/auth/logout", (req, res) => {
   const token = parseCookies(req)[SESSION_COOKIE];
   if (token) {
@@ -738,7 +926,8 @@ app.use((req, res, next) => {
     next();
     return;
   }
-  res.redirect(`/auth/google?next=${encodeURIComponent(safeNextPath(req.originalUrl || "/"))}`);
+  const loginPath = googleAuthEnabled ? "/auth/google" : "/auth/local";
+  res.redirect(`${loginPath}?next=${encodeURIComponent(safeNextPath(req.originalUrl || "/"))}`);
 });
 
 // ── Hot reload (SSE, dev only) ────────────────────────────────────────────────
@@ -1070,12 +1259,12 @@ function attachWebSocketHandlers() {
 
       case "create": {
         if (authEnabled && !user) {
-          ws.send(JSON.stringify({ type: "error", code: "auth-required", message: "Sign in with Google to play coop." }));
+          ws.send(JSON.stringify({ type: "error", code: "auth-required", message: "Sign in to play co-op." }));
           return;
         }
         const roomId = randomUUID().slice(0, 8);
         const playerId = randomUUID();
-        const name = user?.name || msg.name || "Player";
+        const name = user?.username || user?.name || msg.name || "Player";
         const room = {
           id: roomId,
           hostPlayerId: playerId,
@@ -1109,7 +1298,7 @@ function attachWebSocketHandlers() {
 
       case "join": {
         if (authEnabled && !user) {
-          ws.send(JSON.stringify({ type: "error", code: "auth-required", message: "Sign in with Google to join coop." }));
+          ws.send(JSON.stringify({ type: "error", code: "auth-required", message: "Sign in to join co-op." }));
           return;
         }
         const room = rooms.get(msg.roomId);
@@ -1137,13 +1326,20 @@ function attachWebSocketHandlers() {
         room.players.set(playerId, {
           id: playerId,
           userId: user?.id || existing?.userId || null,
-          name: user?.name || msg.name || existing?.name || "Player",
+          name: user?.username || user?.name || msg.name || existing?.name || "Player",
           ws,
           connected: true,
           maiaReady: !!msg.maiaReady,
           lastSeen: Date.now(),
         });
         if (!room.order.includes(playerId)) room.order.push(playerId);
+        if (user?.id) {
+          db.prepare(`
+            UPDATE room_invites
+            SET status = 'accepted', responded_at = ?
+            WHERE room_id = ? AND invitee_id = ? AND status = 'pending'
+          `).run(Date.now(), room.id, user.id);
+        }
         currentRoomId = msg.roomId;
         currentPlayerId = playerId;
         persistRooms();
