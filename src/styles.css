@@ -215,6 +215,62 @@
       opacity: 0.9;
     }
 
+    .invite-badge {
+      min-width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: #b46b1d;
+      color: #fff7df;
+      padding: 0 5px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      box-shadow: 0 2px 5px rgba(81, 50, 17, 0.24);
+    }
+
+    .coop-invite-notice {
+      position: absolute;
+      z-index: 5;
+      top: 7.5cqh;
+      right: 8cqw;
+      width: min(360px, 36cqw);
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      border: 2px solid rgba(119, 86, 43, 0.26);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.84), rgba(244, 224, 184, 0.72)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 12px 14px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.28),
+        0 16px 28px rgba(73, 48, 20, 0.14);
+      color: var(--ink);
+    }
+    .coop-invite-notice > div:first-child {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .coop-invite-notice strong {
+      font-family: var(--story-font);
+      font-size: 20px;
+      line-height: 1;
+    }
+    .coop-invite-notice span {
+      overflow: hidden;
+      color: rgba(59, 45, 29, 0.72);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .auth-bar {
       position: absolute;
       z-index: 4;
@@ -287,7 +343,7 @@
       gap: clamp(30px, 5cqw, 76px);
     }
 
-    #lb-solo, #lb-connect, #lb-room, #lb-friends, #lb-profile {
+    #lb-solo, #lb-room, #lb-friends, #lb-profile {
       top: 18cqh;
     }
 
@@ -621,7 +677,6 @@
       display: none;
     }
 
-    #lb-connect.lobby-panel,
     #lb-room.lobby-panel {
       width: 620px;
       max-height: none;
@@ -647,7 +702,6 @@
       padding: 0 4px 12px;
       scrollbar-width: thin;
     }
-    #lb-connect .panel-head,
     #lb-room .panel-head {
       flex-direction: column;
       justify-content: center;
@@ -656,13 +710,11 @@
       text-align: center;
       text-shadow: 0 1px 0 rgba(255, 248, 226, 0.9);
     }
-    #lb-connect .panel-title,
     #lb-room .panel-title {
       font-size: 44px;
       line-height: 1;
       font-weight: 800;
     }
-    #lb-connect .panel-kicker,
     #lb-room .panel-kicker {
       color: rgba(59, 45, 29, 0.68);
       font-size: 15px;
@@ -885,6 +937,47 @@
         0 18px 30px rgba(73, 48, 20, 0.11);
     }
 
+    .friend-link-card {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 2px solid rgba(119, 86, 43, 0.24);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.66), rgba(244, 224, 184, 0.56)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 16px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.28),
+        0 16px 28px rgba(73, 48, 20, 0.1);
+    }
+    .friend-link-card p {
+      margin: 0;
+      color: rgba(59, 45, 29, 0.7);
+      font-size: 13px;
+      line-height: 1.35;
+      text-align: center;
+    }
+    .friend-link-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    #friend-invite-link {
+      min-width: 0;
+      flex: 1;
+      min-height: 42px;
+      background: rgba(255, 250, 243, 0.82);
+      color: var(--ink);
+      border: 1px solid rgba(119, 86, 43, 0.34);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+
     .username-card {
       width: 100%;
       display: flex;
@@ -949,6 +1042,39 @@
       padding: 0 18px;
       font-size: 14px;
       font-weight: 700;
+    }
+    .dev-login-card {
+      width: 100%;
+      flex-direction: column;
+      gap: 12px;
+      border: 2px solid rgba(119, 86, 43, 0.24);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.66), rgba(244, 224, 184, 0.56)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 16px 18px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.28),
+        0 16px 28px rgba(73, 48, 20, 0.1);
+    }
+    .dev-login-card > span {
+      color: var(--ink);
+      font-family: var(--story-font);
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 800;
+      text-align: center;
+    }
+    .dev-login-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .dev-login-options .sm-btn {
+      min-height: 42px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 800;
     }
     .username-row {
       display: flex;
@@ -1143,76 +1269,6 @@
       font-size: 12px;
     }
 
-    .coop-account-card {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      border: 2px solid rgba(119, 86, 43, 0.24);
-      border-radius: 10px;
-      background:
-        linear-gradient(rgba(255, 248, 229, 0.68), rgba(244, 224, 184, 0.58)),
-        url("/assets/backgrounds/background_parchment.png") center / cover;
-      padding: 18px 20px;
-      box-shadow:
-        inset 0 0 0 4px rgba(255, 248, 229, 0.28),
-        0 14px 24px rgba(73, 48, 20, 0.08);
-      text-align: center;
-    }
-    .coop-account-card span {
-      color: rgba(59, 45, 29, 0.66);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .coop-account-card strong {
-      max-width: 100%;
-      overflow: hidden;
-      color: var(--ink);
-      font-family: var(--story-font);
-      font-size: 28px;
-      line-height: 1;
-      font-weight: 800;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .coop-account-card small {
-      max-width: 100%;
-      overflow: hidden;
-      color: rgba(59, 45, 29, 0.7);
-      font-size: 13px;
-      line-height: 1.25;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .cp-link-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      border: 2px solid rgba(119, 86, 43, 0.24);
-      border-radius: 10px;
-      background:
-        linear-gradient(rgba(255, 248, 229, 0.68), rgba(244, 224, 184, 0.58)),
-        url("/assets/backgrounds/background_parchment.png") center / cover;
-      padding: 12px;
-      box-shadow:
-        inset 0 0 0 4px rgba(255, 248, 229, 0.28),
-        0 14px 24px rgba(73, 48, 20, 0.08);
-    }
-    #cp-link {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: rgba(59, 45, 29, 0.72);
-      font-family: ui-monospace, monospace;
-      font-size: 13px;
-    }
-
     #cp-player-list {
       display: flex;
       flex-direction: column;
@@ -1369,6 +1425,27 @@
         width: 16px;
         height: 16px;
       }
+      .invite-badge {
+        min-width: 15px;
+        height: 15px;
+        padding: 0 4px;
+        font-size: 9px;
+      }
+      .coop-invite-notice {
+        top: 60px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+        gap: 8px;
+        padding: 10px 12px;
+      }
+      .coop-invite-notice strong {
+        font-size: 18px;
+      }
+      .coop-invite-notice .friend-actions {
+        width: auto;
+        flex-shrink: 0;
+      }
       .auth-bar {
         position: absolute;
         top: 60px;
@@ -1392,7 +1469,6 @@
       }
       #lb-main.lobby-panel,
       #lb-solo.lobby-panel,
-      #lb-connect.lobby-panel,
       #lb-room.lobby-panel,
       #lb-friends.lobby-panel,
       #lb-profile.lobby-panel {
@@ -1403,7 +1479,6 @@
         overflow-y: auto;
         overflow-x: hidden;
       }
-      #lb-connect.lobby-panel,
       #lb-room.lobby-panel {
         top: 92px;
         right: 22px;
@@ -1413,19 +1488,11 @@
         max-height: none;
         transform: none;
       }
-      #lb-connect .panel-title,
       #lb-room .panel-title {
         font-size: 34px;
       }
-      #lb-connect .panel-kicker,
       #lb-room .panel-kicker {
         font-size: 13px;
-      }
-      .coop-account-card {
-        padding: 15px;
-      }
-      .coop-account-card strong {
-        font-size: 24px;
       }
       #lb-main.lobby-panel {
         width: auto;
@@ -1497,7 +1564,6 @@
     @media (max-width: 420px) {
       .mode-grid { flex-direction: column; }
       .lb-btns { flex-direction: column; }
-      .cp-link-row { align-items: stretch; flex-direction: column; }
       .friend-card {
         align-items: flex-start;
         flex-wrap: wrap;
@@ -1526,8 +1592,16 @@
         font-size: 36px;
       }
       .friend-tools,
+      .friend-link-card,
       .friend-section {
         padding: 14px;
+      }
+      .friend-link-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .friend-link-actions .sm-btn {
+        width: 100%;
       }
       #friend-search {
         min-height: 44px;
@@ -1580,6 +1654,9 @@
         flex-direction: column;
         align-items: stretch;
         padding: 14px;
+      }
+      .dev-login-options {
+        grid-template-columns: 1fr;
       }
       #profile-auth-btn {
         width: 100%;
@@ -1741,11 +1818,11 @@
     }
     #game-score {
       position: absolute;
-      top: 39%;
+      top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 50px;
-      line-height: 0.82;
+      font-size: 30px;
+      line-height: 1;
       font-weight: 800;
       color: #5b3b21;
       text-shadow: 0 2px 0 rgba(255, 245, 219, 0.72);
@@ -1757,7 +1834,7 @@
     #game-status {
       width: 62%;
       position: absolute;
-      top: 62%;
+      top: 65%;
       left: 50%;
       transform: translateX(-50%);
       margin-top: 0;
@@ -1771,6 +1848,59 @@
     }
     #game-status.thinking { color: var(--accent); }
     #game-status.over     { color: var(--text); font-weight: 800; }
+
+    .game-outcome-overlay {
+      position: absolute;
+      display: none;
+      z-index: 5;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background:
+        radial-gradient(circle at 50% 43%, rgba(255, 248, 224, 0.28), transparent 38%),
+        rgba(41, 28, 16, 0.54);
+      backdrop-filter: blur(3px);
+    }
+    .game-outcome-overlay.visible {
+      display: flex;
+    }
+    .game-outcome-modal {
+      width: min(560px, 88vw);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      padding: 0;
+    }
+    .game-outcome-banner {
+      width: min(430px, 100%);
+      aspect-ratio: 2027 / 625;
+      flex: 0 0 auto;
+      background-position: center;
+      background-size: contain;
+      background-repeat: no-repeat;
+      filter: drop-shadow(0 16px 26px rgba(44, 27, 14, 0.2));
+      pointer-events: none;
+    }
+    .game-outcome-continue {
+      width: min(300px, 76vw);
+    }
+    .game-outcome-continue:focus-visible {
+      outline: 3px solid rgba(255, 248, 229, 0.78);
+      outline-offset: 4px;
+    }
+    .game-outcome-banner.victory,
+    .game-outcome-banner.defeat {
+      display: block;
+    }
+    .game-outcome-banner.victory {
+      background-image: url("/assets/backgrounds/victory_banner.png");
+    }
+    .game-outcome-banner.defeat {
+      aspect-ratio: 2020 / 568;
+      background-image: url("/assets/backgrounds/defeat_banner.png");
+    }
 
     .game-board-frame {
       width: var(--game-frame-size);
@@ -1858,13 +1988,25 @@
         top: 12px;
       }
       #game-score {
-        font-size: 31px;
+        font-size: 30px;
       }
       #game-status {
+        top: 65%;
         max-width: none;
         overflow: hidden;
         text-overflow: ellipsis;
         font-size: 10px;
+      }
+      .game-outcome-overlay {
+        padding: 18px;
+      }
+      .game-outcome-modal {
+        width: min(390px, 92vw);
+        gap: 16px;
+        padding: 22px 18px;
+      }
+      .game-outcome-banner {
+        width: min(300px, 100%);
       }
       .game-board-frame {
         margin-top: 94px;

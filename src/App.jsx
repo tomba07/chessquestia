@@ -9,7 +9,10 @@ function SideMenu() {
       <div className="side-brand">Chessquestia</div>
       <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/icons/solo_icon.png" alt="" />Home</button>
       <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/profile-icon.png" alt="" />Profile</button>
-      <button id="nav-friends" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends</button>
+      <button id="nav-friends" className="side-link" type="button">
+        <img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends
+        <span id="friend-invite-badge" className="invite-badge" hidden>0</span>
+      </button>
     </nav>
   );
 }
@@ -73,7 +76,7 @@ function SinglePlayerSetup() {
         <img src="/assets/icons/back-icon.png" alt="" />
       </button>
       <div className="bot-select-head">
-        <h2>Choose your opponent</h2>
+        <h2 id="bot-select-title">Choose your opponent</h2>
         <span className="home-divider" aria-hidden="true"></span>
       </div>
       <input type="hidden" id="strength-slider" defaultValue="1500" />
@@ -124,6 +127,15 @@ function FriendsPanel() {
       <div className="friend-tools">
         <input id="friend-search" placeholder="Search username" autoComplete="off" autoCapitalize="none" />
       </div>
+      <div className="friend-link-card">
+        <div className="friend-section-title">Friend link</div>
+        <p>Share this once so someone can add you directly.</p>
+        <div className="friend-link-actions">
+          <input id="friend-invite-link" readOnly />
+          <button id="friend-link-copy" className="sm-btn primary-mini" type="button">Copy</button>
+          <button id="friend-link-share" className="sm-btn" type="button">Share</button>
+        </div>
+      </div>
       <div id="friend-message" className="friend-message"></div>
       <div id="friend-requests" className="friend-section"></div>
       <div id="friend-results" className="friend-section"></div>
@@ -155,26 +167,9 @@ function ProfilePanel() {
         </div>
         <button id="profile-auth-btn" className="sm-btn" type="button"></button>
       </div>
-    </div>
-  );
-}
-
-function CoopNamePanel() {
-  return (
-    <div id="lb-connect" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
-        <div className="panel-title" id="cp-flow-title">Create game</div>
-        <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker" id="cp-flow-kicker">New room</div>
-      </div>
-      <div className="coop-account-card">
-        <span>Signed in as</span>
-        <strong id="cp-account-name">Player</strong>
-        <small id="cp-account-detail">Ready to play co-op.</small>
-      </div>
-      <div className="lb-btns">
-        <button id="cp-connect-btn" className="lb-btn primary" type="button">Create Game</button>
-        <button id="lb-back-btn" className="lb-btn" type="button">Back</button>
+      <div id="dev-login-card" className="dev-login-card" style={{ display: "none" }}>
+        <span>Dev login</span>
+        <div id="dev-login-options" className="dev-login-options"></div>
       </div>
     </div>
   );
@@ -188,17 +183,6 @@ function CoopRoomPanel() {
         <span className="home-divider" aria-hidden="true"></span>
         <div className="panel-kicker" id="cp-room-meta">Lobby</div>
       </div>
-      <div className="cp-link-row">
-        <span id="cp-link"></span>
-        <button id="cp-copy" className="sm-btn" type="button">Copy link</button>
-      </div>
-      <div className="lobby-settings" id="cp-strength-settings">
-        <label>
-          <span>Bot strength</span>
-          <span id="connect-strength-val">1500</span>
-        </label>
-        <input type="range" id="connect-strength-slider" min="400" max="2800" step="50" defaultValue="1500" />
-      </div>
       <div id="cp-player-list"></div>
       <div className="room-invite-panel">
         <div className="friend-section-title">Invite friends</div>
@@ -206,7 +190,7 @@ function CoopRoomPanel() {
         <div id="cp-invite-list" className="room-invite-list"></div>
       </div>
       <div className="lb-btns room-actions">
-        <button id="cp-start" className="lb-btn primary" style={{ display: "none" }} type="button">Start Game</button>
+        <button id="cp-start" className="lb-btn primary" style={{ display: "none" }} type="button">Continue</button>
         <button id="cp-leave" className="sm-btn" type="button">Leave</button>
       </div>
     </div>
@@ -237,11 +221,20 @@ function Lobby() {
         <span id="auth-label"></span>
         <button id="auth-btn" className="sm-btn" type="button"></button>
       </div>
+      <div id="coop-invite-notice" className="coop-invite-notice" style={{ display: "none" }}>
+        <div>
+          <strong id="coop-invite-title">Co-op invite</strong>
+          <span id="coop-invite-text"></span>
+        </div>
+        <div className="friend-actions">
+          <button id="coop-invite-join" className="sm-btn primary-mini" type="button">Join</button>
+          <button id="coop-invite-dismiss" className="sm-btn" type="button">Dismiss</button>
+        </div>
+      </div>
       <PlayPanel />
       <SinglePlayerSetup />
       <ProfilePanel />
       <FriendsPanel />
-      <CoopNamePanel />
       <CoopRoomPanel />
       <ModelLoading />
     </div>
@@ -258,6 +251,15 @@ function GameView() {
         <div id="game-score">+0</div>
         <div id="game-status">...</div>
       </div>
+      <div id="game-outcome-overlay" className="game-outcome-overlay" aria-hidden="true">
+        <div className="game-outcome-modal" role="dialog" aria-modal="true" aria-label="Game result">
+          <div id="game-outcome-banner" className="game-outcome-banner"></div>
+          <button id="game-outcome-continue" className="bot-continue-btn game-outcome-continue" type="button">
+            <img src="/assets/icons/submit-icon.png" alt="" />
+            <span>Continue</span>
+          </button>
+        </div>
+      </div>
       <div className="game-board-frame">
         <div id="board"></div>
       </div>
@@ -269,6 +271,7 @@ function GameView() {
 export default function App() {
   useEffect(() => {
     let disposed = false;
+    let invitePollTimer = null;
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
@@ -276,8 +279,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   const strengthSlider = document.getElementById("strength-slider");
   const strengthVal    = document.getElementById("strength-val");
-  const connectStrengthSlider = document.getElementById("connect-strength-slider");
-  const connectStrengthVal = document.getElementById("connect-strength-val");
   let opponentCards = [];
   function updateOpponentSelection(value) {
     opponentCards.forEach(card => {
@@ -293,18 +294,15 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     });
     if (soloStartBtn) soloStartBtn.disabled = true;
   }
+  function opponentForStrength(value) {
+    return SOLO_OPPONENTS.find(opponent => opponent.elo === parseInt(value, 10));
+  }
   function syncStrength(value) {
     strengthSlider.value = value;
-    connectStrengthSlider.value = value;
     strengthVal.textContent = value;
-    connectStrengthVal.textContent = value;
+    selectedOpponentTheme = opponentForStrength(value)?.theme || opponentThemeForStrength(value);
   }
   strengthSlider.oninput = () => syncStrength(strengthSlider.value);
-  connectStrengthSlider.oninput = () => {
-    syncStrength(connectStrengthSlider.value);
-    if (coop?.phase === "lobby" && coop.myIdx === 0)
-      coop.ws?.send(JSON.stringify({ type: "strength", strength: getElo() }));
-  };
   const getElo = () => parseInt(strengthSlider.value);
 
   // ── Load move mappings ────────────────────────────────────────────────────
@@ -415,7 +413,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function syncMaiaStatus() {
     if (coop?.ws?.readyState === WebSocket.OPEN)
-      coop.ws.send(JSON.stringify({ type: "maia-status", ready: modelReady }));
+      coop.ws.send(JSON.stringify({
+        type: "maia-status",
+        ready: modelReady,
+        unlockedOpponentCount: readSoloProgress(),
+      }));
   }
 
   function handleModelStatus(status) {
@@ -501,6 +503,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const gameEl    = document.getElementById("game");
   const statusEl  = document.getElementById("game-status");
   const gameScoreEl = document.getElementById("game-score");
+  const outcomeOverlayEl = document.getElementById("game-outcome-overlay");
+  const outcomeBannerEl = document.getElementById("game-outcome-banner");
+  const outcomeContinueBtn = document.getElementById("game-outcome-continue");
   const cpChips   = document.getElementById("cp-chips");
   const STORAGE_PREFIX = "chessquestia";
   const LEGACY_STORAGE_PREFIX = "local-chess";
@@ -512,6 +517,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   let board       = null;
   let botThinking = false;
   let soloActive  = false;
+  let setupMode = "solo";
   let selectedOpponentTheme = "imp";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
@@ -532,8 +538,23 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     gameScoreEl.className = score > 0 ? "ahead" : score < 0 ? "behind" : "";
   }
 
+  function hideOutcomeBanner() {
+    outcomeOverlayEl.className = "game-outcome-overlay";
+    outcomeOverlayEl.setAttribute("aria-hidden", "true");
+    outcomeBannerEl.className = "game-outcome-banner";
+    outcomeBannerEl.removeAttribute("aria-label");
+  }
+
+  function showOutcomeBanner(outcome) {
+    outcomeOverlayEl.className = "game-outcome-overlay visible";
+    outcomeOverlayEl.setAttribute("aria-hidden", "false");
+    outcomeBannerEl.className = `game-outcome-banner ${outcome}`;
+    outcomeBannerEl.setAttribute("aria-label", outcome === "victory" ? "Victory" : "Defeat");
+    window.setTimeout(() => outcomeContinueBtn.focus({ preventScroll: true }), 0);
+  }
+
   function opponentThemeForStrength(value) {
-    return parseInt(value, 10) <= 1000 ? "imp" : "witch";
+    return opponentForStrength(value)?.theme || (parseInt(value, 10) <= 1000 ? "imp" : "witch");
   }
 
   function setGameOpponentTheme(value = getElo(), theme = selectedOpponentTheme) {
@@ -558,7 +579,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function applyOpponentLocks() {
-    unlockedOpponentCount = readSoloProgress();
+    unlockedOpponentCount = setupMode === "coop"
+      ? Math.max(readSoloProgress(), coop?.maxUnlockedOpponentCount || 1)
+      : readSoloProgress();
     opponentCards.forEach((card, index) => {
       const unlocked = index < unlockedOpponentCount;
       const art = card.querySelector(".opponent-card-art");
@@ -600,8 +623,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lobbyEl.style.display = "";
     showPlayView();
     if (soloActive) clearSoloGame();
-    if (location.search.includes("room="))
-      history.replaceState(null, "", location.pathname);
+    if (location.search.includes("room=") || location.pathname !== "/")
+      history.replaceState(null, "", "/");
   }
 
   function shouldWarnBeforeExitingGame() {
@@ -637,7 +660,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     chess.reset();
     soloActive = true;
     cpChips.innerHTML = "";
+    hideOutcomeBanner();
     hideModelLoading();
+    setSoloGameUrl();
     showGame();
     board.setPosition(chess.fen());
     board.removeMarkers(LAST_MOVE);
@@ -658,6 +683,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     }
 
     beginSoloGame();
+  }
+
+  function startSelectedGame() {
+    if (setupMode === "coop") {
+      startCoopWithSelectedBot();
+      return;
+    }
+    startSoloGame();
   }
 
   function restoreSoloGame() {
@@ -693,10 +726,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function checkGameOver() {
     if (chess.isCheckmate()) {
-      const playerWonSolo = soloActive && coop?.phase === "off" && chess.turn() === "b";
-      const unlockedNext = playerWonSolo && unlockNextOpponent();
-      const message = chess.turn() === "w" ? "Black wins — Checkmate!" : "White wins — Checkmate!";
-      setStatus(unlockedNext ? `${message} New opponent unlocked.` : message, "over");
+      const playerWon = chess.turn() === "b";
+      const unlockedNext = playerWon && soloActive && coop?.phase === "off" && unlockNextOpponent();
+      showOutcomeBanner(playerWon ? "victory" : "defeat");
+      setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
       board.disableMoveInput();
       return true;
     }
@@ -704,9 +737,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       const reason = chess.isStalemate() ? "Stalemate"
         : chess.isInsufficientMaterial() ? "Insufficient material" : "Draw";
       setStatus(reason, "over");
+      hideOutcomeBanner();
       board.disableMoveInput();
       return true;
     }
+    hideOutcomeBanner();
     return false;
   }
 
@@ -785,23 +820,13 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   const lbMain       = document.getElementById("lb-main");
   const lbSolo       = document.getElementById("lb-solo");
-  const lbConnect    = document.getElementById("lb-connect");
   const lbRoom       = document.getElementById("lb-room");
   const lbProfile    = document.getElementById("lb-profile");
   const lbFriends    = document.getElementById("lb-friends");
-  const cpAccountName = document.getElementById("cp-account-name");
-  const cpAccountDetail = document.getElementById("cp-account-detail");
-  const cpConnectBtn = document.getElementById("cp-connect-btn");
-  const lbBackBtn    = document.getElementById("lb-back-btn");
-  const cpLinkEl     = document.getElementById("cp-link");
-  const cpCopyBtn    = document.getElementById("cp-copy");
   const cpPlayerList = document.getElementById("cp-player-list");
   const cpStartBtn   = document.getElementById("cp-start");
   const cpLeaveBtn   = document.getElementById("cp-leave");
-  const cpFlowTitle  = document.getElementById("cp-flow-title");
-  const cpFlowKicker = document.getElementById("cp-flow-kicker");
   const cpRoomMeta   = document.getElementById("cp-room-meta");
-  const cpStrengthSettings = document.getElementById("cp-strength-settings");
   const cpInviteMessage = document.getElementById("cp-invite-message");
   const cpInviteList = document.getElementById("cp-invite-list");
   const backBtn      = document.getElementById("back-btn");
@@ -811,10 +836,18 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const profileAccountCard = document.getElementById("profile-account-card");
   const profileAccountName = document.getElementById("profile-account-name");
   const profileAuthBtn = document.getElementById("profile-auth-btn");
+  const devLoginCard = document.getElementById("dev-login-card");
+  const devLoginOptions = document.getElementById("dev-login-options");
   const navPlay      = document.getElementById("nav-play");
   const navProfile   = document.getElementById("nav-profile");
   const navFriends   = document.getElementById("nav-friends");
+  const friendInviteBadge = document.getElementById("friend-invite-badge");
+  const coopInviteNotice = document.getElementById("coop-invite-notice");
+  const coopInviteText = document.getElementById("coop-invite-text");
+  const coopInviteJoin = document.getElementById("coop-invite-join");
+  const coopInviteDismiss = document.getElementById("coop-invite-dismiss");
   const welcomeName  = document.getElementById("welcome-name");
+  const botSelectTitle = document.getElementById("bot-select-title");
   const soloStartBtn = document.getElementById("solo-start-btn");
   const soloBackBtn  = document.getElementById("solo-back-btn");
   opponentCards = Array.from(document.querySelectorAll("[data-opponent-strength]"));
@@ -826,6 +859,15 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const friendRequestsEl = document.getElementById("friend-requests");
   const friendResultsEl = document.getElementById("friend-results");
   const friendListEl = document.getElementById("friend-list");
+  const friendInviteLink = document.getElementById("friend-invite-link");
+  const friendLinkCopy = document.getElementById("friend-link-copy");
+  const friendLinkShare = document.getElementById("friend-link-share");
+  const searchParams = new URLSearchParams(location.search);
+  const friendInvitePathMatch = location.pathname.match(/^\/plsbemyfriend\/([^/]+)$/);
+  const incomingFriendUsername = friendInvitePathMatch
+    ? decodeURIComponent(friendInvitePathMatch[1])
+    : searchParams.get("friend");
+  const initialView = searchParams.get("view");
 
   function setNavActive(target) {
     navPlay.classList.toggle("active", target === "play");
@@ -892,6 +934,43 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     `;
   }
 
+  function friendInviteUrl() {
+    const username = authInfo.user?.username;
+    return username
+      ? `${location.origin}/plsbemyfriend/${encodeURIComponent(username)}`
+      : "";
+  }
+
+  function renderFriendLink() {
+    const url = friendInviteUrl();
+    friendInviteLink.value = url || "Choose a username first";
+    friendInviteLink.disabled = !url;
+    friendLinkCopy.disabled = !url;
+    friendLinkShare.disabled = !url;
+  }
+
+  function activeInvite() {
+    return friendState.invites[0] || null;
+  }
+
+  function renderInviteNotification() {
+    const count = friendState.invites.length;
+    friendInviteBadge.hidden = count === 0;
+    friendInviteBadge.textContent = String(Math.min(count, 9));
+    navFriends.classList.toggle("has-invites", count > 0);
+
+    const invite = activeInvite();
+    const canShowNotice = !!invite
+      && (coop?.phase || "off") === "off"
+      && lbFriends.style.display === "none"
+      && lbRoom.style.display === "none";
+    coopInviteNotice.style.display = canShowNotice ? "flex" : "none";
+    if (!invite) return;
+    coopInviteText.textContent = `${friendName(invite.inviter)} invited you to play.`;
+    coopInviteJoin.dataset.roomId = invite.roomId;
+    coopInviteDismiss.dataset.inviteId = String(invite.id);
+  }
+
   async function apiJson(url, options = {}) {
     const response = await fetch(url, {
       ...options,
@@ -908,14 +987,17 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function renderFriends() {
     friendMessage.textContent = friendState.error;
     friendMessage.className = `friend-message${friendState.error ? " visible" : ""}`;
+    renderInviteNotification();
 
     if (authInfo.authEnabled && !authInfo.user) {
       friendSearch.disabled = true;
       profileUsername.disabled = true;
       usernameSaveBtn.disabled = true;
+      renderFriendLink();
       friendRequestsEl.innerHTML = "";
       friendResultsEl.innerHTML = "";
       friendState.invites = [];
+      renderInviteNotification();
       friendListEl.innerHTML = `
         <div class="empty-state friend-empty">
           <div>
@@ -930,6 +1012,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     friendSearch.disabled = false;
     profileUsername.disabled = false;
     usernameSaveBtn.disabled = false;
+    renderFriendLink();
     if (document.activeElement !== profileUsername)
       profileUsername.value = authInfo.user?.username || "";
     usernameHelp.textContent = authInfo.user?.username
@@ -1037,16 +1120,34 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       friendState.outgoing = requestsPayload.outgoing || [];
       friendState.invites = invitesPayload.invites || [];
       friendState.loaded = true;
+      renderInviteNotification();
     } catch (err) {
       friendState.error = err.message;
       friendState.friends = [];
       friendState.incoming = [];
       friendState.outgoing = [];
       friendState.invites = [];
+      renderInviteNotification();
     } finally {
       friendState.loading = false;
       renderFriends();
     }
+  }
+
+  async function loadInviteNotifications() {
+    if (!authInfo.user) {
+      friendState.invites = [];
+      renderInviteNotification();
+      return;
+    }
+    try {
+      const payload = await apiJson("/api/coop/invites");
+      friendState.invites = payload.invites || [];
+    } catch {
+      friendState.invites = [];
+    }
+    renderInviteNotification();
+    if (lbFriends.style.display !== "none") renderFriends();
   }
 
   async function searchFriends() {
@@ -1090,67 +1191,111 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     }
   }
 
+  function setViewUrl(view) {
+    if (location.search.includes("room=")) return;
+    const target = view === "play" ? "/" : `/?view=${view}`;
+    if (`${location.pathname}${location.search}` !== target)
+      history.replaceState(null, "", target);
+  }
+
+  function setSoloGameUrl() {
+    if (location.search.includes("room=")) return;
+    const target = "/?game=solo";
+    if (`${location.pathname}${location.search}` !== target)
+      history.replaceState(null, "", target);
+  }
+
+  async function processIncomingFriendLink() {
+    if (!incomingFriendUsername) return;
+    if (authInfo.authEnabled && !authInfo.user) {
+      promptSignIn();
+      return;
+    }
+
+    showFriendsView();
+    friendState.error = "";
+    renderFriends();
+    try {
+      const payload = await apiJson(`/api/friends/user/${encodeURIComponent(incomingFriendUsername)}`, {
+        method: "POST",
+      });
+      const message = payload.message || `You are now friends with ${incomingFriendUsername}.`;
+      await loadFriends();
+      friendState.error = message;
+      history.replaceState(null, "", "/?view=friends");
+      renderFriends();
+    } catch (err) {
+      history.replaceState(null, "", "/?view=friends");
+      friendState.error = err.message;
+      renderFriends();
+    }
+  }
+
   function showPlayView() {
+    setViewUrl("play");
     setNavActive("play");
     if (!pendingSoloStart) hideModelLoading();
     lbMain.style.display = "flex";
     lbSolo.style.display = "none";
-    lbConnect.style.display = "none";
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+    renderInviteNotification();
   }
 
-  function showSoloSetup() {
+  function showBotSelection(mode = "solo") {
+    setViewUrl(mode);
+    setupMode = mode;
     setNavActive("play");
     applyOpponentLocks();
     clearOpponentSelection();
+    botSelectTitle.textContent = mode === "coop" ? "Choose your opponent" : "Choose your opponent";
+    soloStartBtn.querySelector("span").textContent = mode === "coop" ? "Start" : "Continue";
     lbMain.style.display = "none";
     lbSolo.style.display = "flex";
-    lbConnect.style.display = "none";
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+    renderInviteNotification();
   }
 
-  function showCoopNameSetup() {
-    setNavActive("play");
-    hideModelLoading();
-    lbMain.style.display = "none";
-    lbSolo.style.display = "none";
-    lbConnect.style.display = "flex";
-    lbRoom.style.display = "none";
-    lbProfile.style.display = "none";
-    lbFriends.style.display = "none";
-    renderCoopAccount(urlRoom || coop?.roomId);
+  function showSoloSetup() {
+    showBotSelection("solo");
+  }
+
+  function showCoopBotSelection() {
+    showBotSelection("coop");
   }
 
   function showProfileView() {
+    setViewUrl("profile");
     setNavActive("profile");
     hideModelLoading();
     lbMain.style.display = "none";
     lbSolo.style.display = "none";
-    lbConnect.style.display = "none";
     lbRoom.style.display = "none";
     lbProfile.style.display = "flex";
     lbFriends.style.display = "none";
     renderFriends();
+    renderInviteNotification();
   }
 
   function showFriendsView() {
+    setViewUrl("friends");
     setNavActive("friends");
     hideModelLoading();
     lbMain.style.display = "none";
     lbSolo.style.display = "none";
-    lbConnect.style.display = "none";
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "flex";
     if (!friendState.loading) loadFriends();
     else renderFriends();
+    renderInviteNotification();
   }
 
   const urlRoom = new URLSearchParams(location.search).get("room");
+  const urlGame = new URLSearchParams(location.search).get("game");
   const LAST_ROOM_KEY = storageKey("last-room");
   const LEGACY_LAST_ROOM_KEY = legacyStorageKey("last-room");
   const nameKey = (roomId) => storageKey(`room.${roomId}.name`);
@@ -1181,22 +1326,27 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       || "Player";
   }
 
-  function renderCoopAccount(roomId) {
-    const name = coopPlayerName(roomId);
-    cpAccountName.textContent = name;
-    cpAccountDetail.textContent = authInfo.user?.email && authInfo.user.email !== name
-      ? authInfo.user.email
-      : "Ready to play co-op.";
-  }
-
   function setRoomUrl(roomId) {
-    const target = `${location.pathname}?room=${roomId}`;
-    if (location.search !== `?room=${roomId}`)
+    const target = `/?room=${roomId}`;
+    if (`${location.pathname}${location.search}` !== target)
       history.replaceState(null, "", target);
   }
 
   const currentNextPath = () => location.pathname + location.search;
   let authInfo = { authEnabled: false, user: null, loginUrl: "/auth/google", logoutUrl: "/auth/logout" };
+
+  function renderDevLogin() {
+    const users = authInfo.devLoginUsers || [];
+    const canShow = authInfo.localAuthEnabled && !authInfo.user && users.length > 0;
+    devLoginCard.style.display = canShow ? "flex" : "none";
+    devLoginOptions.innerHTML = canShow
+      ? users.map(user => `
+        <button class="sm-btn primary-mini" type="button" data-dev-login-url="${escapeHtml(user.loginUrl)}">
+          ${escapeHtml(user.name)}
+        </button>
+      `).join("")
+      : "";
+  }
 
   async function loadAuth() {
     try {
@@ -1208,11 +1358,13 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (!authInfo.authEnabled) {
       authBar.style.display = "none";
       profileAccountCard.style.display = "none";
+      renderDevLogin();
       return;
     }
 
     authBar.style.display = "none";
     profileAccountCard.style.display = "flex";
+    renderDevLogin();
     if (authInfo.user) {
       const accountName = authInfo.user.name || authInfo.user.email || "Signed in";
       authLabel.textContent = accountName;
@@ -1222,7 +1374,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       authBtn.onclick = () => { location.href = authInfo.logoutUrl; };
       profileAuthBtn.textContent = "Sign out";
       profileAuthBtn.onclick = () => { location.href = authInfo.logoutUrl; };
-      renderCoopAccount(urlRoom || coop?.roomId);
     } else {
       authLabel.textContent = "Sign in to save games";
       authBtn.textContent = "Sign in";
@@ -1230,41 +1381,21 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       profileAccountName.textContent = "Not signed in";
       profileAuthBtn.textContent = "Sign in";
       profileAuthBtn.onclick = () => { location.href = authInfo.loginUrl; };
-      lbMain.style.display = "none";
-      lbSolo.style.display = "none";
-      lbConnect.style.display = "none";
-      lbRoom.style.display = "none";
-      lbProfile.style.display = "none";
-      lbFriends.style.display = "none";
     }
-  }
-
-  async function renderInviteLink(roomId) {
-    if (!roomId) return;
-    if (cpLinkEl.textContent.endsWith(`?room=${roomId}`)) return;
-    const cfg = await fetch("/config").then(r => r.json());
-    cpLinkEl.textContent = `${cfg.base}/?room=${roomId}`;
   }
 
   await loadAuth();
 
-  // Auto-show join flow if URL has ?room=
-  if (urlRoom) {
-    showCoopNameSetup();
-    cpConnectBtn.textContent = "Join Game";
-    cpFlowTitle.textContent = "Join game";
-    cpFlowKicker.textContent = "Room link";
-    renderCoopAccount(urlRoom);
+  function promptSignIn() {
+    if (authInfo.localAuthEnabled && (authInfo.devLoginUsers || []).length) {
+      showProfileView();
+      return;
+    }
+    location.href = authInfo.loginUrl;
   }
 
   navPlay.onclick = () => showPlayView();
-  navProfile.onclick = () => {
-    if (authInfo.authEnabled && !authInfo.user) {
-      location.href = authInfo.loginUrl;
-      return;
-    }
-    showProfileView();
-  };
+  navProfile.onclick = () => showProfileView();
   navFriends.onclick = () => showFriendsView();
   friendSearch.addEventListener("input", () => {
     friendSearch.value = friendSearch.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").slice(0, 20);
@@ -1280,6 +1411,31 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (event.key === "Enter") saveUsername();
   });
   usernameSaveBtn.onclick = () => saveUsername();
+  devLoginOptions.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-dev-login-url]");
+    if (!button) return;
+    location.href = button.dataset.devLoginUrl;
+  });
+  friendLinkCopy.onclick = async () => {
+    const url = friendInviteUrl();
+    if (!url) return;
+    await navigator.clipboard?.writeText(url);
+    friendLinkCopy.textContent = "Copied";
+    window.setTimeout(() => { friendLinkCopy.textContent = "Copy"; }, 1400);
+  };
+  friendLinkShare.onclick = async () => {
+    const url = friendInviteUrl();
+    if (!url) return;
+    if (navigator.share) {
+      await navigator.share({
+        title: "Chessquestia",
+        text: "Add me as a friend on Chessquestia.",
+        url,
+      });
+    } else {
+      friendLinkCopy.click();
+    }
+  };
   lbFriends.addEventListener("click", (event) => {
     const button = event.target.closest("[data-friend-action]");
     if (!button) return;
@@ -1300,12 +1456,18 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     } else if (action === "remove" && userId) {
       runFriendAction(`remove:${userId}`, () => apiJson(`/api/friends/${encodeURIComponent(userId)}`, { method: "DELETE" }));
     } else if (action === "join-invite" && roomId) {
-      location.href = `${location.pathname}?room=${encodeURIComponent(roomId)}`;
+      location.href = `/?room=${encodeURIComponent(roomId)}`;
     } else if (action === "dismiss-invite" && inviteId) {
       runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
     }
   });
-  document.getElementById("play-solo-btn").onclick = () => showSoloSetup();
+  document.getElementById("play-solo-btn").onclick = () => {
+    if (authInfo.authEnabled && !authInfo.user) {
+      promptSignIn();
+      return;
+    }
+    showSoloSetup();
+  };
   opponentCards.forEach(card => {
     card.onclick = () => {
       if (card.disabled || card.classList.contains("locked")) return;
@@ -1318,36 +1480,31 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   });
   applyOpponentLocks();
   clearOpponentSelection();
-  soloStartBtn.onclick = () => startSoloGame();
+  soloStartBtn.onclick = () => startSelectedGame();
   soloBackBtn.onclick = () => {
     pendingSoloStart = false;
+    if (setupMode === "coop" && coop.phase === "lobby") {
+      lbMain.style.display = "none";
+      lbSolo.style.display = "none";
+      lbRoom.style.display = "flex";
+      lbProfile.style.display = "none";
+      lbFriends.style.display = "none";
+      renderRoomLobby(coop.players || [], coop.myIdx);
+      return;
+    }
     showPlayView();
   };
 
   document.getElementById("play-coop-btn").onclick = () => {
     if (authInfo.authEnabled && !authInfo.user) {
-      location.href = authInfo.loginUrl;
+      promptSignIn();
       return;
     }
-    showCoopNameSetup();
-    cpConnectBtn.textContent = "Create Game";
-    cpFlowTitle.textContent = "Create game";
-    cpFlowKicker.textContent = "New room";
+    connectCoop("create");
   };
 
-  lbBackBtn.onclick = () => showPlayView();
-
-  cpConnectBtn.onclick = () => connectCoop(urlRoom ? "join" : "create");
-
-  cpStartBtn.onclick = () => coop.ws?.send(JSON.stringify({ type: "start" }));
+  cpStartBtn.onclick = () => showCoopBotSelection();
   cpLeaveBtn.onclick = () => leaveCoop();
-
-  cpCopyBtn.onclick = () => {
-    navigator.clipboard.writeText(cpLinkEl.textContent).then(() => {
-      cpCopyBtn.textContent = "Copied!";
-      setTimeout(() => { cpCopyBtn.textContent = "Copy link"; }, 1500);
-    });
-  };
 
   cpInviteList.addEventListener("click", (event) => {
     const button = event.target.closest("[data-coop-invite-user-id]");
@@ -1355,8 +1512,25 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     sendCoopInvite(button.dataset.coopInviteUserId);
   });
 
+  coopInviteJoin.onclick = () => {
+    const roomId = coopInviteJoin.dataset.roomId;
+    if (!roomId) return;
+    location.href = `/?room=${encodeURIComponent(roomId)}`;
+  };
+
+  coopInviteDismiss.onclick = () => {
+    const inviteId = coopInviteDismiss.dataset.inviteId;
+    if (!inviteId) return;
+    runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
+  };
+
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
+    if (coop.phase !== "off") leaveCoop();
+    else showLobby();
+  };
+  outcomeContinueBtn.onclick = () => {
+    hideOutcomeBanner();
     if (coop.phase !== "off") leaveCoop();
     else showLobby();
   };
@@ -1369,6 +1543,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     myIdx: -1,
     phase: "off",
     players: [], activeIdx: 0, midTurn: false, fen: null,
+    maxUnlockedOpponentCount: 1,
     strength: 1500,
     leaving: false,
     reconnectTimer: null,
@@ -1459,6 +1634,17 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     }
   }
 
+  function startCoopWithSelectedBot() {
+    if (soloStartBtn.disabled || coop.phase !== "lobby" || coop.myIdx !== 0) return;
+    if (!modelReady) {
+      showModelLoading("Preparing game...");
+      requestModelDownload();
+      return;
+    }
+    coop.ws?.send(JSON.stringify({ type: "strength", strength: getElo() }));
+    coop.ws?.send(JSON.stringify({ type: "start" }));
+  }
+
   function renderRoomLobby(players, myIdx) {
     cpPlayerList.innerHTML = "";
     players.forEach((player, i) => {
@@ -1467,7 +1653,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
       const name = document.createElement("div");
       name.className = "player-name";
-      name.textContent = player.name + (i === myIdx ? " (you)" : "");
+      const unlocked = Number(player.unlockedCount || 1);
+      name.textContent = `${player.name}${i === myIdx ? " (you)" : ""} · ${unlocked} bot${unlocked === 1 ? "" : "s"}`;
 
       const status = document.createElement("div");
       const statusText = player.connected
@@ -1484,15 +1671,16 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
     const host = myIdx === 0;
     const ready = allPlayersReady(players);
-    cpRoomMeta.textContent = `${players.length} player${players.length === 1 ? "" : "s"} · ${getElo()}`;
-    cpStrengthSettings.style.display = "flex";
-    connectStrengthSlider.disabled = !host || coop.phase !== "lobby";
-    connectStrengthSlider.title = host ? "" : "Only the host can change bot strength.";
+    const connectedPlayers = players.filter(player => player.connected);
+    const hasCoopPartner = connectedPlayers.length >= 2;
+    cpRoomMeta.textContent = `${players.length} player${players.length === 1 ? "" : "s"}`;
     cpStartBtn.style.display = host ? "inline" : "none";
-    cpStartBtn.disabled = !ready;
-    cpStartBtn.textContent = ready ? "Start Game" : "Preparing game...";
-    cpStartBtn.title = ready ? "" : "The game is loading on all players' devices.";
-    if (ready) hideModelLoading();
+    cpStartBtn.disabled = !ready || !hasCoopPartner;
+    cpStartBtn.textContent = ready && hasCoopPartner ? "Continue" : "Waiting...";
+    cpStartBtn.title = !hasCoopPartner
+      ? "Invite at least one friend before choosing an opponent."
+      : ready ? "" : "The game is loading on all players' devices.";
+    if (ready || !host) hideModelLoading();
     else showModelLoading("Preparing game...");
     renderCoopInviteFriends();
   }
@@ -1514,13 +1702,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     ws.onopen = () => ws.send(JSON.stringify(
       action === "create"
         ? { type: "create", name,
-            strength: getElo(), maiaReady: modelReady }
+            strength: getElo(), maiaReady: modelReady, unlockedOpponentCount: readSoloProgress() }
         : {
             type: "join",
             roomId,
             name,
             playerId: opts.playerId || coop.playerId || storedPlayerId(roomId),
             maiaReady: modelReady,
+            unlockedOpponentCount: readSoloProgress(),
           }
     ));
     ws.onmessage = ({ data }) => handleCoopMsg(JSON.parse(data));
@@ -1548,7 +1737,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (coop.phase === "lobby") {
       lbMain.style.display = "none";
       lbSolo.style.display = "none";
-      lbConnect.style.display = "none";
       lbRoom.style.display = "flex";
       lbProfile.style.display = "none";
       lbFriends.style.display = "none";
@@ -1581,9 +1769,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         alert(msg.message.replace("Waiting for Maia on:", "The game is still loading for:"));
         return;
       }
-      showCoopNameSetup();
-      cpConnectBtn.textContent = new URLSearchParams(location.search).get("room") ? "Join Game" : "Create Game";
       alert(msg.message);
+      showPlayView();
       return;
     }
 
@@ -1594,11 +1781,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       coopInviteState.sent.clear();
       rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
-      renderInviteLink(msg.roomId);
       loadCoopInviteFriends();
       lbMain.style.display = "none";
       lbSolo.style.display = "none";
-      lbConnect.style.display = "none";
       lbRoom.style.display = "flex";
       lbProfile.style.display = "none";
       lbFriends.style.display = "none";
@@ -1612,8 +1797,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       coop.reconnectAttempts = 0;
       rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
-      renderInviteLink(msg.roomId);
       loadCoopInviteFriends();
+      loadInviteNotifications();
       return;
     }
 
@@ -1626,15 +1811,19 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       coop.fen       = msg.fen;
       coop.myIdx     = msg.myIdx;
       coop.strength  = msg.strength;
+      coop.maxUnlockedOpponentCount = Math.max(readSoloProgress(), Number(msg.maxUnlockedOpponentCount || 1));
       coop.reconnectAttempts = 0;
       if (msg.strength) syncStrength(String(msg.strength));
-      renderInviteLink(msg.roomId);
 
       if (msg.phase === "lobby") {
         coop.phase = "lobby";
+        if (setupMode === "coop" && lbSolo.style.display !== "none" && msg.myIdx === 0) {
+          applyOpponentLocks();
+          if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
+          return;
+        }
         lbMain.style.display = "none";
         lbSolo.style.display = "none";
-        lbConnect.style.display = "none";
         lbRoom.style.display = "flex";
         lbProfile.style.display = "none";
         lbFriends.style.display = "none";
@@ -1652,6 +1841,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
           board.removeMarkers(LAST_MOVE);
           updateGameScore();
           board.enableMoveInput(inputHandler);
+          hideOutcomeBanner();
         }
         coop.phase = msg.phase;
 
@@ -1679,11 +1869,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         }
 
         if (msg.phase === "over") {
+          checkGameOver();
           board.disableMoveInput();
         } else if (msg.activeIdx === msg.myIdx && !msg.midTurn) {
+          hideOutcomeBanner();
           board.enableMoveInput(inputHandler);
           setStatus(modelReady ? "Your turn" : "Preparing game...");
         } else {
+          hideOutcomeBanner();
           board.disableMoveInput();
           const who = msg.players[msg.activeIdx]?.name ?? "…";
           setStatus(msg.midTurn ? `${who}: bot thinking…` : `${who}'s turn`);
@@ -1733,14 +1926,48 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     coop.ws?.close();
     coop.ws    = null;
     coop.phase = "off";
+    setupMode = "solo";
     showLobby();
   }
 
-  if (!urlRoom) restoreSoloGame();
+  if (authInfo.user) {
+    loadInviteNotifications();
+    invitePollTimer = window.setInterval(loadInviteNotifications, 15000);
+  }
+
+  if (urlRoom) {
+    if (authInfo.authEnabled && !authInfo.user) {
+      promptSignIn();
+    } else {
+      connectCoop("join", { roomId: urlRoom });
+    }
+  } else if (incomingFriendUsername) {
+    await processIncomingFriendLink();
+  } else if (urlGame === "solo") {
+    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
+    else restoreSoloGame();
+  } else if (initialView === "profile") {
+    showProfileView();
+  } else if (initialView === "friends") {
+    showFriendsView();
+  } else if (initialView === "solo") {
+    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
+    else showSoloSetup();
+  } else if (initialView === "coop") {
+    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
+    else connectCoop("create");
+  } else if (authInfo.authEnabled && !authInfo.user) {
+    promptSignIn();
+  } else {
+    restoreSoloGame();
+  }
     })().catch((err) => {
       console.error(err);
     });
-    return () => { disposed = true; };
+    return () => {
+      disposed = true;
+      if (invitePollTimer) window.clearInterval(invitePollTimer);
+    };
   }, []);
 
   return (

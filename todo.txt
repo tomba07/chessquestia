@@ -1,3 +1,4 @@
+- try composer 2.5
 - deployment script
 - friend status
 - password auth

@@ -45,6 +45,11 @@ const googleAuthEnabled = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
 const isDev = process.env.NODE_ENV !== "production";
 const localAuthEnabled = process.env.LOCAL_AUTH === "1" || (isDev && process.env.LOCAL_AUTH !== "0");
 const authEnabled = googleAuthEnabled || localAuthEnabled;
+const DEV_LOGIN_USERS = [
+  { key: "mirko", username: "mirko", name: "Mirko", email: "mirko@chessquestia.local" },
+  { key: "lena", username: "lena", name: "Lena", email: "lena@chessquestia.local" },
+  { key: "tom", username: "tom", name: "Tom", email: "tom@chessquestia.local" },
+];
 
 // ── SQLite persistence ────────────────────────────────────────────────────────
 
@@ -94,6 +99,7 @@ db.exec(`
     user_id TEXT,
     name TEXT NOT NULL,
     maia_ready INTEGER NOT NULL DEFAULT 0,
+    unlocked_count INTEGER NOT NULL DEFAULT 1,
     last_seen INTEGER NOT NULL,
     position INTEGER NOT NULL,
     PRIMARY KEY (room_id, id)
@@ -168,6 +174,9 @@ if (!columnExists("users", "username")) {
   db.exec("ALTER TABLE users ADD COLUMN username TEXT");
 }
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL");
+if (!columnExists("room_players", "unlocked_count")) {
+  db.exec("ALTER TABLE room_players ADD COLUMN unlocked_count INTEGER NOT NULL DEFAULT 1");
+}
 
 function normalizeUsername(username) {
   return String(username || "")
@@ -177,6 +186,12 @@ function normalizeUsername(username) {
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 20);
+}
+
+function normalizeUnlockedOpponentCount(count) {
+  const parsed = parseInt(count, 10);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.min(5, parsed));
 }
 
 function usernameSeed(profileOrUser) {
@@ -452,10 +467,15 @@ function upsertGoogleUser(profile) {
   return userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
 }
 
-function upsertLocalUser() {
-  const userId = "local:dev";
+function devLoginUser(key) {
+  return DEV_LOGIN_USERS.find(user => user.key === key) || DEV_LOGIN_USERS[0];
+}
+
+function upsertLocalUser(key = "mirko") {
+  const devUser = devLoginUser(key);
+  const userId = `local:${devUser.key}`;
   const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
-  const username = existing?.username || uniqueUsername("local_player", userId);
+  const username = existing?.username || uniqueUsername(devUser.username, userId);
   db.prepare(`
     INSERT INTO users
       (id, provider, provider_sub, username, email, email_verified, name, picture, created_at, last_login_at)
@@ -465,11 +485,11 @@ function upsertLocalUser() {
   `).run(
     userId,
     "local",
-    "dev",
+    devUser.key,
     username,
-    existing?.email || "local@chessquestia.dev",
+    existing?.email || devUser.email,
     1,
-    existing?.name || "Local Player",
+    existing?.name || devUser.name,
     existing?.picture || "",
     existing?.created_at || Date.now(),
     Date.now(),
@@ -487,6 +507,15 @@ app.get("/api/me", (req, res) => {
     authEnabled,
     user: publicUser(currentUser(req)),
     loginUrl: `${googleAuthEnabled ? "/auth/google" : "/auth/local"}?next=${next}`,
+    localAuthEnabled,
+    devLoginUsers: localAuthEnabled
+      ? DEV_LOGIN_USERS.map(user => ({
+          key: user.key,
+          name: user.name,
+          username: user.username,
+          loginUrl: `/auth/local?user=${encodeURIComponent(user.key)}&next=${next}`,
+        }))
+      : [],
     logoutUrl: `/auth/logout?next=${next}`,
   });
 });
@@ -509,6 +538,61 @@ app.patch("/api/me", (req, res) => {
 
   db.prepare("UPDATE users SET username = ? WHERE id = ?").run(username, user.id);
   res.json({ user: publicUser(currentUser(req)) });
+});
+
+app.get("/api/friends/user/:username", (req, res) => {
+  const username = normalizeUsername(req.params.username);
+  if (!username) {
+    res.status(400).json({ error: "Invalid friend link" });
+    return;
+  }
+
+  const user = userFromRow(db.prepare("SELECT * FROM users WHERE username = ?").get(username));
+  if (!user) {
+    res.status(404).json({ error: "Invalid friend link" });
+    return;
+  }
+
+  res.json({ user: publicUser(user) });
+});
+
+app.post("/api/friends/user/:username", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const username = normalizeUsername(req.params.username);
+  if (!username) {
+    res.status(400).json({ error: "Invalid friend link" });
+    return;
+  }
+
+  const target = userFromRow(db.prepare("SELECT * FROM users WHERE username = ?").get(username));
+  if (!target) {
+    res.status(404).json({ error: "Invalid friend link" });
+    return;
+  }
+  if (target.id === user.id) {
+    res.status(400).json({ error: "This is your own friend link" });
+    return;
+  }
+
+  const alreadyFriends = areFriends(user.id, target.id);
+  inTransaction(() => {
+    createFriendship(user.id, target.id);
+    db.prepare(`
+      UPDATE friend_requests
+      SET status = 'accepted', responded_at = ?
+      WHERE status = 'pending'
+        AND ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?))
+    `).run(Date.now(), user.id, target.id, target.id, user.id);
+  });
+
+  res.json({
+    message: alreadyFriends
+      ? `You are already friends with ${target.username || target.name || "that player"}`
+      : `You are now friends with ${target.username || target.name || "that player"}`,
+    friend: publicUser(target),
+  });
 });
 
 app.get("/api/friends", (req, res) => {
@@ -895,7 +979,7 @@ app.get("/auth/local", (req, res) => {
     res.status(404).send("Local sign-in is not enabled.");
     return;
   }
-  const user = upsertLocalUser();
+  const user = upsertLocalUser(String(req.query.user || ""));
   const sessionToken = createSession(user.id);
   res.setHeader("Set-Cookie", cookieHeader(SESSION_COOKIE, sessionToken, {
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
@@ -1047,6 +1131,7 @@ function serializeRoom(room) {
         userId: player.userId || null,
         name: player.name,
         maiaReady: !!player.maiaReady,
+        unlockedCount: normalizeUnlockedOpponentCount(player.unlockedCount),
         lastSeen: player.lastSeen || Date.now(),
       };
     }),
@@ -1094,8 +1179,8 @@ function saveSerializedRoomToDb(room) {
     db.prepare("DELETE FROM room_players WHERE room_id = ?").run(room.id);
     const insertPlayer = db.prepare(`
       INSERT INTO room_players
-        (room_id, id, user_id, name, maia_ready, last_seen, position)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (room_id, id, user_id, name, maia_ready, unlocked_count, last_seen, position)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const playersById = new Map((room.players || []).map(player => [player.id, player]));
     const orderedIds = (room.order || room.players?.map(player => player.id) || []).filter(id => playersById.has(id));
@@ -1107,6 +1192,7 @@ function saveSerializedRoomToDb(room) {
         player.userId || null,
         player.name || "Player",
         player.maiaReady ? 1 : 0,
+        normalizeUnlockedOpponentCount(player.unlockedCount),
         player.lastSeen || Date.now(),
         position,
       );
@@ -1167,6 +1253,7 @@ function loadRooms() {
           ws: null,
           connected: false,
           maiaReady: !!savedPlayer.maia_ready,
+          unlockedCount: normalizeUnlockedOpponentCount(savedPlayer.unlocked_count),
           lastSeen: savedPlayer.last_seen || Date.now(),
         });
       }
@@ -1209,15 +1296,23 @@ function broadcast(room, buildMsg) {
 }
 
 function roomState(room, myPlayerId, myIdx) {
+  const players = room.order.map(id => {
+    const player = room.players.get(id);
+    return {
+      name: player.name,
+      connected: !!player.connected,
+      maiaReady: !!player.maiaReady,
+      signedIn: !!player.userId,
+      unlockedCount: normalizeUnlockedOpponentCount(player.unlockedCount),
+    };
+  });
   return {
     type: "room-state",
     roomId:    room.id,
     playerId:  myPlayerId,
     phase:     room.phase,
-    players:   room.order.map(id => {
-      const player = room.players.get(id);
-      return { name: player.name, connected: !!player.connected, maiaReady: !!player.maiaReady, signedIn: !!player.userId };
-    }),
+    players,
+    maxUnlockedOpponentCount: players.reduce((max, player) => Math.max(max, player.unlockedCount || 1), 1),
     activeIdx: room.activeIdx,
     midTurn:   room.midTurn,
     fen:       room.fen,
@@ -1276,6 +1371,7 @@ function attachWebSocketHandlers() {
             ws,
             connected: true,
             maiaReady: !!msg.maiaReady,
+            unlockedCount: normalizeUnlockedOpponentCount(msg.unlockedOpponentCount),
             lastSeen: Date.now(),
           }]]),
           order: [playerId],
@@ -1330,6 +1426,7 @@ function attachWebSocketHandlers() {
           ws,
           connected: true,
           maiaReady: !!msg.maiaReady,
+          unlockedCount: normalizeUnlockedOpponentCount(msg.unlockedOpponentCount || existing?.unlockedCount),
           lastSeen: Date.now(),
         });
         if (!room.order.includes(playerId)) room.order.push(playerId);
@@ -1354,8 +1451,10 @@ function attachWebSocketHandlers() {
         const player = room.players.get(currentPlayerId);
         if (!player) return;
         const maiaReady = !!msg.ready;
-        if (player.maiaReady === maiaReady) return;
+        const unlockedCount = normalizeUnlockedOpponentCount(msg.unlockedOpponentCount || player.unlockedCount);
+        if (player.maiaReady === maiaReady && player.unlockedCount === unlockedCount) return;
         player.maiaReady = maiaReady;
+        player.unlockedCount = unlockedCount;
         player.lastSeen = Date.now();
         room.updatedAt = Date.now();
         persistRooms();
