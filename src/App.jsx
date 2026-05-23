@@ -124,9 +124,6 @@ function FriendsPanel() {
         <span className="home-divider" aria-hidden="true"></span>
         <div className="panel-kicker">Players</div>
       </div>
-      <div className="friend-tools">
-        <input id="friend-search" placeholder="Search username" autoComplete="off" autoCapitalize="none" />
-      </div>
       <div className="friend-link-card">
         <div className="friend-section-title">Friend link</div>
         <p>Share this once so someone can add you directly.</p>
@@ -138,8 +135,33 @@ function FriendsPanel() {
       </div>
       <div id="friend-message" className="friend-message"></div>
       <div id="friend-requests" className="friend-section"></div>
-      <div id="friend-results" className="friend-section"></div>
       <div id="friend-list" className="friend-section"></div>
+      <div id="friend-add-dialog" className="friend-add-dialog-backdrop" hidden>
+        <div className="friend-add-dialog" role="dialog" aria-modal="true" aria-labelledby="friend-add-title">
+          <div className="friend-add-head">
+            <h3 id="friend-add-title">Add friend</h3>
+            <button id="friend-add-close" className="sm-btn" type="button">Close</button>
+          </div>
+          <label className="friend-search-box" htmlFor="friend-search">
+            <span>Search username</span>
+            <input id="friend-search" placeholder="Search username" autoComplete="off" autoCapitalize="none" />
+          </label>
+          <div id="friend-results" className="friend-section friend-search-results"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FriendInvitePanel() {
+  return (
+    <div id="lb-friend-invite" className="lobby-section lobby-panel" style={{ display: "none" }}>
+      <div className="panel-head">
+        <div className="panel-title">Friend invite</div>
+        <span className="home-divider" aria-hidden="true"></span>
+        <div className="panel-kicker">Players</div>
+      </div>
+      <div id="friend-invite-landing" className="friend-invite-landing"></div>
     </div>
   );
 }
@@ -235,6 +257,7 @@ function Lobby() {
       <SinglePlayerSetup />
       <ProfilePanel />
       <FriendsPanel />
+      <FriendInvitePanel />
       <CoopRoomPanel />
       <ModelLoading />
     </div>
@@ -250,6 +273,16 @@ function GameView() {
       <div className="game-score-plaque" aria-live="polite">
         <div id="game-score">+0</div>
         <div id="game-status">...</div>
+      </div>
+      <div id="board-device-panel" className="board-device-panel" aria-live="polite">
+        <button id="board-connect-btn" className="board-connect-btn" type="button">
+          <span className="board-device-dot"></span>
+          <span id="board-connect-label">Connect board</span>
+        </button>
+        <button id="board-disconnect-btn" className="board-disconnect-btn" type="button" aria-label="Disconnect board" hidden>
+          ×
+        </button>
+        <div id="board-device-status" className="board-device-status">Chessnut Air</div>
       </div>
       <div id="game-outcome-overlay" className="game-outcome-overlay" aria-hidden="true">
         <div className="game-outcome-modal" role="dialog" aria-modal="true" aria-label="Game result">
@@ -274,10 +307,42 @@ export default function App() {
   useEffect(() => {
     let disposed = false;
     let invitePollTimer = null;
+    let presenceTimer = null;
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const CDN       = "/cm-chessboard/assets/";
+  const CHESSNUT_SERVICE_UUIDS = [
+    "1b7e8261-2877-41c3-b46e-cf057c562023",
+    "1b7e8271-2877-41c3-b46e-cf057c562023",
+    "1b7e8281-2877-41c3-b46e-cf057c562023",
+  ];
+  const CHESSNUT_CHARACTERISTICS = {
+    readBoardData: "1b7e8262-2877-41c3-b46e-cf057c562023",
+    write: "1b7e8272-2877-41c3-b46e-cf057c562023",
+    readMiscData: "1b7e8273-2877-41c3-b46e-cf057c562023",
+  };
+  const CHESSNUT_DEVICE_FILTERS = [
+    { namePrefix: "Chessnut Air" },
+    { namePrefix: "Smart Chess" },
+  ];
+  const CHESSNUT_PIECES = {
+    0: "",
+    1: "q",
+    2: "k",
+    3: "b",
+    4: "p",
+    5: "n",
+    6: "R",
+    7: "P",
+    8: "r",
+    9: "B",
+    10: "N",
+    11: "Q",
+    12: "K",
+  };
+  const CHESSNUT_INIT_COMMAND = Uint8Array.from([0x21, 0x01, 0x00]);
+  const CHESSNUT_LED_PREFIX = Uint8Array.from([0x0A, 0x08]);
 
   const strengthSlider = document.getElementById("strength-slider");
   const strengthVal    = document.getElementById("strength-val");
@@ -513,6 +578,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const outcomeTitleEl = document.getElementById("game-outcome-title");
   const outcomeContinueBtn = document.getElementById("game-outcome-continue");
   const cpChips   = document.getElementById("cp-chips");
+  const boardDevicePanel = document.getElementById("board-device-panel");
+  const boardConnectBtn = document.getElementById("board-connect-btn");
+  const boardConnectLabel = document.getElementById("board-connect-label");
+  const boardDisconnectBtn = document.getElementById("board-disconnect-btn");
+  const boardDeviceStatus = document.getElementById("board-device-status");
   const STORAGE_PREFIX = "chessquestia";
   const LEGACY_STORAGE_PREFIX = "local-chess";
   const storageKey = (suffix) => `${STORAGE_PREFIX}.${suffix}`;
@@ -527,6 +597,16 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   let selectedOpponentTheme = "imp";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
+  const chessnut = {
+    device: null,
+    server: null,
+    writeChar: null,
+    boardChar: null,
+    miscChar: null,
+    connected: false,
+    connecting: false,
+    lastPlacement: "",
+  };
 
   function setStatus(text, cls = "") {
     statusEl.textContent = text;
@@ -554,6 +634,274 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     }, 0);
     gameScoreEl.textContent = score === 0 ? "+0" : score > 0 ? `+${score}` : String(score);
     gameScoreEl.className = score > 0 ? "ahead" : score < 0 ? "behind" : "";
+  }
+
+  function setBoardDeviceStatus(text, state = "") {
+    boardDeviceStatus.textContent = text;
+    boardDevicePanel.dataset.state = state;
+  }
+
+  function updateBoardDeviceUi() {
+    boardConnectBtn.disabled = chessnut.connecting;
+    boardDisconnectBtn.hidden = !chessnut.connected && !chessnut.connecting;
+    boardConnectLabel.textContent = chessnut.connected
+      ? "Board connected"
+      : chessnut.connecting ? "Connecting..." : "Connect board";
+  }
+
+  function boardPlacement(fen = chess.fen()) {
+    return fen.split(" ")[0];
+  }
+
+  function compressFenRow(row) {
+    let out = "";
+    let empty = 0;
+    for (const piece of row) {
+      if (piece) {
+        if (empty) out += String(empty);
+        out += piece;
+        empty = 0;
+      } else {
+        empty += 1;
+      }
+    }
+    return out + (empty ? String(empty) : "");
+  }
+
+  function chessnutBytes(value) {
+    if (value instanceof DataView)
+      return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    if (value instanceof ArrayBuffer) return new Uint8Array(value);
+    return new Uint8Array(value || []);
+  }
+
+  function chessnutBoardDataToPlacement(value) {
+    const bytes = chessnutBytes(value);
+    if (bytes.length < 32) return "";
+    const offset = bytes.length >= 34 && bytes[0] === 0x01 && bytes[1] === 0x24 ? 2 : 0;
+    if (bytes.length - offset < 32) return "";
+
+    const squares = Array(64).fill("");
+    for (let i = 0; i < 32; i += 1) {
+      const pair = bytes[offset + i];
+      const left = CHESSNUT_PIECES[pair & 0x0f];
+      const right = CHESSNUT_PIECES[pair >> 4];
+      if (left === undefined || right === undefined) return "";
+      squares[63 - i * 2] = left;
+      squares[63 - (i * 2 + 1)] = right;
+    }
+
+    const rows = [];
+    for (let rank = 7; rank >= 0; rank -= 1) {
+      const row = [];
+      for (let file = 0; file < 8; file += 1) row.push(squares[rank * 8 + file]);
+      rows.push(compressFenRow(row));
+    }
+    return rows.join("/");
+  }
+
+  function pieceCount(placement) {
+    return (placement.match(/[pnbrqkPNBRQK]/g) || []).length;
+  }
+
+  function canAcceptPlayerMove() {
+    if (chess.isGameOver() || !modelReady || botThinking) return false;
+    if (coop?.phase === "playing") return !coop.midTurn && coop.activeIdx === coop.myIdx;
+    return soloActive && coop?.phase === "off" && chess.turn() === "w";
+  }
+
+  function legalMoveForPlacement(targetPlacement) {
+    for (const move of chess.moves({ verbose: true })) {
+      const probe = new Chess(chess.fen());
+      const moveInput = {
+        from: move.from,
+        to: move.to,
+      };
+      if (move.promotion) moveInput.promotion = move.promotion;
+      probe.move(moveInput);
+      if (boardPlacement(probe.fen()) === targetPlacement) return move;
+    }
+    return null;
+  }
+
+  function chessnutLedBytes(squares) {
+    const files = { a: 128, b: 64, c: 32, d: 16, e: 8, f: 4, g: 2, h: 1 };
+    const rows = new Uint8Array(8);
+    for (const square of squares || []) {
+      if (!/^[a-h][1-8]$/.test(square)) continue;
+      rows[8 - Number(square[1])] |= files[square[0]];
+    }
+    const bytes = new Uint8Array(CHESSNUT_LED_PREFIX.length + rows.length);
+    bytes.set(CHESSNUT_LED_PREFIX);
+    bytes.set(rows, CHESSNUT_LED_PREFIX.length);
+    return bytes;
+  }
+
+  async function writeChessnut(bytes) {
+    if (chessnut.writeChar.writeValueWithoutResponse && chessnut.writeChar.properties?.writeWithoutResponse) {
+      await chessnut.writeChar.writeValueWithoutResponse(bytes);
+      return;
+    }
+    if (chessnut.writeChar.writeValueWithResponse && chessnut.writeChar.properties?.write) {
+      await chessnut.writeChar.writeValueWithResponse(bytes);
+      return;
+    }
+    await chessnut.writeChar.writeValue(bytes);
+  }
+
+  async function setChessnutLeds(squares) {
+    if (!chessnut.connected || !chessnut.writeChar) return;
+    try {
+      await writeChessnut(chessnutLedBytes(squares));
+    } catch {
+      setBoardDeviceStatus("LED update failed", "warning");
+    }
+  }
+
+  function markLastMove(from, to) {
+    board.removeMarkers(LAST_MOVE);
+    board.addMarker(LAST_MOVE, from);
+    board.addMarker(LAST_MOVE, to);
+    setChessnutLeds([from, to]);
+  }
+
+  function applyPlayerMove(from, to, promotion = "q") {
+    if (!canAcceptPlayerMove()) return false;
+    try {
+      const move = chess.move({ from, to, promotion });
+      if (!move) return false;
+      board.setPosition(chess.fen());
+      markLastMove(move.from, move.to);
+      updateGameScore();
+      if (coop?.phase === "playing") {
+        coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
+        if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, 300); }
+      } else {
+        saveSoloGame();
+        if (!checkGameOver()) setTimeout(botMove, 300);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function handleChessnutBoardNotification(event) {
+    const placement = chessnutBoardDataToPlacement(event.target.value);
+    if (!placement || placement === chessnut.lastPlacement) return;
+    chessnut.lastPlacement = placement;
+
+    if (placement === boardPlacement()) {
+      setBoardDeviceStatus("Board in sync", "connected");
+      return;
+    }
+
+    if (!canAcceptPlayerMove()) {
+      setBoardDeviceStatus("Waiting for your turn", "warning");
+      return;
+    }
+
+    const move = legalMoveForPlacement(placement);
+    if (move && applyPlayerMove(move.from, move.to, move.promotion || "q")) {
+      setBoardDeviceStatus("Move received", "connected");
+      return;
+    }
+
+    if (pieceCount(placement) < pieceCount(boardPlacement())) {
+      setBoardDeviceStatus("Complete the move", "warning");
+      return;
+    }
+    setBoardDeviceStatus("Board does not match game", "warning");
+  }
+
+  function handleChessnutDisconnect(eventOrStatus = "Disconnected") {
+    const statusText = typeof eventOrStatus === "string" ? eventOrStatus : "Disconnected";
+    chessnut.connected = false;
+    chessnut.server = null;
+    chessnut.writeChar = null;
+    chessnut.boardChar = null;
+    chessnut.miscChar = null;
+    setBoardDeviceStatus(statusText, "");
+    updateBoardDeviceUi();
+  }
+
+  async function findChessnutCharacteristics(server) {
+    const found = {};
+    const services = await server.getPrimaryServices();
+    for (const service of services) {
+      const characteristics = await service.getCharacteristics();
+      for (const characteristic of characteristics) {
+        const uuid = characteristic.uuid.toLowerCase();
+        if (uuid === CHESSNUT_CHARACTERISTICS.write) found.writeChar = characteristic;
+        if (uuid === CHESSNUT_CHARACTERISTICS.readBoardData) found.boardChar = characteristic;
+        if (uuid === CHESSNUT_CHARACTERISTICS.readMiscData) found.miscChar = characteristic;
+      }
+    }
+    return found;
+  }
+
+  async function connectChessnutBoard() {
+    if (!navigator.bluetooth) {
+      setBoardDeviceStatus("Use Chrome or Edge for Bluetooth", "warning");
+      return;
+    }
+    if (chessnut.connecting) return;
+
+    chessnut.connecting = true;
+    setBoardDeviceStatus("Select your Chessnut Air", "connecting");
+    updateBoardDeviceUi();
+    try {
+      const device = chessnut.device || await navigator.bluetooth.requestDevice({
+        filters: CHESSNUT_DEVICE_FILTERS,
+        optionalServices: CHESSNUT_SERVICE_UUIDS,
+      });
+      chessnut.device = device;
+      device.removeEventListener("gattserverdisconnected", handleChessnutDisconnect);
+      device.addEventListener("gattserverdisconnected", handleChessnutDisconnect);
+
+      const server = await device.gatt.connect();
+      const found = await findChessnutCharacteristics(server);
+      if (!found.writeChar || !found.boardChar) throw new Error("Chessnut board services were not found.");
+
+      chessnut.server = server;
+      chessnut.writeChar = found.writeChar;
+      chessnut.boardChar = found.boardChar;
+      chessnut.miscChar = found.miscChar;
+      await chessnut.boardChar.startNotifications();
+      chessnut.boardChar.removeEventListener("characteristicvaluechanged", handleChessnutBoardNotification);
+      chessnut.boardChar.addEventListener("characteristicvaluechanged", handleChessnutBoardNotification);
+      if (chessnut.miscChar?.properties?.notify) await chessnut.miscChar.startNotifications().catch(() => {});
+      await writeChessnut(CHESSNUT_INIT_COMMAND);
+
+      chessnut.connected = true;
+      chessnut.lastPlacement = "";
+      setBoardDeviceStatus("Connected", "connected");
+    } catch (err) {
+      const cancelled = err?.name === "NotFoundError";
+      const needsGesture = err?.name === "SecurityError" || /user gesture/i.test(err?.message || "");
+      const message = cancelled
+        ? "Connection cancelled"
+        : needsGesture ? "Click Connect board again" : err.message || "Could not connect";
+      handleChessnutDisconnect(message);
+      setBoardDeviceStatus(message, "warning");
+    } finally {
+      chessnut.connecting = false;
+      updateBoardDeviceUi();
+    }
+  }
+
+  async function disconnectChessnutBoard() {
+    try {
+      if (chessnut.boardChar) {
+        chessnut.boardChar.removeEventListener("characteristicvaluechanged", handleChessnutBoardNotification);
+        await chessnut.boardChar.stopNotifications().catch(() => {});
+      }
+      if (chessnut.miscChar?.properties?.notify) await chessnut.miscChar.stopNotifications().catch(() => {});
+      await setChessnutLeds([]);
+      chessnut.device?.gatt?.disconnect();
+    } finally {
+      handleChessnutDisconnect();
+    }
   }
 
   function hideOutcomeBanner() {
@@ -783,9 +1131,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
     chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
     board.setPosition(chess.fen());
-    board.removeMarkers(LAST_MOVE);
-    board.addMarker(LAST_MOVE, uci.slice(0, 2));
-    board.addMarker(LAST_MOVE, uci.slice(2, 4));
+    markLastMove(uci.slice(0, 2), uci.slice(2, 4));
     updateGameScore();
 
     botThinking = false;
@@ -807,20 +1153,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         return chess.turn() === "w" && !botThinking && modelReady && !chess.isGameOver();
 
       case INPUT_EVENT_TYPE.validateMoveInput: {
-        try {
-          chess.move({ from: event.squareFrom, to: event.squareTo, promotion: "q" });
-          board.removeMarkers(LAST_MOVE);
-          board.setPosition(chess.fen());
-          updateGameScore();
-          if (coop.phase === "playing") {
-            coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
-            if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, 300); }
-          } else {
-            saveSoloGame();
-            if (!checkGameOver()) setTimeout(botMove, 300);
-          }
-          return true;
-        } catch { return false; }
+        return applyPlayerMove(event.squareFrom, event.squareTo, "q");
       }
     }
   }
@@ -843,6 +1176,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const lbRoom       = document.getElementById("lb-room");
   const lbProfile    = document.getElementById("lb-profile");
   const lbFriends    = document.getElementById("lb-friends");
+  const lbFriendInvite = document.getElementById("lb-friend-invite");
   const cpPlayerList = document.getElementById("cp-player-list");
   const cpStartBtn   = document.getElementById("cp-start");
   const cpLeaveBtn   = document.getElementById("cp-leave");
@@ -882,6 +1216,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const friendInviteLink = document.getElementById("friend-invite-link");
   const friendLinkCopy = document.getElementById("friend-link-copy");
   const friendLinkShare = document.getElementById("friend-link-share");
+  const friendAddDialog = document.getElementById("friend-add-dialog");
+  const friendAddClose = document.getElementById("friend-add-close");
+  const friendInviteLanding = document.getElementById("friend-invite-landing");
   const searchParams = new URLSearchParams(location.search);
   const friendInvitePathMatch = location.pathname.match(/^\/plsbemyfriend\/([^/]+)$/);
   const incomingFriendUsername = friendInvitePathMatch
@@ -907,6 +1244,15 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     results: [],
     error: "",
     busyKey: "",
+    addDialogOpen: false,
+  };
+  const friendInviteLandingState = {
+    loading: false,
+    user: null,
+    error: "",
+    message: "",
+    accepting: false,
+    showLogin: false,
   };
   let friendSearchTimer = null;
   const coopInviteState = {
@@ -941,13 +1287,23 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     return `<span>${escapeHtml(name.charAt(0).toUpperCase() || "P")}</span>`;
   }
 
+  function friendPresenceHtml(person) {
+    const presence = person?.presence;
+    if (!presence?.label) return "";
+    const state = String(presence.state || "offline").replace(/[^a-z0-9_-]/g, "");
+    return `<span class="friend-presence ${escapeHtml(state)}"><span class="friend-presence-dot"></span>${escapeHtml(presence.label)}</span>`;
+  }
+
   function friendRow(person, meta, actionHtml = "") {
     return `
       <article class="friend-card">
         <div class="friend-avatar">${friendAvatar(person)}</div>
         <div class="friend-card-body">
           <strong>${escapeHtml(friendName(person))}</strong>
-          <span>${escapeHtml(meta || friendMeta(person))}</span>
+          <div class="friend-card-meta">
+            <span>${escapeHtml(meta || friendMeta(person))}</span>
+            ${friendPresenceHtml(person)}
+          </div>
         </div>
         ${actionHtml}
       </article>
@@ -983,6 +1339,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     const canShowNotice = !!invite
       && (coop?.phase || "off") === "off"
       && lbFriends.style.display === "none"
+      && lbFriendInvite.style.display === "none"
       && lbRoom.style.display === "none";
     coopInviteNotice.style.display = canShowNotice ? "flex" : "none";
     if (!invite) return;
@@ -1007,9 +1364,12 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function renderFriends() {
     friendMessage.textContent = friendState.error;
     friendMessage.className = `friend-message${friendState.error ? " visible" : ""}`;
+    friendAddDialog.hidden = !friendState.addDialogOpen;
     renderInviteNotification();
 
     if (authInfo.authEnabled && !authInfo.user) {
+      friendState.addDialogOpen = false;
+      friendAddDialog.hidden = true;
       friendSearch.disabled = true;
       profileUsername.disabled = true;
       usernameSaveBtn.disabled = true;
@@ -1085,11 +1445,17 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         ${friendState.searching ? `<div class="empty-state friend-empty">Searching...</div>` : resultHtml || `<div class="empty-state friend-empty">No players found.</div>`}
       `;
     } else {
-      friendResultsEl.innerHTML = "";
+      friendResultsEl.innerHTML = `<div class="empty-state friend-empty"><div><strong>Find a player</strong><span>Search by username to send a friend request.</span></div></div>`;
     }
 
     if (friendState.loading) {
-      friendListEl.innerHTML = `<div class="empty-state friend-empty">Loading friends...</div>`;
+      friendListEl.innerHTML = `
+        <div class="friend-section-header">
+          <div class="friend-section-title">Friends</div>
+          <button class="sm-btn primary-mini friend-add-inline" type="button" data-friend-action="open-add">Add friend</button>
+        </div>
+        <div class="empty-state friend-empty">Loading friends...</div>
+      `;
       return;
     }
 
@@ -1099,7 +1465,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       `<button class="sm-btn" type="button" data-friend-action="remove" data-user-id="${escapeHtml(friend.id)}" ${friendState.busyKey === `remove:${friend.id}` ? "disabled" : ""}>Remove</button>`
     )).join("");
     friendListEl.innerHTML = `
-      <div class="friend-section-title">Friends</div>
+      <div class="friend-section-header">
+        <div class="friend-section-title">Friends</div>
+        <button class="sm-btn primary-mini friend-add-inline" type="button" data-friend-action="open-add">Add friend</button>
+      </div>
       ${friendsHtml || `<div class="empty-state friend-empty"><div><strong>No friends yet</strong><span>Search for someone who has signed in once.</span></div></div>`}
     `;
   }
@@ -1170,6 +1539,28 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (lbFriends.style.display !== "none") renderFriends();
   }
 
+  async function sendPresence({ refreshFriends = false } = {}) {
+    if (!authInfo.user) return;
+    try {
+      await apiJson("/api/presence", { method: "POST" });
+      if (refreshFriends && lbFriends.style.display !== "none" && !friendState.loading)
+        await loadFriends();
+    } catch {
+      // Presence should never interrupt play.
+    }
+  }
+
+  const handleVisibilityPresence = () => {
+    if (document.visibilityState === "visible")
+      sendPresence({ refreshFriends: true });
+  };
+
+  function startPresenceHeartbeat() {
+    sendPresence({ refreshFriends: true });
+    presenceTimer = window.setInterval(() => sendPresence({ refreshFriends: true }), 20000);
+    document.addEventListener("visibilitychange", handleVisibilityPresence);
+  }
+
   async function searchFriends() {
     const query = friendState.searchQuery.trim();
     if (!query) {
@@ -1194,6 +1585,27 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     }
   }
 
+  function openAddFriendDialog() {
+    if (authInfo.authEnabled && !authInfo.user) {
+      promptSignIn();
+      return;
+    }
+    friendState.addDialogOpen = true;
+    friendState.error = "";
+    renderFriends();
+    window.setTimeout(() => friendSearch.focus({ preventScroll: true }), 0);
+  }
+
+  function closeAddFriendDialog() {
+    friendState.addDialogOpen = false;
+    friendState.searchQuery = "";
+    friendState.results = [];
+    friendState.searching = false;
+    friendSearch.value = "";
+    window.clearTimeout(friendSearchTimer);
+    renderFriends();
+  }
+
   async function runFriendAction(key, action) {
     friendState.busyKey = key;
     friendState.error = "";
@@ -1211,6 +1623,151 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     }
   }
 
+  function renderFriendInviteLanding() {
+    const state = friendInviteLandingState;
+    const invitedUser = state.user;
+    const invitedName = invitedUser ? friendName(invitedUser) : incomingFriendUsername;
+    const signedInAsTarget = !!(authInfo.user && invitedUser && authInfo.user.id === invitedUser.id);
+    const devUsers = authInfo.devLoginUsers || [];
+
+    if (state.loading) {
+      friendInviteLanding.innerHTML = `<div class="empty-state friend-empty">Loading invite...</div>`;
+      return;
+    }
+
+    if (state.error && !invitedUser) {
+      friendInviteLanding.innerHTML = `
+        <div class="friend-invite-preview">
+          <div class="friend-invite-avatar"><span>?</span></div>
+          <span>Invite unavailable</span>
+          <h2>Friend link</h2>
+          <p>${escapeHtml(state.error)}</p>
+        </div>
+        <div class="friend-invite-actions">
+          <button class="sm-btn primary-mini" type="button" data-friend-invite-action="friends">Go to friends</button>
+        </div>
+      `;
+      return;
+    }
+
+    if (!invitedUser) {
+      friendInviteLanding.innerHTML = "";
+      return;
+    }
+
+    const authActions = authInfo.authEnabled && !authInfo.user
+      ? state.showLogin
+        ? authInfo.localAuthEnabled && devUsers.length
+          ? `
+            <div class="friend-invite-dev-login">
+              <span>Choose a player to accept as</span>
+              <div class="dev-login-options">
+                ${devUsers.map(user => `
+                  <button class="sm-btn primary-mini" type="button" data-friend-invite-login-url="${escapeHtml(user.loginUrl)}">
+                    ${escapeHtml(user.name)}
+                  </button>
+                `).join("")}
+              </div>
+            </div>
+          `
+          : `
+            <button class="sm-btn primary-mini friend-invite-primary" type="button" data-friend-invite-action="signin">
+              Sign in to accept
+            </button>
+          `
+        : `
+          <button class="sm-btn primary-mini friend-invite-primary" type="button" data-friend-invite-action="continue">
+            Continue
+          </button>
+        `
+      : `
+        <button class="sm-btn primary-mini friend-invite-primary" type="button" data-friend-invite-action="accept" ${state.accepting || signedInAsTarget ? "disabled" : ""}>
+          ${signedInAsTarget ? "This is your link" : state.accepting ? "Adding..." : "Accept friend request"}
+        </button>
+      `;
+
+    friendInviteLanding.innerHTML = `
+      <div class="friend-invite-preview">
+        <div class="friend-invite-avatar">${friendAvatar(invitedUser)}</div>
+        <span>Friend invite</span>
+        <h2>${escapeHtml(invitedName)}</h2>
+        <p>Add each other as friends on Chessquestia.</p>
+      </div>
+      ${state.message ? `<div class="friend-message visible">${escapeHtml(state.message)}</div>` : ""}
+      ${state.error ? `<div class="friend-message visible">${escapeHtml(state.error)}</div>` : ""}
+      <div class="friend-invite-actions">
+        ${authActions}
+        <button class="sm-btn" type="button" data-friend-invite-action="friends">Friends</button>
+      </div>
+    `;
+  }
+
+  function showFriendInviteView() {
+    setNavActive("friends");
+    friendState.addDialogOpen = false;
+    hideModelLoading();
+    lbMain.style.display = "none";
+    lbSolo.style.display = "none";
+    lbRoom.style.display = "none";
+    lbProfile.style.display = "none";
+    lbFriends.style.display = "none";
+    lbFriendInvite.style.display = "flex";
+    renderFriendInviteLanding();
+    renderInviteNotification();
+  }
+
+  async function loadFriendInviteLanding() {
+    if (!incomingFriendUsername) return;
+    friendInviteLandingState.loading = true;
+    friendInviteLandingState.error = "";
+    friendInviteLandingState.message = "";
+    friendInviteLandingState.user = null;
+    friendInviteLandingState.accepting = false;
+    friendInviteLandingState.showLogin = false;
+    showFriendInviteView();
+    try {
+      const payload = await apiJson(`/api/friends/user/${encodeURIComponent(incomingFriendUsername)}`);
+      friendInviteLandingState.user = payload.user || null;
+    } catch (err) {
+      friendInviteLandingState.error = err.message;
+    } finally {
+      friendInviteLandingState.loading = false;
+      renderFriendInviteLanding();
+    }
+  }
+
+  async function acceptFriendInvite() {
+    if (!incomingFriendUsername) return;
+    if (authInfo.authEnabled && !authInfo.user) {
+      friendInviteLandingState.showLogin = true;
+      renderFriendInviteLanding();
+      return;
+    }
+
+    friendInviteLandingState.accepting = true;
+    friendInviteLandingState.error = "";
+    friendInviteLandingState.message = "";
+    renderFriendInviteLanding();
+    try {
+      const payload = await apiJson(`/api/friends/user/${encodeURIComponent(incomingFriendUsername)}`, {
+        method: "POST",
+      });
+      friendInviteLandingState.message = payload.message || `You are now friends with ${incomingFriendUsername}.`;
+      history.replaceState(null, "", "/?view=friends");
+      friendState.error = friendInviteLandingState.message;
+      await loadFriends();
+      showFriendsView({ reload: false });
+      friendState.error = friendInviteLandingState.message;
+      renderFriends();
+    } catch (err) {
+      friendInviteLandingState.error = err.message;
+      renderFriendInviteLanding();
+    } finally {
+      friendInviteLandingState.accepting = false;
+      renderFriendInviteLanding();
+    }
+  }
+
   function setViewUrl(view) {
     if (location.search.includes("room=")) return;
     const target = view === "play" ? "/" : `/?view=${view}`;
@@ -1225,47 +1782,24 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       history.replaceState(null, "", target);
   }
 
-  async function processIncomingFriendLink() {
-    if (!incomingFriendUsername) return;
-    if (authInfo.authEnabled && !authInfo.user) {
-      promptSignIn();
-      return;
-    }
-
-    showFriendsView();
-    friendState.error = "";
-    renderFriends();
-    try {
-      const payload = await apiJson(`/api/friends/user/${encodeURIComponent(incomingFriendUsername)}`, {
-        method: "POST",
-      });
-      const message = payload.message || `You are now friends with ${incomingFriendUsername}.`;
-      await loadFriends();
-      friendState.error = message;
-      history.replaceState(null, "", "/?view=friends");
-      renderFriends();
-    } catch (err) {
-      history.replaceState(null, "", "/?view=friends");
-      friendState.error = err.message;
-      renderFriends();
-    }
-  }
-
   function showPlayView() {
     setViewUrl("play");
     setNavActive("play");
+    friendState.addDialogOpen = false;
     if (!pendingSoloStart) hideModelLoading();
     lbMain.style.display = "flex";
     lbSolo.style.display = "none";
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+    lbFriendInvite.style.display = "none";
     renderInviteNotification();
   }
 
   function showBotSelection(mode = "solo") {
     setViewUrl(mode);
     setupMode = mode;
+    friendState.addDialogOpen = false;
     setNavActive("play");
     applyOpponentLocks();
     clearOpponentSelection();
@@ -1276,6 +1810,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+    lbFriendInvite.style.display = "none";
     renderInviteNotification();
   }
 
@@ -1290,17 +1825,19 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function showProfileView() {
     setViewUrl("profile");
     setNavActive("profile");
+    friendState.addDialogOpen = false;
     hideModelLoading();
     lbMain.style.display = "none";
     lbSolo.style.display = "none";
     lbRoom.style.display = "none";
     lbProfile.style.display = "flex";
     lbFriends.style.display = "none";
+    lbFriendInvite.style.display = "none";
     renderFriends();
     renderInviteNotification();
   }
 
-  function showFriendsView() {
+  function showFriendsView({ reload = true } = {}) {
     setViewUrl("friends");
     setNavActive("friends");
     hideModelLoading();
@@ -1309,7 +1846,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "flex";
-    if (!friendState.loading) loadFriends();
+    lbFriendInvite.style.display = "none";
+    if (reload && !friendState.loading) loadFriends();
     else renderFriends();
     renderInviteNotification();
   }
@@ -1417,6 +1955,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   navPlay.onclick = () => showPlayView();
   navProfile.onclick = () => showProfileView();
   navFriends.onclick = () => showFriendsView();
+  friendAddClose.onclick = () => closeAddFriendDialog();
+  friendAddDialog.addEventListener("click", (event) => {
+    if (event.target === friendAddDialog) closeAddFriendDialog();
+  });
   friendSearch.addEventListener("input", () => {
     friendSearch.value = friendSearch.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").slice(0, 20);
     friendState.searchQuery = friendSearch.value;
@@ -1429,6 +1971,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   });
   profileUsername.addEventListener("keydown", (event) => {
     if (event.key === "Enter") saveUsername();
+  });
+  friendSearch.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAddFriendDialog();
   });
   usernameSaveBtn.onclick = () => saveUsername();
   devLoginOptions.addEventListener("click", (event) => {
@@ -1479,6 +2024,34 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       location.href = `/?room=${encodeURIComponent(roomId)}`;
     } else if (action === "dismiss-invite" && inviteId) {
       runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
+    } else if (action === "open-add") {
+      openAddFriendDialog();
+    }
+  });
+  friendInviteLanding.addEventListener("click", (event) => {
+    const loginButton = event.target.closest("[data-friend-invite-login-url]");
+    if (loginButton) {
+      location.href = loginButton.dataset.friendInviteLoginUrl;
+      return;
+    }
+
+    const button = event.target.closest("[data-friend-invite-action]");
+    if (!button) return;
+    const action = button.dataset.friendInviteAction;
+    if (action === "continue") {
+      if (authInfo.localAuthEnabled && (authInfo.devLoginUsers || []).length) {
+        friendInviteLandingState.showLogin = true;
+        renderFriendInviteLanding();
+      } else {
+        location.href = authInfo.loginUrl;
+      }
+    } else if (action === "signin") {
+      location.href = authInfo.loginUrl;
+    } else if (action === "accept") {
+      acceptFriendInvite();
+    } else if (action === "friends") {
+      history.replaceState(null, "", "/?view=friends");
+      showFriendsView();
     }
   });
   document.getElementById("play-solo-btn").onclick = () => {
@@ -1509,6 +2082,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       lbRoom.style.display = "flex";
       lbProfile.style.display = "none";
       lbFriends.style.display = "none";
+      lbFriendInvite.style.display = "none";
       renderRoomLobby(coop.players || [], coop.myIdx);
       return;
     }
@@ -1543,6 +2117,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (!inviteId) return;
     runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
   };
+
+  boardConnectBtn.onclick = () => connectChessnutBoard();
+  boardDisconnectBtn.onclick = () => disconnectChessnutBoard();
+  if (!navigator.bluetooth) setBoardDeviceStatus("Chrome or Edge required", "warning");
+  updateBoardDeviceUi();
 
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
@@ -1760,6 +2339,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       lbRoom.style.display = "flex";
       lbProfile.style.display = "none";
       lbFriends.style.display = "none";
+      lbFriendInvite.style.display = "none";
       cpRoomMeta.textContent = "Reconnecting…";
       cpStartBtn.disabled = true;
     } else if (coop.phase === "playing") {
@@ -1807,6 +2387,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       lbRoom.style.display = "flex";
       lbProfile.style.display = "none";
       lbFriends.style.display = "none";
+      lbFriendInvite.style.display = "none";
       coop.phase = "lobby";
       return;
     }
@@ -1847,6 +2428,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         lbRoom.style.display = "flex";
         lbProfile.style.display = "none";
         lbFriends.style.display = "none";
+        lbFriendInvite.style.display = "none";
         if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
         renderRoomLobby(msg.players, msg.myIdx);
         return;
@@ -1885,8 +2467,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         }
 
         if (msg.fen !== chess.fen()) {
+          const incomingMove = legalMoveForPlacement(boardPlacement(msg.fen));
           chess.load(msg.fen);
           board.setPosition(msg.fen);
+          if (incomingMove) markLastMove(incomingMove.from, incomingMove.to);
           updateGameScore();
         }
 
@@ -1930,9 +2514,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
       chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
       board.setPosition(chess.fen());
-      board.removeMarkers(LAST_MOVE);
-      board.addMarker(LAST_MOVE, uci.slice(0, 2));
-      board.addMarker(LAST_MOVE, uci.slice(2, 4));
+      markLastMove(uci.slice(0, 2), uci.slice(2, 4));
       updateGameScore();
 
       coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
@@ -1952,6 +2534,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   if (authInfo.user) {
+    startPresenceHeartbeat();
     loadInviteNotifications();
     invitePollTimer = window.setInterval(loadInviteNotifications, 15000);
   }
@@ -1963,7 +2546,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       connectCoop("join", { roomId: urlRoom });
     }
   } else if (incomingFriendUsername) {
-    await processIncomingFriendLink();
+    await loadFriendInviteLanding();
   } else if (urlGame === "solo") {
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
     else restoreSoloGame();
@@ -1988,6 +2571,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     return () => {
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
+      if (presenceTimer) window.clearInterval(presenceTimer);
+      document.removeEventListener("visibilitychange", handleVisibilityPresence);
+      disconnectChessnutBoard();
     };
   }, []);
 

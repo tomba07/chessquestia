@@ -343,7 +343,7 @@
       gap: clamp(30px, 5cqw, 76px);
     }
 
-    #lb-solo, #lb-room, #lb-friends, #lb-profile {
+    #lb-solo, #lb-room, #lb-friends, #lb-profile, #lb-friend-invite {
       top: 18cqh;
     }
 
@@ -645,6 +645,42 @@
       display: none;
     }
 
+    #lb-friend-invite.lobby-panel {
+      width: min(500px, calc(100% - 160px));
+      max-height: none;
+      top: 22cqh;
+      left: 50%;
+      right: auto;
+      bottom: 8cqh;
+      transform: translateX(-50%);
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0 4px 10px;
+      gap: 20px;
+      color: var(--ink);
+      scrollbar-width: thin;
+    }
+    #lb-friend-invite .panel-head {
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--story-font);
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(255, 248, 226, 0.9);
+    }
+    #lb-friend-invite .panel-title {
+      font-size: 46px;
+      line-height: 1;
+      font-weight: 800;
+    }
+    #lb-friend-invite .panel-kicker {
+      display: none;
+    }
+
     #lb-friends.lobby-panel {
       width: 680px;
       max-height: none;
@@ -927,6 +963,7 @@
     .friend-tools {
       width: 100%;
       display: flex;
+      justify-content: center;
       gap: 8px;
       border: 2px solid rgba(119, 86, 43, 0.3);
       border-radius: 10px;
@@ -937,6 +974,65 @@
       box-shadow:
         inset 0 0 0 4px rgba(255, 248, 229, 0.32),
         0 18px 30px rgba(73, 48, 20, 0.11);
+    }
+    .friend-add-dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(45, 29, 14, 0.34);
+      padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+    .friend-add-dialog-backdrop[hidden] {
+      display: none;
+    }
+    .friend-add-dialog {
+      width: min(580px, 100%);
+      max-height: min(620px, calc(100dvh - 40px));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      border: 2px solid rgba(119, 86, 43, 0.32);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.92), rgba(244, 224, 184, 0.86)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 18px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.34),
+        0 24px 46px rgba(45, 29, 14, 0.34);
+    }
+    .friend-add-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .friend-add-head h3 {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--story-font);
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 800;
+    }
+    .friend-search-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .friend-search-box span {
+      color: rgba(59, 45, 29, 0.68);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .friend-search-results {
+      max-height: 320px;
+      overflow-y: auto;
     }
 
     .friend-link-card {
@@ -1173,6 +1269,25 @@
       text-transform: none;
       letter-spacing: 0;
     }
+    .friend-section-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .friend-section-header .friend-section-title {
+      text-align: left;
+    }
+    .friend-add-inline {
+      min-height: 32px;
+      flex: 0 0 auto;
+      border-radius: 8px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
 
     .friend-card {
       width: 100%;
@@ -1213,19 +1328,63 @@
       flex-direction: column;
       gap: 2px;
     }
-    .friend-card-body strong,
-    .friend-card-body span {
+    .friend-card-body > strong,
+    .friend-card-meta > span:first-child {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .friend-card-body strong {
+    .friend-card-body > strong {
       color: var(--text);
       font-size: 14px;
     }
-    .friend-card-body span {
+    .friend-card-meta {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .friend-card-meta > span:first-child {
       color: var(--text-dim);
       font-size: 12px;
+    }
+    .friend-presence {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: rgba(59, 45, 29, 0.72);
+      background: rgba(255, 250, 243, 0.7);
+      border: 1px solid rgba(119, 86, 43, 0.18);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .friend-presence-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #9a8c78;
+      box-shadow: 0 0 0 2px rgba(154, 140, 120, 0.14);
+    }
+    .friend-presence.online .friend-presence-dot {
+      background: #3f9d62;
+      box-shadow: 0 0 0 2px rgba(63, 157, 98, 0.16);
+    }
+    .friend-presence.in_lobby .friend-presence-dot {
+      background: #b46b1d;
+      box-shadow: 0 0 0 2px rgba(180, 107, 29, 0.18);
+    }
+    .friend-presence.in_game .friend-presence-dot {
+      background: #2f7d74;
+      box-shadow: 0 0 0 2px rgba(47, 125, 116, 0.18);
+    }
+    .friend-presence.offline {
+      opacity: 0.72;
     }
 
     .friend-actions {
@@ -1269,6 +1428,87 @@
     .friend-empty span {
       color: var(--text-dim);
       font-size: 12px;
+    }
+
+    .friend-invite-landing {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      border: 2px solid rgba(119, 86, 43, 0.28);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.72), rgba(244, 224, 184, 0.62)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 24px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.3),
+        0 18px 30px rgba(73, 48, 20, 0.13);
+    }
+    .friend-invite-preview {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+    }
+    .friend-invite-avatar {
+      width: 78px;
+      height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 2px solid rgba(119, 86, 43, 0.28);
+      border-radius: 50%;
+      background: rgba(180, 107, 29, 0.13);
+      color: #8a5620;
+      font-size: 28px;
+      font-weight: 800;
+      box-shadow: 0 12px 22px rgba(73, 48, 20, 0.12);
+    }
+    .friend-invite-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .friend-invite-preview > span,
+    .friend-invite-dev-login > span {
+      color: rgba(59, 45, 29, 0.66);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+    .friend-invite-preview h2 {
+      max-width: 100%;
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: var(--ink);
+      font-family: var(--story-font);
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 800;
+    }
+    .friend-invite-preview p {
+      margin: 0;
+      color: rgba(59, 45, 29, 0.74);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    .friend-invite-actions,
+    .friend-invite-dev-login {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .friend-invite-primary {
+      min-height: 46px;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
     }
 
     #cp-player-list {
@@ -1473,7 +1713,8 @@
       #lb-solo.lobby-panel,
       #lb-room.lobby-panel,
       #lb-friends.lobby-panel,
-      #lb-profile.lobby-panel {
+      #lb-profile.lobby-panel,
+      #lb-friend-invite.lobby-panel {
         top: 66px;
         right: 16px;
         bottom: 16px;
@@ -1593,10 +1834,20 @@
       #lb-friends .panel-title {
         font-size: 36px;
       }
-      .friend-tools,
       .friend-link-card,
       .friend-section {
         padding: 14px;
+      }
+      .friend-add-dialog-backdrop {
+        align-items: flex-start;
+        padding: 86px 16px 16px;
+      }
+      .friend-add-dialog {
+        max-height: calc(100dvh - 112px);
+        padding: 16px;
+      }
+      .friend-add-head h3 {
+        font-size: 24px;
       }
       .friend-link-actions {
         flex-direction: column;
@@ -1635,6 +1886,28 @@
       }
       #lb-profile .panel-title {
         font-size: 36px;
+      }
+      #lb-friend-invite.lobby-panel {
+        width: auto;
+        top: 92px;
+        right: 22px;
+        left: 22px;
+        bottom: 18px;
+        transform: none;
+      }
+      #lb-friend-invite .panel-title {
+        font-size: 34px;
+      }
+      .friend-invite-landing {
+        padding: 18px;
+      }
+      .friend-invite-avatar {
+        width: 66px;
+        height: 66px;
+        font-size: 24px;
+      }
+      .friend-invite-preview h2 {
+        font-size: 28px;
       }
       .username-card {
         padding: 18px;
@@ -1852,6 +2125,98 @@
     #game-status.thinking { color: var(--accent); }
     #game-status.over     { color: var(--text); font-weight: 800; }
 
+    .board-device-panel {
+      width: 188px;
+      position: absolute;
+      z-index: 3;
+      top: 26px;
+      right: 26px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 28px;
+      align-items: center;
+      gap: 6px;
+      color: #5b3b21;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+
+    .board-connect-btn,
+    .board-disconnect-btn {
+      min-width: 0;
+      border: 1px solid rgba(101, 70, 37, 0.28);
+      background: rgba(255, 247, 225, 0.88);
+      color: #5b3b21;
+      box-shadow: 0 8px 16px rgba(44, 27, 14, 0.12);
+      backdrop-filter: blur(5px);
+      cursor: pointer;
+    }
+
+    .board-connect-btn {
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .board-connect-btn:disabled {
+      cursor: progress;
+      opacity: 0.82;
+    }
+
+    .board-disconnect-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      padding: 0;
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .board-disconnect-btn[hidden] {
+      display: none;
+    }
+
+    .board-device-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #9b8060;
+      box-shadow: 0 0 0 3px rgba(91, 59, 33, 0.1);
+    }
+
+    .board-device-panel[data-state="connected"] .board-device-dot {
+      background: #3f9560;
+      box-shadow: 0 0 0 3px rgba(63, 149, 96, 0.16);
+    }
+
+    .board-device-panel[data-state="connecting"] .board-device-dot,
+    .board-device-panel[data-state="warning"] .board-device-dot {
+      background: #b87a35;
+      box-shadow: 0 0 0 3px rgba(184, 122, 53, 0.16);
+    }
+
+    .board-device-status {
+      grid-column: 1 / -1;
+      min-height: 16px;
+      padding: 0 8px;
+      overflow: hidden;
+      color: rgba(76, 51, 30, 0.78);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.25;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 1px 0 rgba(255, 247, 225, 0.64);
+    }
+
     .game-outcome-overlay {
       position: absolute;
       display: none;
@@ -2019,6 +2384,25 @@
         max-width: none;
         overflow: hidden;
         text-overflow: ellipsis;
+        font-size: 10px;
+      }
+      .board-device-panel {
+        width: 164px;
+        top: 78px;
+        right: 10px;
+        grid-template-columns: minmax(0, 1fr) 26px;
+        gap: 5px;
+      }
+      .board-connect-btn {
+        height: 31px;
+        padding: 0 10px;
+        font-size: 11px;
+      }
+      .board-disconnect-btn {
+        width: 26px;
+        height: 26px;
+      }
+      .board-device-status {
         font-size: 10px;
       }
       .game-outcome-overlay {

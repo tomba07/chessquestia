@@ -236,7 +236,9 @@ const SESSION_COOKIE = "cq_session";
 const OAUTH_STATE_COOKIE = "cq_oauth_state";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 90;
 const OAUTH_STATE_TTL_MS = 1000 * 60 * 10;
+const PRESENCE_TTL_MS = 1000 * 45;
 const oauthStates = new Map();
+const presence = new Map();
 
 function userFromRow(row) {
   if (!row) return null;
@@ -381,7 +383,37 @@ function publicFriendUser(row) {
     picture: row.picture,
     createdAt: row.created_at,
     friendshipStatus: row.friendship_status,
+    presence: presenceForUser(row.id),
   };
+}
+
+function touchPresence(userId) {
+  if (!userId) return;
+  presence.set(userId, { lastSeen: Date.now() });
+}
+
+function presenceForUser(userId) {
+  for (const room of rooms.values()) {
+    if (!["lobby", "playing"].includes(room.phase)) continue;
+    const player = [...room.players.values()].find(candidate => (
+      candidate.userId === userId
+      && candidate.connected
+      && candidate.ws?.readyState === 1
+    ));
+    if (!player) continue;
+    return {
+      state: room.phase === "lobby" ? "in_lobby" : "in_game",
+      label: room.phase === "lobby" ? "In lobby" : "In game",
+      roomId: room.id,
+    };
+  }
+
+  const seen = presence.get(userId)?.lastSeen || 0;
+  if (Date.now() - seen <= PRESENCE_TTL_MS) {
+    return { state: "online", label: "Online", roomId: null };
+  }
+
+  return { state: "offline", label: "Offline", roomId: null };
 }
 
 function currentUser(req) {
@@ -410,6 +442,7 @@ function requireApiUser(req, res) {
     res.status(401).json({ error: "Sign in required" });
     return null;
   }
+  touchPresence(user.id);
   return user;
 }
 
@@ -502,10 +535,12 @@ backfillUsernames();
 cleanupExpiredSessions();
 
 app.get("/api/me", (req, res) => {
+  const user = currentUser(req);
+  touchPresence(user?.id);
   const next = encodeURIComponent(req.query.next || req.originalUrl || "/");
   res.json({
     authEnabled,
-    user: publicUser(currentUser(req)),
+    user: publicUser(user),
     loginUrl: `${googleAuthEnabled ? "/auth/google" : "/auth/local"}?next=${next}`,
     localAuthEnabled,
     devLoginUsers: localAuthEnabled
@@ -518,6 +553,12 @@ app.get("/api/me", (req, res) => {
       : [],
     logoutUrl: `/auth/logout?next=${next}`,
   });
+});
+
+app.post("/api/presence", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+  res.json({ presence: presenceForUser(user.id) });
 });
 
 app.patch("/api/me", (req, res) => {
@@ -1343,6 +1384,7 @@ function findPlayerIdByUser(room, userId) {
 function attachWebSocketHandlers() {
   wss.on("connection", (ws, req) => {
   const user = currentUser(req);
+  touchPresence(user?.id);
   let currentPlayerId = null;
   let currentRoomId = null;
 
@@ -1358,6 +1400,7 @@ function attachWebSocketHandlers() {
           return;
         }
         const roomId = randomUUID().slice(0, 8);
+        touchPresence(user?.id);
         const playerId = randomUUID();
         const name = user?.username || user?.name || msg.name || "Player";
         const room = {
@@ -1398,6 +1441,7 @@ function attachWebSocketHandlers() {
           return;
         }
         const room = rooms.get(msg.roomId);
+        touchPresence(user?.id);
         if (!room) {
           ws.send(JSON.stringify({ type: "error", message: "Room not found" }));
           return;
