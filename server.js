@@ -998,7 +998,7 @@ app.get("/auth/logout", (req, res) => {
 });
 
 app.use((req, res, next) => {
-  if (!authEnabled) {
+  if (!authEnabled || localAuthEnabled) {
     next();
     return;
   }

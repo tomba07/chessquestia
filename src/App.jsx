@@ -253,7 +253,9 @@ function GameView() {
       </div>
       <div id="game-outcome-overlay" className="game-outcome-overlay" aria-hidden="true">
         <div className="game-outcome-modal" role="dialog" aria-modal="true" aria-label="Game result">
-          <div id="game-outcome-banner" className="game-outcome-banner"></div>
+          <div id="game-outcome-banner" className="game-outcome-banner">
+            <span id="game-outcome-title" className="game-outcome-title"></span>
+          </div>
           <button id="game-outcome-continue" className="bot-continue-btn game-outcome-continue" type="button">
             <img src="/assets/icons/submit-icon.png" alt="" />
             <span>Continue</span>
@@ -452,6 +454,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       if (gameEl.style.display !== "none" && coop?.phase !== "playing") {
         if (!chess.isGameOver() && chess.turn() === "w") setStatus("Your turn");
       }
+      if (gameEl.style.display !== "none" && coop?.phase === "playing") {
+        setCoopTurnStatus();
+      }
       maybeRunSoloBotTurn();
       maybeRunCoopBotTurn();
     }
@@ -505,6 +510,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const gameScoreEl = document.getElementById("game-score");
   const outcomeOverlayEl = document.getElementById("game-outcome-overlay");
   const outcomeBannerEl = document.getElementById("game-outcome-banner");
+  const outcomeTitleEl = document.getElementById("game-outcome-title");
   const outcomeContinueBtn = document.getElementById("game-outcome-continue");
   const cpChips   = document.getElementById("cp-chips");
   const STORAGE_PREFIX = "chessquestia";
@@ -527,6 +533,18 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     statusEl.className   = cls;
   }
 
+  function setCoopTurnStatus() {
+    if (!coop || coop.phase !== "playing") return;
+    if (coop.activeIdx === coop.myIdx && !coop.midTurn) {
+      setStatus(modelReady ? "Your turn" : "Preparing game...", modelReady ? "" : "thinking");
+      return;
+    }
+
+    const activePlayer = coop.players?.[coop.activeIdx];
+    const activeName = activePlayer?.name || "Player";
+    setStatus(coop.midTurn ? `${activeName}: bot thinking...` : `${activeName}'s turn`, coop.midTurn ? "thinking" : "");
+  }
+
   const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
   function updateGameScore() {
     const score = chess.board().flat().reduce((total, piece) => {
@@ -542,6 +560,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     outcomeOverlayEl.className = "game-outcome-overlay";
     outcomeOverlayEl.setAttribute("aria-hidden", "true");
     outcomeBannerEl.className = "game-outcome-banner";
+    outcomeTitleEl.textContent = "";
     outcomeBannerEl.removeAttribute("aria-label");
   }
 
@@ -549,7 +568,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     outcomeOverlayEl.className = "game-outcome-overlay visible";
     outcomeOverlayEl.setAttribute("aria-hidden", "false");
     outcomeBannerEl.className = `game-outcome-banner ${outcome}`;
-    outcomeBannerEl.setAttribute("aria-label", outcome === "victory" ? "Victory" : "Defeat");
+    outcomeTitleEl.textContent = outcome === "victory" ? "Victory" : "Defeat";
+    outcomeBannerEl.setAttribute("aria-label", outcomeTitleEl.textContent);
     window.setTimeout(() => outcomeContinueBtn.focus({ preventScroll: true }), 0);
   }
 
@@ -1833,7 +1853,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       }
 
       if (msg.phase === "playing" || msg.phase === "over") {
-        if (coop.phase !== "playing" && coop.phase !== "over") {
+        const wasInActiveGame = coop.phase === "playing" || coop.phase === "over";
+        coop.phase = msg.phase;
+
+        if (!wasInActiveGame) {
           chess.load(msg.fen);
           cpChips.innerHTML = "";
           showGame();
@@ -1843,7 +1866,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
           board.enableMoveInput(inputHandler);
           hideOutcomeBanner();
         }
-        coop.phase = msg.phase;
 
         // Render chips
         cpChips.innerHTML = "";
@@ -1874,12 +1896,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         } else if (msg.activeIdx === msg.myIdx && !msg.midTurn) {
           hideOutcomeBanner();
           board.enableMoveInput(inputHandler);
-          setStatus(modelReady ? "Your turn" : "Preparing game...");
+          setCoopTurnStatus();
         } else {
           hideOutcomeBanner();
           board.disableMoveInput();
-          const who = msg.players[msg.activeIdx]?.name ?? "…";
-          setStatus(msg.midTurn ? `${who}: bot thinking…` : `${who}'s turn`);
+          setCoopTurnStatus();
         }
         maybeRunCoopBotTurn();
       }

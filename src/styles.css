@@ -615,16 +615,18 @@
       top: 22cqh;
       left: 50%;
       right: auto;
-      bottom: auto;
+      bottom: 5cqh;
       transform: translateX(-50%);
-      overflow: visible;
+      overflow-y: auto;
+      overflow-x: hidden;
       background: transparent;
       border: 0;
       border-radius: 0;
       box-shadow: none;
-      padding: 0;
+      padding: 0 4px 10px;
       gap: 20px;
       color: var(--ink);
+      scrollbar-width: thin;
     }
     #lb-profile .panel-head {
       flex-direction: column;
@@ -1626,9 +1628,10 @@
         top: 92px;
         right: 22px;
         left: 22px;
-        bottom: auto;
+        bottom: 18px;
         transform: none;
-        overflow: visible;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
       #lb-profile .panel-title {
         font-size: 36px;
@@ -1877,11 +1880,32 @@
       width: min(430px, 100%);
       aspect-ratio: 2027 / 625;
       flex: 0 0 auto;
+      position: relative;
+      container-type: inline-size;
       background-position: center;
       background-size: contain;
       background-repeat: no-repeat;
       filter: drop-shadow(0 16px 26px rgba(44, 27, 14, 0.2));
       pointer-events: none;
+    }
+    .game-outcome-title {
+      width: 72%;
+      position: absolute;
+      top: 58%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #5b3b21;
+      font-family: var(--story-font);
+      font-size: 10cqw;
+      font-weight: 800;
+      line-height: 1;
+      text-align: center;
+      text-shadow:
+        0 2px 0 rgba(255, 247, 223, 0.86),
+        0 6px 12px rgba(73, 48, 20, 0.2);
+    }
+    .game-outcome-banner.defeat .game-outcome-title {
+      color: #6a3728;
     }
     .game-outcome-continue {
       width: min(300px, 76vw);
