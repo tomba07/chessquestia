@@ -606,6 +606,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     connected: false,
     connecting: false,
     lastPlacement: "",
+    notifications: 0,
+    orientation: "normal",
+    pollTimer: null,
+    polling: false,
+    lastRawHex: "",
+    lastSeenPlacement: "",
+    lastOrientedPlacement: "",
+    ledAnimationToken: 0,
   };
 
   function setStatus(text, cls = "") {
@@ -675,6 +683,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     return new Uint8Array(value || []);
   }
 
+  function bytesToHex(bytes) {
+    return Array.from(bytes).map(byte => byte.toString(16).padStart(2, "0")).join(" ");
+  }
+
   function chessnutBoardDataToPlacement(value) {
     const bytes = chessnutBytes(value);
     if (bytes.length < 32) return "";
@@ -700,6 +712,96 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     return rows.join("/");
   }
 
+  function rotatePlacement(placement) {
+    const squares = expandPlacement(placement);
+    const rotated = Array(64).fill("1");
+    for (let index = 0; index < 64; index += 1) {
+      const rank = Math.floor(index / 8);
+      const file = index % 8;
+      rotated[(7 - rank) * 8 + (7 - file)] = squares[index];
+    }
+    const rows = [];
+    for (let rank = 0; rank < 8; rank += 1)
+      rows.push(compressFenRow(rotated.slice(rank * 8, rank * 8 + 8).map(piece => piece === "1" ? "" : piece)));
+    return rows.join("/");
+  }
+
+  function expandPlacement(placement) {
+    return placement.split("/").flatMap(row => [...row.replace(/\d/g, digit => "1".repeat(Number(digit)))]);
+  }
+
+  function orientedBoardPlacement(placement) {
+    return chessnut.orientation === "rotated" ? rotatePlacement(placement) : placement;
+  }
+
+  function placementDiffSquares(leftPlacement, rightPlacement) {
+    const left = expandPlacement(leftPlacement);
+    const right = expandPlacement(rightPlacement);
+    const files = "abcdefgh";
+    const squares = [];
+    for (let index = 0; index < 64; index += 1) {
+      if (left[index] === right[index]) continue;
+      squares.push(files[index % 8] + String(8 - Math.floor(index / 8)));
+    }
+    return squares;
+  }
+
+  function squareToPlacementIndex(square) {
+    const file = square.charCodeAt(0) - 97;
+    const rank = Number(square[1]);
+    return (8 - rank) * 8 + file;
+  }
+
+  function pieceForMove(move) {
+    const colorWhite = move.color === "w";
+    const type = move.promotion || move.piece;
+    return colorWhite ? type.toUpperCase() : type;
+  }
+
+  function legalMoveFromPlacementDelta(previousPlacement, nextPlacement) {
+    if (!previousPlacement || !nextPlacement) return null;
+    const previous = expandPlacement(previousPlacement);
+    const next = expandPlacement(nextPlacement);
+    const changed = new Set();
+    for (let index = 0; index < 64; index += 1) {
+      if (previous[index] !== next[index]) changed.add(index);
+    }
+    if (changed.size < 2 || changed.size > 4) return null;
+
+    for (const move of chess.moves({ verbose: true })) {
+      const fromIndex = squareToPlacementIndex(move.from);
+      const toIndex = squareToPlacementIndex(move.to);
+      const movingPiece = pieceForMove(move);
+      const fromCleared = next[fromIndex] === "1";
+      const landed = next[toIndex] === movingPiece;
+      if (!fromCleared || !landed || !changed.has(fromIndex) || !changed.has(toIndex)) continue;
+
+      if (move.flags.includes("k") || move.flags.includes("q")) return move;
+      if (changed.size === 2) return move;
+      if (move.captured && changed.size === 2) return move;
+    }
+
+    return null;
+  }
+
+  function updateChessnutDiffLeds() {
+    if (!chessnut.connected || !chessnut.lastOrientedPlacement) return;
+    chessnut.ledAnimationToken += 1;
+    const diffs = placementDiffSquares(chessnut.lastOrientedPlacement, boardPlacement());
+    setChessnutLeds(diffs.slice(0, 16));
+  }
+
+  function bestPhysicalPlacement(placement) {
+    const game = boardPlacement();
+    const normalDiffs = placementDiffSquares(placement, game);
+    const rotated = rotatePlacement(placement);
+    const rotatedDiffs = placementDiffSquares(rotated, game);
+    if (rotatedDiffs.length < normalDiffs.length) {
+      return { placement: rotated, orientation: "rotated", diffs: rotatedDiffs };
+    }
+    return { placement, orientation: "normal", diffs: normalDiffs };
+  }
+
   function pieceCount(placement) {
     return (placement.match(/[pnbrqkPNBRQK]/g) || []).length;
   }
@@ -721,6 +823,22 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       probe.move(moveInput);
       if (boardPlacement(probe.fen()) === targetPlacement) return move;
     }
+    return null;
+  }
+
+  function legalMoveFromBoardPlacement(placement) {
+    const normalMove = legalMoveForPlacement(placement);
+    if (normalMove) {
+      chessnut.orientation = "normal";
+      return normalMove;
+    }
+
+    const rotatedMove = legalMoveForPlacement(rotatePlacement(placement));
+    if (rotatedMove) {
+      chessnut.orientation = "rotated";
+      return rotatedMove;
+    }
+
     return null;
   }
 
@@ -762,7 +880,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     board.removeMarkers(LAST_MOVE);
     board.addMarker(LAST_MOVE, from);
     board.addMarker(LAST_MOVE, to);
-    setChessnutLeds([from, to]);
+    updateChessnutDiffLeds();
   }
 
   function applyPlayerMove(from, to, promotion = "q") {
@@ -770,7 +888,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     try {
       const move = chess.move({ from, to, promotion });
       if (!move) return false;
-      board.setPosition(chess.fen());
+      board.setPosition(chess.fen(), false);
       markLastMove(move.from, move.to);
       updateGameScore();
       if (coop?.phase === "playing") {
@@ -787,40 +905,103 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function handleChessnutBoardNotification(event) {
-    const placement = chessnutBoardDataToPlacement(event.target.value);
-    if (!placement || placement === chessnut.lastPlacement) return;
+    chessnut.notifications += 1;
+    const bytes = chessnutBytes(event.target.value);
+    chessnut.lastRawHex = bytesToHex(bytes);
+    const placement = chessnutBoardDataToPlacement(bytes);
+    if (!placement) {
+      setBoardDeviceStatus(`Board data #${chessnut.notifications}: unreadable`, "warning");
+      return;
+    }
+    chessnut.lastSeenPlacement = placement;
+    const bestPlacement = bestPhysicalPlacement(placement);
+    const previousOrientedPlacement = chessnut.lastOrientedPlacement;
+    const nextOrientedPlacement = bestPlacement.placement;
+    window.__chessnutDebug = {
+      notifications: chessnut.notifications,
+      orientation: chessnut.orientation,
+      rawHex: chessnut.lastRawHex,
+      physicalPlacement: placement,
+      previousOrientedPlacement,
+      orientedPlacement: nextOrientedPlacement,
+      gamePlacement: boardPlacement(),
+      gameFen: chess.fen(),
+      mismatchSquares: bestPlacement.diffs,
+    };
+    if (placement === chessnut.lastPlacement) {
+      updateChessnutDiffLeds();
+      setBoardDeviceStatus(`Board data #${chessnut.notifications}`, "connected");
+      return;
+    }
     chessnut.lastPlacement = placement;
+    chessnut.lastOrientedPlacement = nextOrientedPlacement;
 
     if (placement === boardPlacement()) {
-      setBoardDeviceStatus("Board in sync", "connected");
+      chessnut.orientation = "normal";
+      updateChessnutDiffLeds();
+      setBoardDeviceStatus(`Board in sync #${chessnut.notifications}`, "connected");
+      return;
+    }
+
+    if (rotatePlacement(placement) === boardPlacement()) {
+      chessnut.orientation = "rotated";
+      updateChessnutDiffLeds();
+      setBoardDeviceStatus(`Board in sync rotated #${chessnut.notifications}`, "connected");
       return;
     }
 
     if (!canAcceptPlayerMove()) {
-      setBoardDeviceStatus("Waiting for your turn", "warning");
+      setBoardDeviceStatus(`Waiting for your turn #${chessnut.notifications}`, "warning");
       return;
     }
 
-    const move = legalMoveForPlacement(placement);
+    const deltaMove = legalMoveFromPlacementDelta(previousOrientedPlacement, nextOrientedPlacement);
+    const move = deltaMove || legalMoveFromBoardPlacement(placement);
     if (move && applyPlayerMove(move.from, move.to, move.promotion || "q")) {
-      setBoardDeviceStatus("Move received", "connected");
+      setBoardDeviceStatus(`Move received #${chessnut.notifications}`, "connected");
       return;
     }
 
-    if (pieceCount(placement) < pieceCount(boardPlacement())) {
-      setBoardDeviceStatus("Complete the move", "warning");
+    if (pieceCount(bestPlacement.placement) < pieceCount(boardPlacement())) {
+      setBoardDeviceStatus(`Complete the move #${chessnut.notifications}`, "warning");
       return;
     }
-    setBoardDeviceStatus("Board does not match game", "warning");
+    updateChessnutDiffLeds();
+    setBoardDeviceStatus(`Board out of sync #${chessnut.notifications}`, "warning");
+  }
+
+  async function pollChessnutBoard() {
+    if (!chessnut.connected || !chessnut.boardChar || chessnut.polling) return;
+    chessnut.polling = true;
+    try {
+      const value = await chessnut.boardChar.readValue();
+      handleChessnutBoardNotification({ target: { value } });
+    } catch {
+      if (!chessnut.notifications) setBoardDeviceStatus("Waiting for board data", "warning");
+    } finally {
+      chessnut.polling = false;
+    }
+  }
+
+  function startChessnutPolling() {
+    if (chessnut.pollTimer) window.clearInterval(chessnut.pollTimer);
+    if (!chessnut.boardChar?.properties?.read) return;
+    chessnut.pollTimer = window.setInterval(pollChessnutBoard, 600);
+    pollChessnutBoard();
   }
 
   function handleChessnutDisconnect(eventOrStatus = "Disconnected") {
     const statusText = typeof eventOrStatus === "string" ? eventOrStatus : "Disconnected";
+    if (chessnut.pollTimer) window.clearInterval(chessnut.pollTimer);
     chessnut.connected = false;
     chessnut.server = null;
     chessnut.writeChar = null;
     chessnut.boardChar = null;
     chessnut.miscChar = null;
+    chessnut.notifications = 0;
+    chessnut.ledAnimationToken += 1;
+    chessnut.pollTimer = null;
+    chessnut.polling = false;
     setBoardDeviceStatus(statusText, "");
     updateBoardDeviceUi();
   }
@@ -875,13 +1056,19 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
       chessnut.connected = true;
       chessnut.lastPlacement = "";
-      setBoardDeviceStatus("Connected", "connected");
+      chessnut.lastOrientedPlacement = "";
+      chessnut.notifications = 0;
+      setBoardDeviceStatus("Connected, waiting for board", "connected");
+      startChessnutPolling();
     } catch (err) {
       const cancelled = err?.name === "NotFoundError";
       const needsGesture = err?.name === "SecurityError" || /user gesture/i.test(err?.message || "");
+      const permissionBlocked = err?.name === "NotAllowedError" || /permission.*blocked|blocked.*permission/i.test(err?.message || "");
       const message = cancelled
         ? "Connection cancelled"
-        : needsGesture ? "Click Connect board again" : err.message || "Could not connect";
+        : needsGesture ? "Click Connect board again"
+          : permissionBlocked ? "Bluetooth is blocked for this site"
+            : err.message || "Could not connect";
       handleChessnutDisconnect(message);
       setBoardDeviceStatus(message, "warning");
     } finally {
@@ -1034,6 +1221,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     showGame();
     board.setPosition(chess.fen());
     board.removeMarkers(LAST_MOVE);
+    chessnut.lastPlacement = "";
+    chessnut.lastOrientedPlacement = "";
     updateGameScore();
     board.enableMoveInput(inputHandler);
     botThinking = false;
@@ -1130,7 +1319,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     const uci       = sampleMove(moveProbs);
 
     chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
-    board.setPosition(chess.fen());
+    board.setPosition(chess.fen(), false);
     markLastMove(uci.slice(0, 2), uci.slice(2, 4));
     updateGameScore();
 
@@ -2439,12 +2628,13 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         coop.phase = msg.phase;
 
         if (!wasInActiveGame) {
-          chess.load(msg.fen);
-          cpChips.innerHTML = "";
-          showGame();
-          board.setPosition(msg.fen, false);
-          board.removeMarkers(LAST_MOVE);
-          updateGameScore();
+      chess.load(msg.fen);
+      cpChips.innerHTML = "";
+      showGame();
+      board.setPosition(msg.fen, false);
+      board.removeMarkers(LAST_MOVE);
+      updateChessnutDiffLeds();
+      updateGameScore();
           board.enableMoveInput(inputHandler);
           hideOutcomeBanner();
         }
@@ -2469,8 +2659,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         if (msg.fen !== chess.fen()) {
           const incomingMove = legalMoveForPlacement(boardPlacement(msg.fen));
           chess.load(msg.fen);
-          board.setPosition(msg.fen);
+          board.setPosition(msg.fen, false);
           if (incomingMove) markLastMove(incomingMove.from, incomingMove.to);
+          else updateChessnutDiffLeds();
           updateGameScore();
         }
 
@@ -2513,7 +2704,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       const uci = sampleMove(moveProbs);
 
       chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
-      board.setPosition(chess.fen());
+      board.setPosition(chess.fen(), false);
       markLastMove(uci.slice(0, 2), uci.slice(2, 4));
       updateGameScore();
 
