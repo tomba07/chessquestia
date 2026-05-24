@@ -1,5 +1,10 @@
-- friend status
-- try composer 2.5
+- refactoring
+-
+- design improvements
+ - friends count
+ - add friend modal bg
+- highlights
+ - game changing moves
 - password auth
 - campaign mode
 - badges / awards
@@ -8,3 +13,4 @@
 - player rating
 - player levels & unlocks
 - char specific locked cards
+- try composer 2.5
