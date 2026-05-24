@@ -1,10 +1,10 @@
-- try composer 2.5
-- deployment script
 - friend status
+- try composer 2.5
 - password auth
 - campaign mode
-- unlockables
-- char specific locked cards
 - badges / awards
 - bot reactions
-- chessnut integration
+- post game analysis
+- player rating
+- player levels & unlocks
+- char specific locked cards
