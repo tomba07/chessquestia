@@ -16,6 +16,13 @@ import {
   placementDiffSquares,
   rotatePlacement,
 } from "./chessnut.js";
+import {
+  buildLegalMask,
+  decodeMoves,
+  loadMaiaMoveMaps,
+  prepareMaiaPosition,
+  sampleMove,
+} from "./maia.js";
 
 function SideMenu() {
   return (
@@ -357,75 +364,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   // ── Load move mappings ────────────────────────────────────────────────────
 
-  const [allMovesMaia3, allMovesMaia3Reversed] = await Promise.all([
-    fetch("/data/all_moves_maia3.json").then(r => r.json()),
-    fetch("/data/all_moves_maia3_reversed.json").then(r => r.json()),
-  ]);
-
-  // ── Board encoding (ported from CSSLab tensor.ts) ─────────────────────────
-
-  const PIECE_TYPES = "PNBRQKpnbrqk";
-
-  function mirrorSquare(sq) { return sq[0] + (9 - parseInt(sq[1])); }
-
-  function mirrorMove(uci) {
-    return mirrorSquare(uci.slice(0, 2)) + mirrorSquare(uci.slice(2, 4)) + uci.slice(4);
-  }
-
-  function mirrorFEN(fen) {
-    const [pos, , castling, ep, hm, fm] = fen.split(" ");
-    const flip = { K: "k", Q: "q", k: "K", q: "Q" };
-    const mirroredPos = pos.split("/").reverse()
-      .map(r => r.replace(/[A-Za-z]/g, c => /[A-Z]/.test(c) ? c.toLowerCase() : c.toUpperCase()))
-      .join("/");
-    const mirroredCastling = castling === "-" ? "-" : castling.replace(/[KQkq]/g, c => flip[c]);
-    return `${mirroredPos} w ${mirroredCastling} ${ep !== "-" ? mirrorSquare(ep) : "-"} ${hm} ${fm}`;
-  }
-
-  function boardToTokens(fen) {
-    const tensor = new Float32Array(64 * 12);
-    fen.split(" ")[0].split("/").forEach((row, rank) => {
-      let file = 0;
-      for (const c of row) {
-        const n = parseInt(c);
-        if (isNaN(n)) {
-          const pi = PIECE_TYPES.indexOf(c);
-          if (pi >= 0) tensor[((7 - rank) * 8 + file) * 12 + pi] = 1;
-          file++;
-        } else file += n;
-      }
-    });
-    return tensor;
-  }
-
-  function buildLegalMask(workingFen) {
-    const mask = new Float32Array(4352);
-    for (const m of new Chess(workingFen).moves({ verbose: true })) {
-      const idx = allMovesMaia3[m.from + m.to + (m.promotion || "")];
-      if (idx !== undefined) mask[idx] = 1;
-    }
-    return mask;
-  }
-
-  function decodeMoves(logitsMove, legalMask, isBlack) {
-    const legalIdx = Array.from(legalMask.keys()).filter(i => legalMask[i] > 0);
-    const logits   = legalIdx.map(i => logitsMove[i]);
-    const max      = Math.max(...logits);
-    const exps     = logits.map(l => Math.exp(l - max));
-    const sum      = exps.reduce((a, b) => a + b, 0);
-    return Object.fromEntries(legalIdx.map((idx, j) => {
-      let move = allMovesMaia3Reversed[String(idx)];
-      if (isBlack) move = mirrorMove(move);
-      return [move, exps[j] / sum];
-    }));
-  }
-
-  function sampleMove(probs) {
-    const moves = Object.keys(probs), weights = Object.values(probs);
-    let r = Math.random() * weights.reduce((a, b) => a + b, 0);
-    for (let i = 0; i < moves.length; i++) { r -= weights[i]; if (r <= 0) return moves[i]; }
-    return moves[moves.length - 1];
-  }
+  const { allMoves: allMovesMaia3, allMovesReversed: allMovesMaia3Reversed } = await loadMaiaMoveMaps();
 
   // ── Web Worker (Maia 3 ONNX inference) ───────────────────────────────────
 
@@ -1143,16 +1082,12 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     botThinking = true;
     setStatus("Thinking…", "thinking");
 
-    const fen        = chess.fen();
-    const isBlack    = fen.split(" ")[1] === "b";
-    const elo        = getElo();
-    const workingFen = isBlack ? mirrorFEN(fen) : fen;
-    const tokens     = boardToTokens(workingFen);
-    const legalMask  = buildLegalMask(workingFen);
+    const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
+    const legalMask = buildLegalMask(workingFen, allMovesMaia3);
 
-    const { logitsMove } = await runInference(tokens, elo);
-    const moveProbs = decodeMoves(logitsMove, legalMask, isBlack);
-    const uci       = sampleMove(moveProbs);
+    const { logitsMove } = await runInference(tokens, getElo());
+    const moveProbs = decodeMoves(logitsMove, legalMask, isBlack, allMovesMaia3Reversed);
+    const uci = sampleMove(moveProbs);
 
     chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });
     board.setPosition(chess.fen(), false);
@@ -2528,15 +2463,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     botThinking = true;
     try {
       setStatus("Thinking…", "thinking");
-      const fen       = chess.fen();
-      const isBlack   = fen.split(" ")[1] === "b";
-      const elo       = coop.strength;
-      const workFen   = isBlack ? mirrorFEN(fen) : fen;
-      const tokens    = boardToTokens(workFen);
-      const legalMask = buildLegalMask(workFen);
+      const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
+      const legalMask = buildLegalMask(workingFen, allMovesMaia3);
 
-      const { logitsMove } = await runInference(tokens, elo);
-      const moveProbs = decodeMoves(logitsMove, legalMask, isBlack);
+      const { logitsMove } = await runInference(tokens, coop.strength);
+      const moveProbs = decodeMoves(logitsMove, legalMask, isBlack, allMovesMaia3Reversed);
       const uci = sampleMove(moveProbs);
 
       chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || "q" });

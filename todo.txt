@@ -3,12 +3,15 @@
 - design improvements
  - friends count
  - add friend modal bg
+ - banner appear (delay, fade)
+
 - highlights
  - game changing moves
 - password auth
 - campaign mode
 - badges / awards
 - bot reactions
+ - bot pause
 - post game analysis
 - player rating
 - player levels & unlocks
