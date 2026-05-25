@@ -367,7 +367,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function syncStrength(value) {
     strengthSlider.value = value;
     strengthVal.textContent = value;
-    selectedOpponentTheme = opponentForStrength(value)?.theme || opponentThemeForStrength(value);
+    const opponent = opponentForStrength(value);
+    if (opponent) selectedOpponentIndex = SOLO_OPPONENTS.indexOf(opponent);
+    selectedOpponentTheme = opponent?.theme || opponentThemeForStrength(value);
   }
   strengthSlider.oninput = () => syncStrength(strengthSlider.value);
   const getElo = () => parseInt(strengthSlider.value);
@@ -980,11 +982,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function unlockNextOpponent() {
-    if (selectedOpponentIndex + 1 >= SOLO_OPPONENTS.length) return false;
-    const nextUnlockedCount = selectedOpponentIndex + 2;
+    const opponentIndex = Math.max(0, selectedOpponentIndex);
+    if (opponentIndex + 1 >= SOLO_OPPONENTS.length) return false;
+    const nextUnlockedCount = opponentIndex + 2;
+    unlockedOpponentCount = readSoloProgress();
     if (unlockedOpponentCount >= nextUnlockedCount) return false;
     unlockedOpponentCount = nextUnlockedCount;
     saveSoloProgress();
+    syncMaiaStatus();
     applyOpponentLocks();
     return true;
   }
@@ -1116,7 +1121,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function checkGameOver() {
     if (chess.isCheckmate()) {
       const playerWon = chess.turn() === "b";
-      const unlockedNext = playerWon && soloActive && coop?.phase === "off" && unlockNextOpponent();
+      const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
+      const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
       showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat");
       setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
       board.disableMoveInput();
