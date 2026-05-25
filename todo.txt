@@ -1,10 +1,9 @@
 - refactoring
--
 - design improvements
  - friends count
- - add friend modal bg
  - banner appear (delay, fade)
-
+- game start screen
+ - pokemon-like: player vs enemy (maybe one liner of the enemy)
 - highlights
  - game changing moves
 - password auth

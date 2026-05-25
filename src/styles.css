@@ -215,23 +215,6 @@
       opacity: 0.9;
     }
 
-    .invite-badge {
-      min-width: 18px;
-      height: 18px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      background: #b46b1d;
-      color: #fff7df;
-      padding: 0 5px;
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      font-size: 11px;
-      font-weight: 800;
-      line-height: 1;
-      box-shadow: 0 2px 5px rgba(81, 50, 17, 0.24);
-    }
-
     .coop-invite-notice {
       position: absolute;
       z-index: 5;
@@ -979,6 +962,8 @@
       position: fixed;
       inset: 0;
       z-index: 30;
+      width: 100vw;
+      min-height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -990,7 +975,7 @@
       display: none;
     }
     .friend-add-dialog {
-      width: min(580px, 100%);
+      width: min(580px, calc(100vw - 40px));
       max-height: min(620px, calc(100dvh - 40px));
       display: flex;
       flex-direction: column;
@@ -1667,12 +1652,6 @@
         width: 16px;
         height: 16px;
       }
-      .invite-badge {
-        min-width: 15px;
-        height: 15px;
-        padding: 0 4px;
-        font-size: 9px;
-      }
       .coop-invite-notice {
         top: 60px;
         right: 16px;
@@ -1840,10 +1819,13 @@
       }
       .friend-add-dialog-backdrop {
         align-items: flex-start;
-        padding: 86px 16px 16px;
+        height: 100dvh;
+        overflow-y: auto;
+        padding: max(74px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
       }
       .friend-add-dialog {
-        max-height: calc(100dvh - 112px);
+        width: calc(100vw - 28px);
+        max-height: calc(100dvh - 88px - env(safe-area-inset-bottom));
         padding: 16px;
       }
       .friend-add-head h3 {
