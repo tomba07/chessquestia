@@ -1,6 +1,5 @@
 - refactoring
 - design improvements
- - friends count
  - banner appear (delay, fade)
 - game start screen
  - pokemon-like: player vs enemy (maybe one liner of the enemy)

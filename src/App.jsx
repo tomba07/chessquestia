@@ -671,7 +671,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function syncBoardAfterMove(move) {
-    board.setPosition(chess.fen(), false);
+    board.setPosition(chess.fen(), true);
     markLastMove(move.from, move.to);
     updateGameScore();
   }
@@ -698,7 +698,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function applyRemoteFen(fen) {
     const incomingMove = legalMoveForPlacement(boardPlacement(fen));
     chess.load(fen);
-    board.setPosition(fen, false);
+    board.setPosition(fen, true);
     if (incomingMove) markLastMove(incomingMove.from, incomingMove.to);
     else updateChessnutDiffLeds();
     updateGameScore();
@@ -1004,7 +1004,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         position: chess.fen(),
         orientation: COLOR.white,
         assetsUrl: CDN,
-        style: { pieces: { file: CDN + "pieces/staunty.svg" } },
+        style: {
+          pieces: { file: CDN + "pieces/staunty.svg" },
+          animationDuration: 220,
+        },
         extensions: [{ class: Markers }],
       });
     }
