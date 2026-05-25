@@ -342,6 +342,7 @@ export default function App() {
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
+  const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
   const CDN       = "/cm-chessboard/assets/";
 
   const strengthSlider = document.getElementById("strength-slider");
@@ -704,6 +705,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     updateGameScore();
   }
 
+  function nextBotMoveDelay() {
+    const { min, max } = BOT_MOVE_DELAY_MS;
+    return Math.round(min + Math.random() * (max - min));
+  }
+
   function applyPlayerMove(from, to, promotion = "q") {
     if (!canAcceptPlayerMove()) return false;
     try {
@@ -712,10 +718,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       syncBoardAfterMove(move);
       if (coop?.phase === "playing") {
         publishCoopMove();
-        if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, 300); }
+        if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, nextBotMoveDelay()); }
       } else {
         saveSoloGame();
-        if (!checkGameOver()) setTimeout(botMove, 300);
+        if (!checkGameOver()) setTimeout(botMove, nextBotMoveDelay());
       }
       return true;
     } catch {
@@ -1165,7 +1171,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function maybeRunSoloBotTurn() {
     if (soloActive && coop?.phase === "off" && gameEl.style.display !== "none"
       && chess.turn() === "b" && modelReady && !botThinking && !chess.isGameOver())
-      setTimeout(botMove, 300);
+      setTimeout(botMove, nextBotMoveDelay());
   }
 
   function inputHandler(event) {
@@ -1920,7 +1926,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function maybeRunCoopBotTurn() {
     if (coop?.phase === "playing" && coop.activeIdx === coop.myIdx && coop.midTurn && modelReady && !botThinking)
-      setTimeout(coopBotMove, 300);
+      setTimeout(coopBotMove, nextBotMoveDelay());
   }
 
   async function coopBotMove() {
