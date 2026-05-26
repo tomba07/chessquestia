@@ -1126,6 +1126,49 @@
       font-size: 14px;
       font-weight: 700;
     }
+    .profile-setting-card {
+      width: 100%;
+      border: 2px solid rgba(119, 86, 43, 0.24);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255, 248, 229, 0.66), rgba(244, 224, 184, 0.56)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      padding: 16px 18px;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 248, 229, 0.28),
+        0 16px 28px rgba(73, 48, 20, 0.1);
+    }
+    .profile-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .profile-toggle-row > span {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .profile-toggle-row strong {
+      font-family: var(--story-font);
+      font-size: 22px;
+      line-height: 1;
+    }
+    .profile-toggle-row small {
+      color: rgba(59, 45, 29, 0.66);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .profile-toggle-row input {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      accent-color: #3f9560;
+      cursor: pointer;
+    }
     .dev-login-card {
       width: 100%;
       flex-direction: column;
@@ -2126,6 +2169,9 @@
       color: #5b3b21;
       font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
     }
+    .board-device-panel[hidden] {
+      display: none;
+    }
 
     .board-connect-btn,
     .board-disconnect-btn {
@@ -2207,7 +2253,7 @@
 
     .game-outcome-overlay {
       position: absolute;
-      display: none;
+      display: flex;
       z-index: 5;
       inset: 0;
       align-items: center;
@@ -2217,9 +2263,16 @@
         radial-gradient(circle at 50% 43%, rgba(255, 248, 224, 0.28), transparent 38%),
         rgba(41, 28, 16, 0.54);
       backdrop-filter: blur(3px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.5s ease, visibility 0s linear 0.5s;
     }
     .game-outcome-overlay.visible {
-      display: flex;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition-delay: 0s;
     }
     .game-outcome-modal {
       width: min(560px, 88vw);
@@ -2228,6 +2281,13 @@
       align-items: center;
       gap: 22px;
       padding: 0;
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+      transition: opacity 0.48s ease, transform 0.52s cubic-bezier(0.2, 0.9, 0.24, 1);
+    }
+    .game-outcome-overlay.visible .game-outcome-modal {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
     .game-outcome-banner {
       width: min(430px, 100%);
@@ -2300,6 +2360,64 @@
       width: 100%;
       height: 100%;
     }
+    .victory-board-pulse {
+      --victory-pulse-x: 50%;
+      --victory-pulse-y: 50%;
+      width: var(--game-board-size);
+      aspect-ratio: 1;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 3;
+      overflow: hidden;
+      border-radius: 2px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+    .victory-board-pulse.active {
+      opacity: 1;
+    }
+    .victory-square-pulse {
+      position: absolute;
+      pointer-events: none;
+    }
+    .victory-square-pulse {
+      width: 12.5%;
+      aspect-ratio: 1;
+      left: var(--victory-pulse-x);
+      top: var(--victory-pulse-y);
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(184, 255, 150, 0.86) 0%, rgba(73, 232, 96, 0.56) 42%, rgba(38, 181, 76, 0) 72%);
+      box-shadow:
+        0 0 22px rgba(131, 255, 132, 0.64),
+        0 0 48px rgba(57, 205, 83, 0.3);
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.42);
+    }
+    .victory-square-pulse-to {
+      left: var(--victory-to-x);
+      top: var(--victory-to-y);
+    }
+    .victory-board-pulse.active .victory-square-pulse {
+      animation: victory-square-wave 1100ms cubic-bezier(0.12, 0.78, 0.2, 1) forwards;
+    }
+    @keyframes victory-square-wave {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.32);
+      }
+      14% {
+        opacity: 1;
+      }
+      78% {
+        opacity: 0.54;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(14);
+      }
+    }
     #game .cm-chessboard.default .board .square.white {
       fill: #f1ddb5;
     }
@@ -2329,6 +2447,9 @@
       transition: opacity 0.22s ease, transform 0.44s cubic-bezier(0.2, 0.9, 0.24, 1);
       pointer-events: none;
     }
+    .opponent-speech.foreground {
+      z-index: 6;
+    }
     .opponent-speech[hidden] {
       display: none;
     }
@@ -2341,7 +2462,9 @@
       position: relative;
       z-index: 2;
       margin-right: -42px;
-      filter: drop-shadow(0 18px 24px rgba(41, 25, 12, 0.34));
+      filter:
+        drop-shadow(0 10px 10px rgba(28, 17, 8, 0.8))
+        drop-shadow(0 22px 28px rgba(41, 25, 12, 0.8));
     }
     .opponent-speech-bubble {
       min-height: 128px;
@@ -2355,11 +2478,36 @@
       background:
         linear-gradient(rgba(255, 248, 226, 0.94), rgba(242, 220, 179, 0.9)),
         url("/assets/backgrounds/background_parchment.png") center / cover;
-      padding: 18px 22px 18px 46px;
+      padding: 20px 42px 18px 46px;
+      position: relative;
       color: #3b2d1d;
       box-shadow:
         inset 0 0 0 3px rgba(255, 248, 226, 0.3),
         0 16px 28px rgba(41, 25, 12, 0.2);
+    }
+    .opponent-speech-close {
+      width: 28px;
+      height: 28px;
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(95, 62, 32, 0.28);
+      border-radius: 999px;
+      background: rgba(255, 249, 229, 0.72);
+      color: #684326;
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .opponent-speech-close:hover,
+    .opponent-speech-close:focus-visible {
+      background: rgba(255, 249, 229, 0.95);
+      border-color: rgba(95, 62, 32, 0.48);
+      outline: none;
     }
     .opponent-speech-bubble strong {
       font-size: 22px;
@@ -2439,23 +2587,7 @@
         font-size: 10px;
       }
       .board-device-panel {
-        width: 164px;
-        top: 78px;
-        right: 10px;
-        grid-template-columns: minmax(0, 1fr) 26px;
-        gap: 5px;
-      }
-      .board-connect-btn {
-        height: 31px;
-        padding: 0 10px;
-        font-size: 11px;
-      }
-      .board-disconnect-btn {
-        width: 26px;
-        height: 26px;
-      }
-      .board-device-status {
-        font-size: 10px;
+        display: none;
       }
       .game-outcome-overlay {
         padding: 18px;
@@ -2491,7 +2623,14 @@
       .opponent-speech-bubble {
         min-height: 104px;
         margin-bottom: 14px;
-        padding: 13px 12px 13px 32px;
+        padding: 28px 34px 13px 32px;
+      }
+      .opponent-speech-close {
+        width: 25px;
+        height: 25px;
+        top: 7px;
+        right: 7px;
+        font-size: 18px;
       }
       .opponent-speech-bubble strong {
         font-size: 16px;

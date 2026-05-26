@@ -211,6 +211,15 @@ function ProfilePanel() {
         </div>
         <p id="username-help">Other players can search for this username.</p>
       </div>
+      <div className="profile-setting-card">
+        <label className="profile-toggle-row" htmlFor="profile-board-toggle">
+          <span>
+            <strong>Chessnut board</strong>
+            <small>Show board connection controls</small>
+          </span>
+          <input id="profile-board-toggle" type="checkbox" />
+        </label>
+      </div>
       <div id="profile-account-card" className="profile-account-card" style={{ display: "none" }}>
         <div>
           <span>Signed in as</span>
@@ -326,10 +335,14 @@ function GameView() {
       </div>
       <div className="game-board-frame">
         <div id="board"></div>
+        <div id="victory-board-pulse" className="victory-board-pulse" aria-hidden="true">
+          <span className="victory-square-pulse"></span>
+        </div>
       </div>
       <div id="opponent-speech" className="opponent-speech" hidden aria-live="polite">
         <img id="opponent-speech-portrait" src="/assets/bots/snib_talk.png" alt="" />
         <div className="opponent-speech-bubble">
+          <button id="opponent-speech-close" className="opponent-speech-close" type="button" aria-label="Close speech">×</button>
           <strong id="opponent-speech-name"></strong>
           <p id="opponent-speech-text"></p>
         </div>
@@ -348,6 +361,8 @@ export default function App() {
     let opponentSpeechWordTimer = null;
     let opponentSpeechAnimationFrame = null;
     let opponentSpeechHideTimer = null;
+    let opponentSpeechDelayTimer = null;
+    let victoryBoardPulseTimer = null;
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
@@ -521,6 +536,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const outcomeBannerEl = document.getElementById("game-outcome-banner");
   const outcomeTitleEl = document.getElementById("game-outcome-title");
   const outcomeContinueBtn = document.getElementById("game-outcome-continue");
+  const victoryBoardPulseEl = document.getElementById("victory-board-pulse");
   const cpChips   = document.getElementById("cp-chips");
   const boardDevicePanel = document.getElementById("board-device-panel");
   const boardConnectBtn = document.getElementById("board-connect-btn");
@@ -531,6 +547,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const opponentSpeechPortrait = document.getElementById("opponent-speech-portrait");
   const opponentSpeechName = document.getElementById("opponent-speech-name");
   const opponentSpeechText = document.getElementById("opponent-speech-text");
+  const opponentSpeechClose = document.getElementById("opponent-speech-close");
   const STORAGE_PREFIX = "chessquestia";
   const LEGACY_STORAGE_PREFIX = "local-chess";
   const storageKey = (suffix) => `${STORAGE_PREFIX}.${suffix}`;
@@ -538,6 +555,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const SOLO_GAME_KEY = storageKey("solo-game");
   const LEGACY_SOLO_GAME_KEY = legacyStorageKey("solo-game");
   const SOLO_PROGRESS_KEY = storageKey("solo-progress");
+  const BOARD_DEVICE_VISIBLE_KEY = storageKey("board-device-visible");
   let board       = null;
   let botThinking = false;
   let coopBotTimer = null;
@@ -601,11 +619,32 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function updateBoardDeviceUi() {
+    boardDevicePanel.hidden = !shouldShowBoardDevicePanel();
     boardConnectBtn.disabled = chessnut.connecting;
     boardDisconnectBtn.hidden = !chessnut.connected && !chessnut.connecting;
     boardConnectLabel.textContent = chessnut.connected
       ? "Board connected"
       : chessnut.connecting ? "Connecting..." : "Connect board";
+  }
+
+  function boardDeviceSettingEnabled() {
+    return localStorage.getItem(BOARD_DEVICE_VISIBLE_KEY) === "1";
+  }
+
+  function shouldShowBoardDevicePanel() {
+    return boardDeviceSettingEnabled()
+      && !window.matchMedia?.("(max-width: 860px)")?.matches;
+  }
+
+  function renderBoardDeviceSetting() {
+    if (profileBoardToggle) profileBoardToggle.checked = boardDeviceSettingEnabled();
+    updateBoardDeviceUi();
+  }
+
+  function setBoardDeviceSetting(enabled) {
+    if (enabled) localStorage.setItem(BOARD_DEVICE_VISIBLE_KEY, "1");
+    else localStorage.removeItem(BOARD_DEVICE_VISIBLE_KEY);
+    renderBoardDeviceSetting();
   }
 
   function boardPlacement(fen = chess.fen()) {
@@ -687,10 +726,61 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     updateChessnutDiffLeds();
   }
 
+  function clearVictoryBoardPulse() {
+    if (victoryBoardPulseTimer) window.clearTimeout(victoryBoardPulseTimer);
+    victoryBoardPulseTimer = null;
+    victoryBoardPulseEl.classList.remove("active");
+  }
+
+  function squareToBoardPoint(square) {
+    const file = square.charCodeAt(0) - 97;
+    const rank = parseInt(square[1], 10);
+    return {
+      x: `${((file + 0.5) / 8) * 100}%`,
+      y: `${((8 - rank + 0.5) / 8) * 100}%`,
+    };
+  }
+
+  function findKingSquare(color) {
+    const position = chess.board();
+    for (let rankIndex = 0; rankIndex < position.length; rankIndex += 1) {
+      for (let fileIndex = 0; fileIndex < position[rankIndex].length; fileIndex += 1) {
+        const piece = position[rankIndex][fileIndex];
+        if (piece?.type === "k" && piece.color === color) {
+          return `${String.fromCharCode(97 + fileIndex)}${8 - rankIndex}`;
+        }
+      }
+    }
+    return null;
+  }
+
+  function showVictoryBoardPulse(square) {
+    if (!square) return;
+    const point = squareToBoardPoint(square);
+    victoryBoardPulseEl.style.setProperty("--victory-pulse-x", point.x);
+    victoryBoardPulseEl.style.setProperty("--victory-pulse-y", point.y);
+    clearVictoryBoardPulse();
+    void victoryBoardPulseEl.offsetWidth;
+    victoryBoardPulseEl.classList.add("active");
+  }
+
+  function showVictoryBoardPulseAfterDelay(square, delay = 280) {
+    clearVictoryBoardPulse();
+    victoryBoardPulseTimer = window.setTimeout(() => {
+      victoryBoardPulseTimer = null;
+      showVictoryBoardPulse(square);
+    }, delay);
+  }
+
   function syncBoardAfterMove(move) {
     board.setPosition(chess.fen(), true);
     markLastMove(move.from, move.to);
     updateGameScore();
+  }
+
+  function enableBoardMoveInput() {
+    board.disableMoveInput();
+    board.enableMoveInput(inputHandler);
   }
 
   function moveInputFromUci(uci) {
@@ -967,6 +1057,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     outcomeBannerEl.className = "game-outcome-banner";
     outcomeTitleEl.textContent = "";
     outcomeBannerEl.removeAttribute("aria-label");
+    clearVictoryBoardPulse();
   }
 
   function showOutcomeBanner(outcome) {
@@ -1016,10 +1107,12 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (opponentSpeechWordTimer) window.clearInterval(opponentSpeechWordTimer);
     if (opponentSpeechAnimationFrame) window.cancelAnimationFrame(opponentSpeechAnimationFrame);
     if (opponentSpeechHideTimer) window.clearTimeout(opponentSpeechHideTimer);
+    if (opponentSpeechDelayTimer) window.clearTimeout(opponentSpeechDelayTimer);
     opponentSpeechTimer = null;
     opponentSpeechWordTimer = null;
     opponentSpeechAnimationFrame = null;
     opponentSpeechHideTimer = null;
+    opponentSpeechDelayTimer = null;
   }
 
   function hideOpponentSpeech() {
@@ -1028,12 +1121,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (opponentSpeechEl.hidden || reduceMotion) {
       opponentSpeechEl.hidden = true;
       opponentSpeechEl.classList.remove("visible");
+      opponentSpeechEl.classList.remove("foreground");
       return;
     }
     opponentSpeechEl.classList.remove("visible");
     opponentSpeechHideTimer = window.setTimeout(() => {
       opponentSpeechHideTimer = null;
       opponentSpeechEl.hidden = true;
+      opponentSpeechEl.classList.remove("foreground");
     }, 480);
   }
 
@@ -1060,19 +1155,29 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     return words.length * wordDelay;
   }
 
-  function showOpponentSpeech({ name, text, portrait = "/assets/bots/snib_talk.png", duration = 5600 }) {
+  function showOpponentSpeech({
+    name,
+    text,
+    portrait = "/assets/bots/snib_talk.png",
+    duration = 5600,
+    foreground = false,
+    sticky = true,
+  }) {
     clearOpponentSpeechTimers();
     opponentSpeechPortrait.src = portrait;
     opponentSpeechName.textContent = name;
     opponentSpeechText.textContent = "";
     opponentSpeechEl.classList.remove("visible");
+    opponentSpeechEl.classList.toggle("foreground", foreground);
     opponentSpeechEl.hidden = false;
     opponentSpeechAnimationFrame = window.requestAnimationFrame(() => {
       opponentSpeechAnimationFrame = null;
       opponentSpeechEl.classList.add("visible");
     });
     const revealDuration = revealOpponentSpeechText(text);
-    opponentSpeechTimer = window.setTimeout(hideOpponentSpeech, Math.max(duration, revealDuration + 2400));
+    if (!sticky) {
+      opponentSpeechTimer = window.setTimeout(hideOpponentSpeech, Math.max(duration, revealDuration + 2400));
+    }
   }
 
   function showOpponentReaction(emotion, {
@@ -1081,6 +1186,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     duration = 2600,
     chance = 1,
     allowInterrupt = true,
+    foreground = false,
+    sticky = true,
   } = {}) {
     if (Math.random() > chance) return false;
     if (!allowInterrupt && !opponentSpeechEl.hidden) return false;
@@ -1091,6 +1198,8 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       portrait: opponentEmotionPortrait(opponent, emotion),
       text: randomLine(reactionLines),
       duration,
+      foreground,
+      sticky,
     });
     return true;
   }
@@ -1101,6 +1210,18 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       chance: 0.32,
       allowInterrupt: false,
     });
+  }
+
+  function showEndgameOpponentReaction(playerWon, delay = 1900) {
+    if (opponentSpeechDelayTimer) window.clearTimeout(opponentSpeechDelayTimer);
+    opponentSpeechDelayTimer = window.setTimeout(() => {
+      opponentSpeechDelayTimer = null;
+      showOpponentReaction(playerWon ? "sad" : "win", {
+        reaction: playerWon ? "playerVictory" : "botVictory",
+        foreground: true,
+        sticky: true,
+      });
+    }, delay);
   }
 
   function showPlayerMoveReaction(move) {
@@ -1207,6 +1328,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         extensions: [{ class: Markers }],
       });
     }
+    clearVictoryBoardPulse();
   }
 
   function showLobby() {
@@ -1290,7 +1412,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     chessnut.lastPlacement = "";
     chessnut.lastOrientedPlacement = "";
     updateGameScore();
-    board.enableMoveInput(inputHandler);
+    enableBoardMoveInput();
     botThinking = false;
     setStatus("Your turn");
     showGameStartSpeech();
@@ -1337,7 +1459,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       updateGameScore();
       botThinking = false;
       if (checkGameOver()) return;
-      board.enableMoveInput(inputHandler);
+      enableBoardMoveInput();
       if (chess.turn() === "w") {
         setStatus(modelReady ? "Your turn" : "Preparing game...");
       } else {
@@ -1355,11 +1477,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       recordSoloGameResult(playerWon ? "victory" : "defeat");
       const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
-      showOpponentReaction(playerWon ? "sad" : "win", {
-        reaction: playerWon ? "playerVictory" : "botVictory",
-        duration: 2600,
-      });
-      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 2400);
+      showVictoryBoardPulseAfterDelay(findKingSquare(playerWon ? "b" : "w"));
+      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 1800);
+      showEndgameOpponentReaction(playerWon, 2050);
       setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
       board.disableMoveInput();
       return true;
@@ -1469,6 +1589,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const profileUsername = document.getElementById("profile-username");
   const usernameSaveBtn = document.getElementById("username-save");
   const usernameHelp = document.getElementById("username-help");
+  const profileBoardToggle = document.getElementById("profile-board-toggle");
   const friendMessage = document.getElementById("friend-message");
   const friendRequestsEl = document.getElementById("friend-requests");
   const friendResultsEl = document.getElementById("friend-results");
@@ -1790,8 +1911,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   boardConnectBtn.onclick = () => connectChessnutBoard();
   boardDisconnectBtn.onclick = () => disconnectChessnutBoard();
+  profileBoardToggle.onchange = () => setBoardDeviceSetting(profileBoardToggle.checked);
+  window.matchMedia?.("(max-width: 860px)")?.addEventListener?.("change", renderBoardDeviceSetting);
+  opponentSpeechClose.onclick = () => hideOpponentSpeech();
   if (!navigator.bluetooth) setBoardDeviceStatus("Chrome or Edge required", "warning");
-  updateBoardDeviceUi();
+  renderBoardDeviceSetting();
 
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
@@ -2116,7 +2240,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
           board.removeMarkers(LAST_MOVE);
           updateChessnutDiffLeds();
           updateGameScore();
-          board.enableMoveInput(inputHandler);
+          enableBoardMoveInput();
           hideOutcomeBanner();
           if (msg.phase === "playing") showGameStartSpeech();
         }
@@ -2145,7 +2269,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
           board.disableMoveInput();
         } else if (msg.activeIdx === msg.myIdx && !msg.midTurn) {
           hideOutcomeBanner();
-          board.enableMoveInput(inputHandler);
+          enableBoardMoveInput();
           setCoopTurnStatus();
         } else {
           hideOutcomeBanner();
