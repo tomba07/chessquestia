@@ -542,7 +542,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   let botThinking = false;
   let soloActive  = false;
   let setupMode = "solo";
-  let selectedOpponentTheme = "imp";
+  let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
   const chessnut = {
@@ -968,11 +968,13 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function opponentThemeForStrength(value) {
-    return opponentForStrength(value)?.theme || (parseInt(value, 10) <= 1000 ? "imp" : "witch");
+    return opponentForStrength(value)?.theme || "snib";
   }
 
   function setGameOpponentTheme(value = getElo(), theme = selectedOpponentTheme) {
-    gameEl.dataset.opponent = theme || opponentThemeForStrength(value);
+    const legacyThemes = { imp: "snib", witch: "vexi" };
+    const nextTheme = theme || opponentThemeForStrength(value);
+    gameEl.dataset.opponent = legacyThemes[nextTheme] || nextTheme;
   }
 
   function currentOpponent() {
