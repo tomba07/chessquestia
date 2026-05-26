@@ -30,6 +30,11 @@ import {
   friendRow,
 } from "./socialUi.js";
 import { SOLO_OPPONENTS } from "./soloOpponents.js";
+import {
+  opponentEmotionPortrait,
+  opponentReactionLines,
+  randomLine,
+} from "./opponentReactions.js";
 
 function SideMenu() {
   return (
@@ -726,10 +731,16 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       syncBoardAfterMove(move);
       if (coop?.phase === "playing") {
         publishCoopMove();
-        if (!chess.isGameOver()) { board.disableMoveInput(); setTimeout(coopBotMove, nextBotMoveDelay()); }
+        if (checkGameOver()) return true;
+        showPlayerMoveReaction(move);
+        board.disableMoveInput();
+        setTimeout(coopBotMove, nextBotMoveDelay());
       } else {
         saveSoloGame();
-        if (!checkGameOver()) setTimeout(botMove, nextBotMoveDelay());
+        if (!checkGameOver()) {
+          showPlayerMoveReaction(move);
+          setTimeout(botMove, nextBotMoveDelay());
+        }
       }
       return true;
     } catch {
@@ -943,7 +954,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     window.setTimeout(() => outcomeContinueBtn.focus({ preventScroll: true }), 0);
   }
 
-  function showOutcomeBannerAfterDelay(outcome) {
+  function showOutcomeBannerAfterDelay(outcome, delay = 1000) {
     if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
     outcomeOverlayEl.className = "game-outcome-overlay";
     outcomeOverlayEl.setAttribute("aria-hidden", "true");
@@ -953,7 +964,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     outcomeBannerTimer = window.setTimeout(() => {
       outcomeBannerTimer = null;
       showOutcomeBanner(outcome);
-    }, 1000);
+    }, delay);
   }
 
   function opponentThemeForStrength(value) {
@@ -962,6 +973,16 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function setGameOpponentTheme(value = getElo(), theme = selectedOpponentTheme) {
     gameEl.dataset.opponent = theme || opponentThemeForStrength(value);
+  }
+
+  function currentOpponent() {
+    return opponentForStrength(getElo()) || SOLO_OPPONENTS[selectedOpponentIndex] || SOLO_OPPONENTS[0];
+  }
+
+  function isCurrentSideInCheck() {
+    if (typeof chess.isCheck === "function") return chess.isCheck();
+    if (typeof chess.inCheck === "function") return chess.inCheck();
+    return false;
   }
 
   function clearOpponentSpeechTimers() {
@@ -1028,8 +1049,65 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     opponentSpeechTimer = window.setTimeout(hideOpponentSpeech, Math.max(duration, revealDuration + 2400));
   }
 
+  function showOpponentReaction(emotion, {
+    reaction = emotion,
+    lines = null,
+    duration = 2600,
+    chance = 1,
+    allowInterrupt = true,
+  } = {}) {
+    if (Math.random() > chance) return false;
+    if (!allowInterrupt && !opponentSpeechEl.hidden) return false;
+    const opponent = currentOpponent();
+    const reactionLines = lines || opponentReactionLines(opponent, reaction);
+    showOpponentSpeech({
+      name: opponent.name,
+      portrait: opponentEmotionPortrait(opponent, emotion),
+      text: randomLine(reactionLines),
+      duration,
+    });
+    return true;
+  }
+
+  function showOpponentThinkingReaction() {
+    showOpponentReaction("thinking", {
+      duration: 1800,
+      chance: 0.32,
+      allowInterrupt: false,
+    });
+  }
+
+  function showPlayerMoveReaction(move) {
+    if (move?.captured) {
+      showOpponentReaction(Math.random() < 0.55 ? "surprised" : "angry", {
+        reaction: "playerCapture",
+        duration: 2500,
+      });
+    } else if (isCurrentSideInCheck()) {
+      showOpponentReaction("surprised", {
+        reaction: "playerCheck",
+        duration: 2400,
+      });
+    }
+  }
+
+  function showBotMoveReaction(move) {
+    if (move?.captured) {
+      showOpponentReaction("laughing", {
+        reaction: "botCapture",
+        duration: 2500,
+      });
+    } else if (isCurrentSideInCheck()) {
+      showOpponentReaction("laughing", {
+        reaction: "botCheck",
+        duration: 2400,
+        chance: 0.7,
+      });
+    }
+  }
+
   function showGameStartSpeech() {
-    const selectedOpponent = opponentForStrength(getElo()) || SOLO_OPPONENTS[selectedOpponentIndex];
+    const selectedOpponent = currentOpponent();
     const lines = selectedOpponent?.introLines || [];
     if (!selectedOpponent || !lines.length) {
       hideOpponentSpeech();
@@ -1220,7 +1298,11 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       const playerWon = chess.turn() === "b";
       const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
-      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat");
+      showOpponentReaction(playerWon ? "sad" : "win", {
+        reaction: playerWon ? "playerVictory" : "botVictory",
+        duration: 2600,
+      });
+      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 2400);
       setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
       board.disableMoveInput();
       return true;
@@ -1241,6 +1323,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (chess.isGameOver() || !modelReady || botThinking) return;
     botThinking = true;
     setStatus("Thinking…", "thinking");
+    showOpponentThinkingReaction();
 
     const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
     const legalMask = buildLegalMask(workingFen, allMovesMaia3);
@@ -1249,11 +1332,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     const moveProbs = decodeMoves(logitsMove, legalMask, isBlack, allMovesMaia3Reversed);
     const uci = sampleMove(moveProbs);
 
-    commitBotMove(uci);
+    const move = commitBotMove(uci);
 
     botThinking = false;
     saveSoloGame();
-    if (!checkGameOver()) setStatus("Your turn");
+    if (!checkGameOver()) {
+      showBotMoveReaction(move);
+      setStatus("Your turn");
+    }
   }
 
   function maybeRunSoloBotTurn() {
@@ -2023,6 +2109,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     botThinking = true;
     try {
       setStatus("Thinking…", "thinking");
+      showOpponentThinkingReaction();
       const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
       const legalMask = buildLegalMask(workingFen, allMovesMaia3);
 
@@ -2030,8 +2117,9 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       const moveProbs = decodeMoves(logitsMove, legalMask, isBlack, allMovesMaia3Reversed);
       const uci = sampleMove(moveProbs);
 
-      commitBotMove(uci);
+      const move = commitBotMove(uci);
       publishCoopMove();
+      if (!checkGameOver()) showBotMoveReaction(move);
     } finally {
       botThinking = false;
     }
