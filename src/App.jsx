@@ -29,6 +29,7 @@ import {
   friendMeta,
   friendRow,
 } from "./socialUi.js";
+import { SOLO_OPPONENTS } from "./soloOpponents.js";
 
 function SideMenu() {
   return (
@@ -71,14 +72,6 @@ function PlayPanel() {
     </div>
   );
 }
-
-const SOLO_OPPONENTS = [
-  { name: "Snib the Candle Goblin", elo: 500, card: "snib_card.png", rank: 1, tone: "easy", theme: "imp" },
-  { name: "Muckroot the Bog Imp", elo: 600, card: "muckroot_card.png", rank: 2, tone: "easy", theme: "muckroot" },
-  { name: "Gribble Thornnose", elo: 700, card: "gribble_card.png", rank: 3, tone: "medium", theme: "imp" },
-  { name: "Vexi Blackcap", elo: 800, card: "vexi_card.png", rank: 4, tone: "medium", theme: "witch" },
-  { name: "Drogar Gategrunt", elo: 900, card: "drogar_card.png", rank: 5, tone: "hard", theme: "imp" },
-];
 
 function OpponentRank({ rank }) {
   return (
@@ -329,6 +322,13 @@ function GameView() {
       <div className="game-board-frame">
         <div id="board"></div>
       </div>
+      <div id="opponent-speech" className="opponent-speech" hidden aria-live="polite">
+        <img id="opponent-speech-portrait" src="/assets/bots/snib_talk.png" alt="" />
+        <div className="opponent-speech-bubble">
+          <strong id="opponent-speech-name"></strong>
+          <p id="opponent-speech-text"></p>
+        </div>
+      </div>
       <div id="cp-chips"></div>
     </div>
   );
@@ -339,6 +339,10 @@ export default function App() {
     let disposed = false;
     let invitePollTimer = null;
     let outcomeBannerTimer = null;
+    let opponentSpeechTimer = null;
+    let opponentSpeechWordTimer = null;
+    let opponentSpeechAnimationFrame = null;
+    let opponentSpeechHideTimer = null;
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
@@ -518,6 +522,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const boardConnectLabel = document.getElementById("board-connect-label");
   const boardDisconnectBtn = document.getElementById("board-disconnect-btn");
   const boardDeviceStatus = document.getElementById("board-device-status");
+  const opponentSpeechEl = document.getElementById("opponent-speech");
+  const opponentSpeechPortrait = document.getElementById("opponent-speech-portrait");
+  const opponentSpeechName = document.getElementById("opponent-speech-name");
+  const opponentSpeechText = document.getElementById("opponent-speech-text");
   const STORAGE_PREFIX = "chessquestia";
   const LEGACY_STORAGE_PREFIX = "local-chess";
   const storageKey = (suffix) => `${STORAGE_PREFIX}.${suffix}`;
@@ -956,6 +964,84 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     gameEl.dataset.opponent = theme || opponentThemeForStrength(value);
   }
 
+  function clearOpponentSpeechTimers() {
+    if (opponentSpeechTimer) window.clearTimeout(opponentSpeechTimer);
+    if (opponentSpeechWordTimer) window.clearInterval(opponentSpeechWordTimer);
+    if (opponentSpeechAnimationFrame) window.cancelAnimationFrame(opponentSpeechAnimationFrame);
+    if (opponentSpeechHideTimer) window.clearTimeout(opponentSpeechHideTimer);
+    opponentSpeechTimer = null;
+    opponentSpeechWordTimer = null;
+    opponentSpeechAnimationFrame = null;
+    opponentSpeechHideTimer = null;
+  }
+
+  function hideOpponentSpeech() {
+    clearOpponentSpeechTimers();
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (opponentSpeechEl.hidden || reduceMotion) {
+      opponentSpeechEl.hidden = true;
+      opponentSpeechEl.classList.remove("visible");
+      return;
+    }
+    opponentSpeechEl.classList.remove("visible");
+    opponentSpeechHideTimer = window.setTimeout(() => {
+      opponentSpeechHideTimer = null;
+      opponentSpeechEl.hidden = true;
+    }, 480);
+  }
+
+  function revealOpponentSpeechText(text, wordDelay = 82) {
+    if (opponentSpeechWordTimer) window.clearInterval(opponentSpeechWordTimer);
+    opponentSpeechWordTimer = null;
+    const fullText = String(text || "");
+    const words = fullText.trim().split(/\s+/).filter(Boolean);
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (!words.length || reduceMotion) {
+      opponentSpeechText.textContent = fullText;
+      return 0;
+    }
+    let index = 0;
+    opponentSpeechText.textContent = "";
+    opponentSpeechWordTimer = window.setInterval(() => {
+      index += 1;
+      opponentSpeechText.textContent = words.slice(0, index).join(" ");
+      if (index >= words.length) {
+        window.clearInterval(opponentSpeechWordTimer);
+        opponentSpeechWordTimer = null;
+      }
+    }, wordDelay);
+    return words.length * wordDelay;
+  }
+
+  function showOpponentSpeech({ name, text, portrait = "/assets/bots/snib_talk.png", duration = 5600 }) {
+    clearOpponentSpeechTimers();
+    opponentSpeechPortrait.src = portrait;
+    opponentSpeechName.textContent = name;
+    opponentSpeechText.textContent = "";
+    opponentSpeechEl.classList.remove("visible");
+    opponentSpeechEl.hidden = false;
+    opponentSpeechAnimationFrame = window.requestAnimationFrame(() => {
+      opponentSpeechAnimationFrame = null;
+      opponentSpeechEl.classList.add("visible");
+    });
+    const revealDuration = revealOpponentSpeechText(text);
+    opponentSpeechTimer = window.setTimeout(hideOpponentSpeech, Math.max(duration, revealDuration + 2400));
+  }
+
+  function showGameStartSpeech() {
+    const selectedOpponent = opponentForStrength(getElo()) || SOLO_OPPONENTS[selectedOpponentIndex];
+    const lines = selectedOpponent?.introLines || [];
+    if (!selectedOpponent || !lines.length) {
+      hideOpponentSpeech();
+      return;
+    }
+    showOpponentSpeech({
+      name: selectedOpponent.name,
+      portrait: `/assets/bots/${selectedOpponent.talkPortrait || "snib_talk.png"}`,
+      text: lines[Math.floor(Math.random() * lines.length)],
+    });
+  }
+
   function readSoloProgress() {
     try {
       const saved = JSON.parse(localStorage.getItem(SOLO_PROGRESS_KEY) || "{}");
@@ -1021,6 +1107,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function showLobby() {
     gameEl.style.display  = "none";
+    hideOpponentSpeech();
     lobbyEl.style.display = "";
     showPlayView();
     if (soloActive) clearSoloGame();
@@ -1073,6 +1160,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     board.enableMoveInput(inputHandler);
     botThinking = false;
     setStatus("Your turn");
+    showGameStartSpeech();
     saveSoloGame();
   }
 
@@ -1877,15 +1965,16 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         coop.phase = msg.phase;
 
         if (!wasInActiveGame) {
-      chess.load(msg.fen);
-      cpChips.innerHTML = "";
-      showGame();
-      board.setPosition(msg.fen, false);
-      board.removeMarkers(LAST_MOVE);
-      updateChessnutDiffLeds();
-      updateGameScore();
+          chess.load(msg.fen);
+          cpChips.innerHTML = "";
+          showGame();
+          board.setPosition(msg.fen, false);
+          board.removeMarkers(LAST_MOVE);
+          updateChessnutDiffLeds();
+          updateGameScore();
           board.enableMoveInput(inputHandler);
           hideOutcomeBanner();
+          if (msg.phase === "playing") showGameStartSpeech();
         }
 
         // Render chips
@@ -1997,6 +2086,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
       if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
+      clearOpponentSpeechTimers();
       social?.stopPresenceHeartbeat();
       disconnectChessnutBoard();
     };
