@@ -366,6 +366,7 @@ export default function App() {
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
+const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
   const CDN       = "/cm-chessboard/assets/";
 
@@ -723,6 +724,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     board.removeMarkers(LAST_MOVE);
     board.addMarker(LAST_MOVE, from);
     board.addMarker(LAST_MOVE, to);
+    updateCheckMarker();
     updateChessnutDiffLeds();
   }
 
@@ -752,6 +754,19 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       }
     }
     return null;
+  }
+
+  function isCurrentSideInCheck() {
+    if (typeof chess.isCheck === "function") return chess.isCheck();
+    if (typeof chess.inCheck === "function") return chess.inCheck();
+    return false;
+  }
+
+  function updateCheckMarker() {
+    board.removeMarkers(CHECK_MARKER);
+    if (!isCurrentSideInCheck()) return;
+    const kingSquare = findKingSquare(chess.turn());
+    if (kingSquare) board.addMarker(CHECK_MARKER, kingSquare);
   }
 
   function showVictoryBoardPulse(square) {
@@ -807,7 +822,10 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     chess.load(fen);
     board.setPosition(fen, true);
     if (incomingMove) markLastMove(incomingMove.from, incomingMove.to);
-    else updateChessnutDiffLeds();
+    else {
+      updateCheckMarker();
+      updateChessnutDiffLeds();
+    }
     updateGameScore();
   }
 
@@ -1096,12 +1114,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     return opponentForStrength(getElo()) || SOLO_OPPONENTS[selectedOpponentIndex] || SOLO_OPPONENTS[0];
   }
 
-  function isCurrentSideInCheck() {
-    if (typeof chess.isCheck === "function") return chess.isCheck();
-    if (typeof chess.inCheck === "function") return chess.inCheck();
-    return false;
-  }
-
   function clearOpponentSpeechTimers() {
     if (opponentSpeechTimer) window.clearTimeout(opponentSpeechTimer);
     if (opponentSpeechWordTimer) window.clearInterval(opponentSpeechWordTimer);
@@ -1225,30 +1237,30 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function showPlayerMoveReaction(move) {
-    if (move?.captured) {
-      showOpponentReaction(Math.random() < 0.55 ? "surprised" : "angry", {
-        reaction: "playerCapture",
-        duration: 2500,
-      });
-    } else if (isCurrentSideInCheck()) {
+    if (isCurrentSideInCheck()) {
       showOpponentReaction("surprised", {
         reaction: "playerCheck",
         duration: 2400,
+      });
+    } else if (move?.captured) {
+      showOpponentReaction(Math.random() < 0.55 ? "surprised" : "angry", {
+        reaction: "playerCapture",
+        duration: 2500,
       });
     }
   }
 
   function showBotMoveReaction(move) {
-    if (move?.captured) {
-      showOpponentReaction("laughing", {
-        reaction: "botCapture",
-        duration: 2500,
-      });
-    } else if (isCurrentSideInCheck()) {
+    if (isCurrentSideInCheck()) {
       showOpponentReaction("laughing", {
         reaction: "botCheck",
         duration: 2400,
         chance: 0.7,
+      });
+    } else if (move?.captured) {
+      showOpponentReaction("laughing", {
+        reaction: "botCapture",
+        duration: 2500,
       });
     }
   }
@@ -1409,6 +1421,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     showGame();
     board.setPosition(chess.fen());
     board.removeMarkers(LAST_MOVE);
+    board.removeMarkers(CHECK_MARKER);
     chessnut.lastPlacement = "";
     chessnut.lastOrientedPlacement = "";
     updateGameScore();
@@ -1456,6 +1469,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       showGame();
       board.setPosition(chess.fen(), false);
       board.removeMarkers(LAST_MOVE);
+      updateCheckMarker();
       updateGameScore();
       botThinking = false;
       if (checkGameOver()) return;
@@ -2238,6 +2252,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
           showGame();
           board.setPosition(msg.fen, false);
           board.removeMarkers(LAST_MOVE);
+          updateCheckMarker();
           updateChessnutDiffLeds();
           updateGameScore();
           enableBoardMoveInput();

@@ -2560,6 +2560,10 @@
     }
     /* ── Last-move highlight ── */
     .cm-chessboard .marker.last-move { fill: #6f9a7a; opacity: 0.34; }
+    .cm-chessboard .marker.king-check {
+      fill: #d85b2a;
+      opacity: 0.46;
+    }
 
     @media (max-width: 860px) {
       #game {
