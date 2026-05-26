@@ -1,6 +1,5 @@
-- refactoring
 - design improvements
- - banner appear (delay, fade)
+ - mobile menu bar
 - game start screen
  - pokemon-like: player vs enemy (maybe one liner of the enemy)
 - highlights
