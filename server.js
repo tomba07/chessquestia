@@ -17,6 +17,7 @@ const fs       = require("fs");
 const { WebSocketServer } = require("ws");
 const { createHash, randomBytes, randomUUID } = require("crypto");
 const { DatabaseSync } = require("node:sqlite");
+const { Chess } = require("chess.js");
 const { registerSocialRoutes } = require("./server/domains/social");
 
 const PORT = process.env.PORT || 5678;
@@ -153,6 +154,33 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_room_invites_invitee_id ON room_invites(invitee_id);
   CREATE INDEX IF NOT EXISTS idx_room_invites_room_id ON room_invites(room_id);
+
+  CREATE TABLE IF NOT EXISTS game_results (
+    id TEXT PRIMARY KEY,
+    dedupe_key TEXT NOT NULL UNIQUE,
+    mode TEXT NOT NULL,
+    result TEXT NOT NULL,
+    room_id TEXT,
+    opponent_strength INTEGER,
+    opponent_key TEXT,
+    player_count INTEGER NOT NULL DEFAULT 1,
+    moves_count INTEGER NOT NULL DEFAULT 0,
+    final_fen TEXT,
+    created_at INTEGER NOT NULL,
+    finished_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_game_results_mode_result ON game_results(mode, result);
+  CREATE INDEX IF NOT EXISTS idx_game_results_finished_at ON game_results(finished_at);
+  CREATE INDEX IF NOT EXISTS idx_game_results_room_id ON game_results(room_id);
+
+  CREATE TABLE IF NOT EXISTS game_result_players (
+    game_result_id TEXT NOT NULL REFERENCES game_results(id) ON DELETE CASCADE,
+    user_id TEXT,
+    player_name TEXT NOT NULL,
+    result TEXT NOT NULL,
+    PRIMARY KEY (game_result_id, user_id, player_name)
+  );
+  CREATE INDEX IF NOT EXISTS idx_game_result_players_user_id ON game_result_players(user_id);
 `);
 
 function inTransaction(fn) {
@@ -472,6 +500,89 @@ function roomHasUser(roomId, userId) {
   `).get(roomId, userId);
 }
 
+function opponentKeyForStrength(strength) {
+  const value = parseInt(strength, 10);
+  if (value <= 500) return "snib";
+  if (value <= 700) return "muckroot";
+  if (value <= 900) return "gribble";
+  if (value <= 1100) return "vexi";
+  if (value <= 1300) return "drogar";
+  return null;
+}
+
+function normalizeGameResult(result) {
+  return ["victory", "defeat", "draw"].includes(result) ? result : null;
+}
+
+function gameResultFromFen(fen) {
+  try {
+    const game = new Chess();
+    game.load(fen);
+    if (game.isCheckmate()) return game.turn() === "b" ? "victory" : "defeat";
+    if (game.isDraw()) return "draw";
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function recordGameResult({
+  dedupeKey,
+  mode,
+  result,
+  roomId = null,
+  opponentStrength = null,
+  opponentKey = null,
+  playerCount = 1,
+  movesCount = 0,
+  finalFen = null,
+  players = [],
+  finishedAt = Date.now(),
+}) {
+  const normalizedResult = normalizeGameResult(result);
+  if (!dedupeKey || !["solo", "coop"].includes(mode) || !normalizedResult) return null;
+
+  const existing = db.prepare("SELECT id FROM game_results WHERE dedupe_key = ?").get(dedupeKey);
+  if (existing) return existing.id;
+
+  const id = randomUUID();
+  inTransaction(() => {
+    db.prepare(`
+      INSERT INTO game_results
+        (id, dedupe_key, mode, result, room_id, opponent_strength, opponent_key, player_count, moves_count, final_fen, created_at, finished_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      dedupeKey,
+      mode,
+      normalizedResult,
+      roomId,
+      opponentStrength == null ? null : parseInt(opponentStrength, 10),
+      opponentKey || opponentKeyForStrength(opponentStrength),
+      Math.max(1, parseInt(playerCount, 10) || 1),
+      Math.max(0, parseInt(movesCount, 10) || 0),
+      finalFen,
+      Date.now(),
+      finishedAt,
+    );
+
+    const insertPlayer = db.prepare(`
+      INSERT INTO game_result_players (game_result_id, user_id, player_name, result)
+      VALUES (?, ?, ?, ?)
+    `);
+    const seen = new Set();
+    for (const player of players) {
+      const userId = player.userId || null;
+      const playerName = String(player.name || "Player").slice(0, 80);
+      const key = `${userId || ""}:${playerName}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      insertPlayer.run(id, userId, playerName, normalizedResult);
+    }
+  });
+  return id;
+}
+
 function upsertGoogleUser(profile) {
   const userId = `google:${profile.sub}`;
   const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
@@ -554,6 +665,61 @@ app.get("/api/me", (req, res) => {
       : [],
     logoutUrl: `/auth/logout?next=${next}`,
   });
+});
+
+app.post("/api/game-results", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const mode = "solo";
+  const result = normalizeGameResult(req.body?.result);
+  const gameId = String(req.body?.gameId || req.body?.game_id || "").trim();
+  if (!result || !gameId) {
+    res.status(400).json({ error: "Invalid game result" });
+    return;
+  }
+
+  const opponentStrength = parseInt(req.body?.opponentStrength || req.body?.opponent_strength, 10) || null;
+  const finalFen = String(req.body?.finalFen || req.body?.final_fen || "");
+  const fenResult = finalFen ? gameResultFromFen(finalFen) : null;
+  const normalizedResult = fenResult || result;
+  const id = recordGameResult({
+    dedupeKey: `${mode}:${user.id}:${gameId}`,
+    mode,
+    result: normalizedResult,
+    roomId: req.body?.roomId || req.body?.room_id || null,
+    opponentStrength,
+    opponentKey: req.body?.opponentKey || req.body?.opponent_key || opponentKeyForStrength(opponentStrength),
+    playerCount: 1,
+    movesCount: parseInt(req.body?.movesCount || req.body?.moves_count, 10) || 0,
+    finalFen: finalFen || null,
+    players: [{ userId: user.id, name: user.username || user.name || "Player" }],
+  });
+
+  res.json({ id, result: normalizedResult });
+});
+
+app.get("/api/game-results/stats", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const mine = db.prepare(`
+    SELECT gr.mode, grp.result, COUNT(*) AS count
+    FROM game_result_players grp
+    JOIN game_results gr ON gr.id = grp.game_result_id
+    WHERE grp.user_id = ?
+    GROUP BY gr.mode, grp.result
+    ORDER BY gr.mode, grp.result
+  `).all(user.id);
+
+  const totals = db.prepare(`
+    SELECT mode, result, COUNT(*) AS count
+    FROM game_results
+    GROUP BY mode, result
+    ORDER BY mode, result
+  `).all();
+
+  res.json({ mine, totals });
 });
 
 registerSocialRoutes(app, {
@@ -1184,6 +1350,27 @@ function attachWebSocketHandlers() {
         });
         if (msg.gameOver) {
           room.phase = "over";
+          const result = gameResultFromFen(room.fen);
+          if (result) {
+            recordGameResult({
+              dedupeKey: `coop:${room.id}`,
+              mode: "coop",
+              result,
+              roomId: room.id,
+              opponentStrength: room.strength,
+              opponentKey: opponentKeyForStrength(room.strength),
+              playerCount: room.order.length,
+              movesCount: room.moveHistory.length,
+              finalFen: room.fen,
+              players: room.order
+                .map(id => room.players.get(id))
+                .filter(Boolean)
+                .map(player => ({
+                  userId: player.userId || null,
+                  name: player.name || "Player",
+                })),
+            });
+          }
           persistRooms();
           broadcastRoom(room);
           return;

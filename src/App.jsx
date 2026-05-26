@@ -540,11 +540,14 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   const SOLO_PROGRESS_KEY = storageKey("solo-progress");
   let board       = null;
   let botThinking = false;
+  let coopBotTimer = null;
   let soloActive  = false;
+  let soloGameId = null;
   let setupMode = "solo";
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
+  const recordedSoloGameIds = new Set();
   const chessnut = {
     device: null,
     server: null,
@@ -723,6 +726,28 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     return Math.round(min + Math.random() * (max - min));
   }
 
+  function isMyCoopBotTurn() {
+    return coop?.phase === "playing"
+      && coop.activeIdx === coop.myIdx
+      && coop.midTurn
+      && modelReady
+      && !chess.isGameOver();
+  }
+
+  function clearCoopBotTimer() {
+    if (!coopBotTimer) return;
+    clearTimeout(coopBotTimer);
+    coopBotTimer = null;
+  }
+
+  function scheduleCoopBotMove() {
+    if (!isMyCoopBotTurn() || botThinking || coopBotTimer) return;
+    coopBotTimer = setTimeout(() => {
+      coopBotTimer = null;
+      coopBotMove();
+    }, nextBotMoveDelay());
+  }
+
   function applyPlayerMove(from, to, promotion = "q") {
     if (!canAcceptPlayerMove()) return false;
     try {
@@ -734,7 +759,6 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
         if (checkGameOver()) return true;
         showPlayerMoveReaction(move);
         board.disableMoveInput();
-        setTimeout(coopBotMove, nextBotMoveDelay());
       } else {
         saveSoloGame();
         if (!checkGameOver()) {
@@ -1210,6 +1234,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function saveSoloGame() {
     if (!soloActive || coop.phase !== "off") return;
     localStorage.setItem(SOLO_GAME_KEY, JSON.stringify({
+      gameId: soloGameId,
       fen: chess.fen(),
       strength: getElo(),
       opponentTheme: selectedOpponentTheme,
@@ -1220,13 +1245,41 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 
   function clearSoloGame() {
     soloActive = false;
+    soloGameId = null;
     localStorage.removeItem(SOLO_GAME_KEY);
     localStorage.removeItem(LEGACY_SOLO_GAME_KEY);
+  }
+
+  function createSoloGameId() {
+    return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function recordSoloGameResult(result) {
+    if (!soloActive || coop?.phase !== "off") return;
+    soloGameId = soloGameId || createSoloGameId();
+    if (recordedSoloGameIds.has(soloGameId)) return;
+    recordedSoloGameIds.add(soloGameId);
+    const opponent = currentOpponent();
+    fetch("/api/game-results", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        mode: "solo",
+        result,
+        gameId: soloGameId,
+        opponentStrength: getElo(),
+        opponentKey: opponent?.theme || null,
+        movesCount: chess.history().length,
+        finalFen: chess.fen(),
+      }),
+    }).catch(() => {});
   }
 
   function beginSoloGame() {
     chess.reset();
     soloActive = true;
+    soloGameId = createSoloGameId();
     cpChips.innerHTML = "";
     hideOutcomeBanner();
     hideModelLoading();
@@ -1273,6 +1326,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       if (!state?.fen) return;
       chess.load(state.fen);
       soloActive = true;
+      soloGameId = state.gameId || createSoloGameId();
       if (state.strength) syncStrength(String(state.strength));
       selectedOpponentIndex = Number(state.opponentIndex || 0);
       selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
@@ -1298,6 +1352,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   function checkGameOver() {
     if (chess.isCheckmate()) {
       const playerWon = chess.turn() === "b";
+      recordSoloGameResult(playerWon ? "victory" : "defeat");
       const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
       showOpponentReaction(playerWon ? "sad" : "win", {
@@ -1312,6 +1367,7 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
     if (chess.isDraw()) {
       const reason = chess.isStalemate() ? "Stalemate"
         : chess.isInsufficientMaterial() ? "Insufficient material" : "Draw";
+      recordSoloGameResult("draw");
       setStatus(reason, "over");
       hideOutcomeBanner();
       board.disableMoveInput();
@@ -2102,12 +2158,17 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
   }
 
   function maybeRunCoopBotTurn() {
-    if (coop?.phase === "playing" && coop.activeIdx === coop.myIdx && coop.midTurn && modelReady && !botThinking)
-      setTimeout(coopBotMove, nextBotMoveDelay());
+    if (!isMyCoopBotTurn()) {
+      clearCoopBotTimer();
+      return;
+    }
+    scheduleCoopBotMove();
   }
 
   async function coopBotMove() {
-    if (!modelReady || botThinking) return;
+    if (!isMyCoopBotTurn() || botThinking) return;
+    const roomId = coop.roomId;
+    const fenBeforeThinking = chess.fen();
     botThinking = true;
     try {
       setStatus("Thinking…", "thinking");
@@ -2116,10 +2177,13 @@ const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
       const legalMask = buildLegalMask(workingFen, allMovesMaia3);
 
       const { logitsMove } = await runInference(tokens, coop.strength);
+      if (!isMyCoopBotTurn() || coop.roomId !== roomId || chess.fen() !== fenBeforeThinking) return;
+
       const moveProbs = decodeMoves(logitsMove, legalMask, isBlack, allMovesMaia3Reversed);
       const uci = sampleMove(moveProbs);
 
       const move = commitBotMove(uci);
+      if (!move) return;
       publishCoopMove();
       if (!checkGameOver()) showBotMoveReaction(move);
     } finally {
