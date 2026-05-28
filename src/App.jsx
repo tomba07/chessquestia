@@ -378,15 +378,21 @@ function BotSplash() {
   return (
     <div id="bot-splash" className="bot-splash" hidden aria-hidden="true">
       <img id="bot-splash-art" className="bot-splash-art" src="/assets/splash/snib_splash.png" alt="" />
-      <div className="bot-splash-copy" role="dialog" aria-modal="true" aria-labelledby="bot-splash-name">
-        <img id="bot-splash-banner" className="bot-splash-banner" src="/assets/splash/splash_banner.png" alt="" />
-        <div className="bot-splash-content">
-          <h2 id="bot-splash-name">Snib the Candle Goblin</h2>
-          <span className="bot-splash-divider" aria-hidden="true"></span>
-          <p id="bot-splash-text"></p>
-          <span className="bot-splash-divider" aria-hidden="true"></span>
-          <div id="bot-splash-strength" className="bot-splash-strength" aria-label="Opponent strength"></div>
+      <div className="bot-splash-panel">
+        <div className="bot-splash-copy" role="dialog" aria-modal="true" aria-labelledby="bot-splash-name">
+          <img id="bot-splash-banner" className="bot-splash-banner" src="/assets/splash/splash_banner.png" alt="" />
+          <div className="bot-splash-content">
+            <h2 id="bot-splash-name">Snib the Candle Goblin</h2>
+            <span className="bot-splash-divider" aria-hidden="true"></span>
+            <p id="bot-splash-text"></p>
+            <span className="bot-splash-divider" aria-hidden="true"></span>
+            <div id="bot-splash-strength" className="bot-splash-strength" aria-label="Opponent strength"></div>
+          </div>
         </div>
+        <button id="bot-splash-start" className="bot-continue-btn bot-splash-start" type="button">
+          <img src="/assets/icons/submit-icon.png" alt="" />
+          <span>Start game</span>
+        </button>
       </div>
     </div>
   );
@@ -587,6 +593,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   const botSplashName = document.getElementById("bot-splash-name");
   const botSplashText = document.getElementById("bot-splash-text");
   const botSplashStrength = document.getElementById("bot-splash-strength");
+  const botSplashStart = document.getElementById("bot-splash-start");
   const cpChips   = document.getElementById("cp-chips");
   const boardDevicePanel = document.getElementById("board-device-panel");
   const boardConnectBtn = document.getElementById("board-connect-btn");
@@ -616,9 +623,11 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
+  const START_FEN_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   let botSplashResolve = null;
   let botSplashBeforeFade = null;
-  let botSplashTimer = null;
+  let botSplashAutoTimer = null;
+  let botSplashMode = null;
   let soloStartInProgress = false;
   let botTurnsSinceOpponentMessage = 0;
   let nextThinkingReactionAfterTurns = 3 + Math.floor(Math.random() * 3);
@@ -1233,16 +1242,40 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     });
   }
 
+  function isStartingCoopPosition(fen) {
+    return String(fen || "").split(" ")[0] === START_FEN_POSITION;
+  }
+
+  function shouldAutoStartCoopSplash(msg) {
+    return msg.phase === "playing"
+      && msg.activeIdx === msg.myIdx
+      && !msg.midTurn
+      && !isStartingCoopPosition(msg.fen);
+  }
+
+  function clearBotSplashAutoTimer() {
+    if (botSplashAutoTimer) window.clearTimeout(botSplashAutoTimer);
+    botSplashAutoTimer = null;
+  }
+
+  function scheduleBotSplashAutoStart() {
+    clearBotSplashAutoTimer();
+    botSplashAutoTimer = window.setTimeout(() => {
+      botSplashAutoTimer = null;
+      hideBotSplash();
+    }, 500);
+  }
+
   function hideBotSplash() {
     if (!botSplashResolve) return;
-    if (botSplashTimer) window.clearTimeout(botSplashTimer);
-    botSplashTimer = null;
+    clearBotSplashAutoTimer();
     const beforeFade = botSplashBeforeFade;
     botSplashBeforeFade = null;
+    botSplashMode = null;
     beforeFade?.();
     const resolve = botSplashResolve;
     botSplashResolve = null;
-    botSplashEl.classList.remove("visible");
+    botSplashEl.classList.remove("visible", "auto-start");
     botSplashEl.setAttribute("aria-hidden", "true");
     window.setTimeout(() => {
       botSplashEl.hidden = true;
@@ -1250,7 +1283,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     }, 280);
   }
 
-  function showBotSplash(opponent = currentOpponent(), { beforeFade = null } = {}) {
+  function showBotSplash(opponent = currentOpponent(), { beforeFade = null, mode = "solo", autoStart = false } = {}) {
     return new Promise(resolve => {
       if (!opponent || !botSplashEl) {
         beforeFade?.();
@@ -1258,23 +1291,37 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
         return;
       }
       if (botSplashResolve) {
+        const pendingBeforeFade = botSplashBeforeFade;
+        botSplashBeforeFade = null;
         botSplashResolve();
+        pendingBeforeFade?.();
         botSplashResolve = null;
       }
+      clearBotSplashAutoTimer();
       botSplashBeforeFade = beforeFade;
+      botSplashMode = mode;
       const mobileSplash = isMobileSplashViewport();
       botSplashArt.src = splashImageForOpponent(opponent, mobileSplash);
       botSplashBanner.src = splashBannerImage(mobileSplash);
       botSplashName.textContent = opponent.name;
       botSplashText.textContent = opponent.splashText || opponent.concept || "";
       renderBotSplashStrength(opponent.rank);
+      botSplashEl.classList.toggle("auto-start", autoStart);
+      botSplashStart.hidden = false;
       botSplashResolve = resolve;
       botSplashEl.hidden = false;
       botSplashEl.setAttribute("aria-hidden", "false");
       botSplashEl.getBoundingClientRect();
       botSplashEl.classList.add("visible");
-      botSplashTimer = window.setTimeout(hideBotSplash, 2400);
+      if (autoStart) scheduleBotSplashAutoStart();
+      else botSplashStart.focus({ preventScroll: true });
     });
+  }
+
+  function maybeAutoStartCoopSplash(msg) {
+    if (botSplashMode !== "coop" || !botSplashResolve || !shouldAutoStartCoopSplash(msg)) return;
+    botSplashEl.classList.add("auto-start");
+    scheduleBotSplashAutoStart();
   }
 
   function clearOpponentSpeechTimers() {
@@ -1612,6 +1659,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     soloStartInProgress = true;
     try {
       await showBotSplash(currentOpponent(), {
+        mode: "solo",
         beforeFade: () => beginSoloGame({ showIntro: false }),
       });
       showGameStartSpeech();
@@ -2156,6 +2204,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (coop.phase !== "off") leaveCoop();
     else showLobby();
   };
+  botSplashStart.onclick = () => hideBotSplash();
 
   // ── Coop mode ─────────────────────────────────────────────────────────────
 
@@ -2515,7 +2564,10 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
           enableBoardMoveInput();
           hideOutcomeBanner();
           if (msg.phase === "playing") {
-            showBotSplash(currentOpponent()).then(() => {
+            showBotSplash(currentOpponent(), {
+              mode: "coop",
+              autoStart: shouldAutoStartCoopSplash(msg),
+            }).then(() => {
               if (coop?.roomId === msg.roomId && coop?.phase === "playing") showGameStartSpeech();
             });
           }
@@ -2552,6 +2604,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
           disableBoardMoveInput();
           setCoopTurnStatus();
         }
+        maybeAutoStartCoopSplash(msg);
         maybeRunCoopBotTurn();
       }
     }
@@ -2644,7 +2697,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
       if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
-      if (botSplashTimer) window.clearTimeout(botSplashTimer);
+      clearBotSplashAutoTimer();
       window.removeEventListener("orientationchange", requestPortraitOrientation);
       clearOpponentSpeechTimers();
       social?.stopPresenceHeartbeat();

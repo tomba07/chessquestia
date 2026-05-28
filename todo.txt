@@ -1,6 +1,3 @@
-- design improvements
- - mobile menu bar
- - win animation (fields turn green)
 - victory screen
  - game stats
  - unlocks
