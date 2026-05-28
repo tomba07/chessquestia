@@ -1735,6 +1735,13 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
   }, { capture: true });
 
+  function requestPortraitOrientation() {
+    screen.orientation?.lock?.("portrait").catch(() => {});
+  }
+
+  requestPortraitOrientation();
+  window.addEventListener("orientationchange", requestPortraitOrientation);
+
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
   if (["localhost", "127.0.0.1"].includes(location.hostname))
     new EventSource("/dev-reload").onmessage = (e) => { if (e.data === "reload") location.reload(); };
@@ -2616,6 +2623,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       if (invitePollTimer) window.clearInterval(invitePollTimer);
       if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
       if (botSplashTimer) window.clearTimeout(botSplashTimer);
+      window.removeEventListener("orientationchange", requestPortraitOrientation);
       clearOpponentSpeechTimers();
       social?.stopPresenceHeartbeat();
       disconnectChessnutBoard();
@@ -2623,11 +2631,16 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }, []);
 
   return (
-    <div className="app">
-      <Lobby />
-      <GameView />
-      <BotSplash />
-      <FriendAddDialog />
-    </div>
+    <>
+      <div className="app">
+        <Lobby />
+        <GameView />
+        <BotSplash />
+        <FriendAddDialog />
+      </div>
+      <div className="orientation-lock" role="status" aria-live="polite">
+        <div>Rotate back to portrait</div>
+      </div>
+    </>
   );
 }

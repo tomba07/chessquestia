@@ -1,5 +1,13 @@
-const CACHE = "chessquestia-v1";
-const SHELL = ["./index.html", "./manifest.json", "./sw.js"];
+const CACHE = "chessquestia-v2";
+const SHELL = [
+  "./index.html",
+  "./manifest.json",
+  "./sw.js",
+  "./assets/app-icons/favicon-32.png",
+  "./assets/app-icons/apple-touch-icon.png",
+  "./assets/app-icons/icon-192.png",
+  "./assets/app-icons/icon-512.png",
+];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
