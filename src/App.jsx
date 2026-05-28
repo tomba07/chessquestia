@@ -1144,7 +1144,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   }
 
   function isMobileSplashViewport() {
-    return window.matchMedia?.("(max-width: 860px)")?.matches;
+    return window.matchMedia?.("(max-width: 860px), (orientation: portrait)")?.matches;
   }
 
   function splashImageForOpponent(opponent, mobile = isMobileSplashViewport()) {

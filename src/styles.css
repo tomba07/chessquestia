@@ -2749,34 +2749,49 @@
         width: min(300px, 100%);
       }
       .bot-splash-art {
-        object-position: 58% center;
+        object-position: top center;
+      }
+      .bot-splash::after {
+        background:
+          linear-gradient(0deg, rgba(18, 13, 8, 0.5), transparent 34%),
+          linear-gradient(90deg, rgba(16, 11, 7, 0.12), transparent 24%, transparent 76%, rgba(16, 11, 7, 0.12));
       }
       .bot-splash-copy {
-        width: min(560px, 92vw);
+        width: min(560px, calc(100vw - 22px));
         aspect-ratio: 1536 / 1024;
         top: auto;
-        bottom: 16px;
+        bottom: max(10px, env(safe-area-inset-bottom));
         left: 50%;
         transform: translate(-50%, 28px) scale(0.98);
+        filter:
+          drop-shadow(0 12px 16px rgba(18, 12, 7, 0.48))
+          drop-shadow(0 26px 32px rgba(18, 12, 7, 0.42));
       }
       .bot-splash.visible .bot-splash-copy {
         transform: translate(-50%, 0) scale(1);
       }
       .bot-splash-content {
-        inset: 16% 12% 12%;
-        gap: 3.4cqw;
+        inset: 19% 12% 9%;
+        gap: clamp(7px, 3.2cqw, 16px);
       }
       .bot-splash-content h2 {
-        font-size: clamp(22px, 8cqw, 34px);
+        font-size: clamp(24px, 8.8cqw, 42px);
+        line-height: 0.96;
       }
       .bot-splash-content p {
-        font-size: clamp(12px, 3.7cqw, 16px);
+        max-width: 88%;
+        font-size: clamp(12px, 4.1cqw, 18px);
+        line-height: 1.16;
       }
       .bot-splash-divider {
-        height: 8px;
+        width: 74%;
+        height: 9px;
+      }
+      .bot-splash-strength {
+        gap: clamp(16px, 8cqw, 38px);
       }
       .bot-splash-strength img {
-        width: clamp(15px, 5.2cqw, 24px);
+        width: clamp(19px, 6.3cqw, 30px);
       }
       .game-board-frame {
         margin-top: 94px;
