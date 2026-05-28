@@ -333,10 +333,10 @@ function GameView() {
           </button>
         </div>
       </div>
+      <div id="victory-screen-flash" className="victory-screen-flash" aria-hidden="true"></div>
       <div className="game-board-frame">
         <div id="board"></div>
         <div id="victory-board-pulse" className="victory-board-pulse" aria-hidden="true">
-          <span className="victory-square-pulse"></span>
         </div>
       </div>
       <div id="opponent-speech" className="opponent-speech" hidden aria-live="polite">
@@ -385,6 +385,7 @@ export default function App() {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
+const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
   const CDN       = "/cm-chessboard/assets/";
 
@@ -556,6 +557,8 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const outcomeTitleEl = document.getElementById("game-outcome-title");
   const outcomeContinueBtn = document.getElementById("game-outcome-continue");
   const victoryBoardPulseEl = document.getElementById("victory-board-pulse");
+  const victoryScreenFlashEl = document.getElementById("victory-screen-flash");
+  const gameBoardFrameEl = document.querySelector(".game-board-frame");
   const botSplashEl = document.getElementById("bot-splash");
   const botSplashArt = document.getElementById("bot-splash-art");
   const botSplashBanner = document.getElementById("bot-splash-banner");
@@ -763,14 +766,17 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     if (victoryBoardPulseTimer) window.clearTimeout(victoryBoardPulseTimer);
     victoryBoardPulseTimer = null;
     victoryBoardPulseEl.classList.remove("active");
+    victoryBoardPulseEl.innerHTML = "";
+    victoryScreenFlashEl.classList.remove("active");
+    board?.removeMarkers(VICTORY_MARKER);
   }
 
-  function squareToBoardPoint(square) {
+  function squareToBoardIndex(square) {
     const file = square.charCodeAt(0) - 97;
     const rank = parseInt(square[1], 10);
     return {
-      x: `${((file + 0.5) / 8) * 100}%`,
-      y: `${((8 - rank + 0.5) / 8) * 100}%`,
+      file,
+      rankIndex: 8 - rank,
     };
   }
 
@@ -800,12 +806,35 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     if (kingSquare) board.addMarker(CHECK_MARKER, kingSquare);
   }
 
+  function lastMoveSquares() {
+    const history = chess.history({ verbose: true });
+    const move = history[history.length - 1];
+    return move ? [move.from, move.to] : [];
+  }
+
   function showVictoryBoardPulse(square) {
-    if (!square) return;
-    const point = squareToBoardPoint(square);
-    victoryBoardPulseEl.style.setProperty("--victory-pulse-x", point.x);
-    victoryBoardPulseEl.style.setProperty("--victory-pulse-y", point.y);
     clearVictoryBoardPulse();
+    const origin = square ? squareToBoardIndex(square) : { file: 3.5, rankIndex: 3.5 };
+    const highlightedSquares = [...new Set([square, ...lastMoveSquares()].filter(Boolean))];
+    highlightedSquares.forEach(highlightSquare => board.addMarker(VICTORY_MARKER, highlightSquare));
+
+    victoryScreenFlashEl.classList.remove("active");
+    void victoryScreenFlashEl.offsetWidth;
+    victoryScreenFlashEl.classList.add("active");
+
+    const cells = [];
+    for (let rankIndex = 0; rankIndex < 8; rankIndex += 1) {
+      for (let file = 0; file < 8; file += 1) {
+        const cell = document.createElement("span");
+        cell.className = "victory-spread-cell";
+        const distance = Math.abs(file - origin.file) + Math.abs(rankIndex - origin.rankIndex);
+        cell.style.setProperty("--cell-file", file);
+        cell.style.setProperty("--cell-rank", rankIndex);
+        cell.style.setProperty("--spread-delay", `${Math.min(distance * 34, 360)}ms`);
+        cells.push(cell);
+      }
+    }
+    victoryBoardPulseEl.replaceChildren(...cells);
     void victoryBoardPulseEl.offsetWidth;
     victoryBoardPulseEl.classList.add("active");
   }
@@ -827,6 +856,12 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   function enableBoardMoveInput() {
     board.disableMoveInput();
     board.enableMoveInput(inputHandler);
+    gameBoardFrameEl.classList.remove("not-your-turn");
+  }
+
+  function disableBoardMoveInput() {
+    board?.disableMoveInput();
+    gameBoardFrameEl.classList.add("not-your-turn");
   }
 
   function moveInputFromUci(uci) {
@@ -905,11 +940,12 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
         publishCoopMove();
         if (checkGameOver()) return true;
         showPlayerMoveReaction(move);
-        board.disableMoveInput();
+        disableBoardMoveInput();
       } else {
         saveSoloGame();
         if (!checkGameOver()) {
           showPlayerMoveReaction(move);
+          disableBoardMoveInput();
           setTimeout(botMove, nextBotMoveDelay());
         }
       }
@@ -1123,7 +1159,6 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     outcomeBannerEl.className = `game-outcome-banner ${outcome}`;
     outcomeTitleEl.textContent = outcome === "victory" ? "Victory" : "Defeat";
     outcomeBannerEl.setAttribute("aria-label", outcomeTitleEl.textContent);
-    window.setTimeout(() => outcomeContinueBtn.focus({ preventScroll: true }), 0);
   }
 
   function showOutcomeBannerAfterDelay(outcome, delay = 1000) {
@@ -1604,10 +1639,11 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       updateGameScore();
       botThinking = false;
       if (checkGameOver()) return;
-      enableBoardMoveInput();
       if (chess.turn() === "w") {
+        enableBoardMoveInput();
         setStatus(modelReady ? "Your turn" : "Preparing game...");
       } else {
+        disableBoardMoveInput();
         setStatus(modelReady ? "Thinking…" : "Preparing game...", modelReady ? "thinking" : "");
         maybeRunSoloBotTurn();
       }
@@ -1622,11 +1658,11 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       recordSoloGameResult(playerWon ? "victory" : "defeat");
       const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
-      showVictoryBoardPulseAfterDelay(findKingSquare(playerWon ? "b" : "w"));
-      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 1800);
+      if (playerWon) showVictoryBoardPulseAfterDelay(findKingSquare("b"), 120);
+      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", playerWon ? 2200 : 1800);
       showEndgameOpponentReaction(playerWon, 2050);
       setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
-      board.disableMoveInput();
+      disableBoardMoveInput();
       return true;
     }
     if (chess.isDraw()) {
@@ -1635,7 +1671,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       recordSoloGameResult("draw");
       setStatus(reason, "over");
       hideOutcomeBanner();
-      board.disableMoveInput();
+      disableBoardMoveInput();
       return true;
     }
     hideOutcomeBanner();
@@ -1668,6 +1704,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     saveSoloGame();
     if (!checkGameOver()) {
       showBotMoveReaction(move);
+      enableBoardMoveInput();
       setStatus("Your turn");
     }
   }
@@ -2311,7 +2348,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       cpRoomMeta.textContent = "Reconnecting…";
       cpStartBtn.disabled = true;
     } else if (coop.phase === "playing") {
-      board?.disableMoveInput();
+      disableBoardMoveInput();
       setStatus("Reconnecting…", "thinking");
     }
 
@@ -2476,14 +2513,14 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
 
         if (msg.phase === "over") {
           checkGameOver();
-          board.disableMoveInput();
+          disableBoardMoveInput();
         } else if (msg.activeIdx === msg.myIdx && !msg.midTurn) {
           hideOutcomeBanner();
           enableBoardMoveInput();
           setCoopTurnStatus();
         } else {
           hideOutcomeBanner();
-          board.disableMoveInput();
+          disableBoardMoveInput();
           setCoopTurnStatus();
         }
         maybeRunCoopBotTurn();
