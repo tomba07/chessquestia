@@ -110,12 +110,13 @@ function AuthPanel() {
         <p>Save progress, unlock opponents, and play co-op with friends.</p>
       </div>
       <div className="auth-actions">
-        <button id="auth-primary-btn" className="bot-continue-btn" type="button">
+        <button id="auth-primary-btn" className="bot-continue-btn auth-primary-btn" type="button">
           <img src="/assets/icons/submit-icon.png" alt="" />
           <span>Continue with Google</span>
         </button>
         <button id="auth-demo-btn" className="sm-btn auth-demo-btn" type="button">
-          Try demo against Snib
+          <img src="/assets/bots/snib_talk.png" alt="" />
+          <span>Try demo against Snib</span>
         </button>
       </div>
       <div id="auth-dev-login-card" className="dev-login-card auth-dev-login-card" style={{ display: "none" }}>
@@ -1937,6 +1938,10 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     navFriends.classList.toggle("active", target === "friends");
   }
 
+  function setAuthLayout(active) {
+    lobbyEl.classList.toggle("auth-mode", active);
+  }
+
   const coopInviteState = {
     loading: false,
     error: "",
@@ -1990,6 +1995,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   const startPresenceHeartbeat = (...args) => social.startPresenceHeartbeat(...args);
 
   function showPlayView() {
+    setAuthLayout(false);
     setViewUrl("play");
     setNavActive("play");
     closeAddFriendDialog({ render: false });
@@ -2005,6 +2011,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }
 
   function showBotSelection(mode = "solo", { readonly = false } = {}) {
+    setAuthLayout(false);
     setViewUrl(mode);
     setupMode = mode;
     opponentSelectionReadonly = readonly;
@@ -2038,6 +2045,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }
 
   function showAuthView() {
+    setAuthLayout(true);
     setAuthViewUrl();
     setNavActive("");
     closeAddFriendDialog({ render: false });

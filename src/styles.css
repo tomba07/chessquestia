@@ -200,6 +200,10 @@
       box-shadow: none;
     }
 
+    #lobby.auth-mode .side-menu {
+      display: none;
+    }
+
     .side-brand {
       display: none;
     }
@@ -367,11 +371,19 @@
 
     #lb-auth.lobby-panel {
       width: min(460px, calc(100% - 160px));
+      max-height: calc(100% - 48px);
+      top: 50%;
+      transform: translate(-50%, -50%);
+      overflow-y: auto;
       align-items: center;
       text-align: center;
       padding: clamp(20px, 2.2cqw, 30px);
       gap: clamp(18px, 2cqw, 26px);
       background: rgba(247, 239, 213, 0.9);
+      scrollbar-width: none;
+    }
+    #lb-auth.lobby-panel::-webkit-scrollbar {
+      display: none;
     }
 
     #lb-solo.lobby-panel {
@@ -1008,22 +1020,71 @@
       text-shadow: none;
     }
     .auth-actions {
-      width: min(100%, 320px);
+      width: min(100%, 360px);
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      gap: 12px;
+      gap: 14px;
     }
-    .auth-actions .bot-continue-btn {
+    .auth-primary-btn {
       width: 100%;
+      font-size: clamp(17px, 1.45cqw, 23px);
+      line-height: 1;
+      text-shadow: 0 2px 0 rgba(41, 31, 18, 0.32);
+    }
+    .auth-primary-btn span {
+      max-width: 76%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .auth-demo-btn {
-      justify-content: center;
-      min-height: 44px;
+      min-height: 62px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-direction: row-reverse;
+      gap: 14px;
+      padding: 5px 16px 5px 32px;
       background: rgba(255, 252, 239, 0.74);
+      font-size: 14px;
+      color: #51402e;
+      overflow: hidden;
+    }
+    .auth-demo-btn img {
+      width: 62px;
+      height: 62px;
+      flex: 0 0 auto;
+      object-fit: contain;
+      object-position: bottom center;
+      transform: translateY(7px) scale(1.2);
+      transform-origin: bottom center;
+      filter:
+        drop-shadow(0 5px 5px rgba(28, 17, 8, 0.45))
+        drop-shadow(0 12px 14px rgba(41, 25, 12, 0.3));
+    }
+    .auth-demo-btn span {
+      min-width: 0;
+      flex: 1 1 auto;
+      text-align: center;
+      transform: translateX(-12px);
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .auth-dev-login-card {
       width: min(100%, 340px);
+      gap: 8px;
+      padding: 12px 14px;
+      box-shadow:
+        inset 0 0 0 3px rgba(255, 248, 229, 0.22),
+        0 10px 18px rgba(73, 48, 20, 0.08);
+    }
+    .auth-dev-login-card > span {
+      font-size: 18px;
+    }
+    .auth-dev-login-card .dev-login-options .sm-btn {
+      min-height: 34px;
+      font-size: 13px;
     }
 
     .empty-state {
@@ -1870,6 +1931,9 @@
       }
       #lb-auth.lobby-panel {
         width: auto;
+        max-height: none;
+        top: calc(66px + var(--mobile-safe-top));
+        transform: none;
         align-items: center;
         justify-content: center;
       }
@@ -1935,6 +1999,19 @@
       }
       .auth-actions {
         width: min(100%, 300px);
+      }
+      .auth-primary-btn {
+        font-size: 18px;
+      }
+      .auth-demo-btn {
+        min-height: 58px;
+      }
+      .auth-demo-btn img {
+        width: 56px;
+        height: 56px;
+      }
+      .auth-demo-btn span {
+        transform: translateX(-6px);
       }
     }
 
