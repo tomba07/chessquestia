@@ -595,6 +595,8 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   let botSplashBeforeFade = null;
   let botSplashTimer = null;
   let soloStartInProgress = false;
+  let botTurnsSinceOpponentMessage = 0;
+  let nextThinkingReactionAfterTurns = 3 + Math.floor(Math.random() * 3);
   const recordedSoloGameIds = new Set();
   const chessnut = {
     device: null,
@@ -861,6 +863,14 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   function nextBotMoveDelay() {
     const { min, max } = BOT_MOVE_DELAY_MS;
     return Math.round(min + Math.random() * (max - min));
+  }
+
+  function thinkingMoveDelay() {
+    return Math.round(1300 + Math.random() * 1100);
+  }
+
+  function wait(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
   }
 
   function isMyCoopBotTurn() {
@@ -1288,6 +1298,11 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     }
   }
 
+  function resetThinkingReactionCadence() {
+    botTurnsSinceOpponentMessage = 0;
+    nextThinkingReactionAfterTurns = 3 + Math.floor(Math.random() * 3);
+  }
+
   function showOpponentReaction(emotion, {
     reaction = emotion,
     lines = null,
@@ -1309,14 +1324,17 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       foreground,
       sticky,
     });
+    resetThinkingReactionCadence();
     return true;
   }
 
   function showOpponentThinkingReaction() {
-    showOpponentReaction("thinking", {
-      duration: 1800,
-      chance: 0.32,
-      allowInterrupt: false,
+    botTurnsSinceOpponentMessage += 1;
+    if (botTurnsSinceOpponentMessage < nextThinkingReactionAfterTurns) return false;
+    return showOpponentReaction("thinking", {
+      duration: 2400,
+      allowInterrupt: true,
+      sticky: false,
     });
   }
 
@@ -1373,6 +1391,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       portrait: `/assets/bots/${selectedOpponent.talkPortrait || "snib_talk.png"}`,
       text: lines[Math.floor(Math.random() * lines.length)],
     });
+    resetThinkingReactionCadence();
   }
 
   function readSoloProgress() {
@@ -1525,6 +1544,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     updateGameScore();
     enableBoardMoveInput();
     botThinking = false;
+    resetThinkingReactionCadence();
     setStatus("Your turn");
     if (showIntro) showGameStartSpeech();
     saveSoloGame();
@@ -1626,7 +1646,14 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     if (chess.isGameOver() || !modelReady || botThinking) return;
     botThinking = true;
     setStatus("Thinking…", "thinking");
-    showOpponentThinkingReaction();
+    const showedThinkingReaction = showOpponentThinkingReaction();
+    if (showedThinkingReaction) {
+      await wait(thinkingMoveDelay());
+      if (chess.isGameOver() || !soloActive || coop?.phase !== "off" || gameEl.style.display === "none") {
+        botThinking = false;
+        return;
+      }
+    }
 
     const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
     const legalMask = buildLegalMask(workingFen, allMovesMaia3);
@@ -2479,7 +2506,11 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     botThinking = true;
     try {
       setStatus("Thinking…", "thinking");
-      showOpponentThinkingReaction();
+      const showedThinkingReaction = showOpponentThinkingReaction();
+      if (showedThinkingReaction) {
+        await wait(thinkingMoveDelay());
+        if (!isMyCoopBotTurn() || coop.roomId !== roomId || chess.fen() !== fenBeforeThinking) return;
+      }
       const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
       const legalMask = buildLegalMask(workingFen, allMovesMaia3);
 
