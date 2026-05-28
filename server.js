@@ -840,13 +840,9 @@ app.use((req, res, next) => {
     return;
   }
   const appShellRequest = ["/", "/index.html"].includes(req.path);
-  const publicHome = appShellRequest
-    && !req.query.room
-    && !req.query.view
-    && !req.query.game
-    && !req.query.friend;
+  const publicAuth = appShellRequest && req.query.auth === "login";
   const publicDemo = appShellRequest && req.query.demo === "snib";
-  if (publicHome || publicDemo) {
+  if (publicAuth || publicDemo) {
     next();
     return;
   }
@@ -854,8 +850,7 @@ app.use((req, res, next) => {
     next();
     return;
   }
-  const loginPath = googleAuthEnabled ? "/auth/google" : "/auth/local";
-  res.redirect(`${loginPath}?next=${encodeURIComponent(safeNextPath(req.originalUrl || "/"))}`);
+  res.redirect(`/?auth=login&next=${encodeURIComponent(safeNextPath(req.originalUrl || "/"))}`);
 });
 
 // ── Hot reload (SSE, dev only) ────────────────────────────────────────────────

@@ -81,13 +81,6 @@ function PlayPanel() {
         <p>{randomHomeGreeting()}</p>
       </div>
       <div className="mode-grid">
-        <button id="play-demo-btn" className="mode-card demo-mode-card" type="button" style={{ display: "none" }}>
-          <img src="/assets/cards/snib_card.png" alt="" />
-          <span className="mode-card-copy">
-            <strong><img className="mode-title-icon" src="/assets/icons/solo_icon.png" alt="" />Snib demo</strong>
-            <span>Try one quick solo match. No account needed.</span>
-          </span>
-        </button>
         <button id="play-solo-btn" className="mode-card" type="button">
           <img src="/assets/buttons/solo_button.png" alt="" />
           <span className="mode-card-copy">
@@ -102,6 +95,32 @@ function PlayPanel() {
             <span>Team up with friends and play together.</span>
           </span>
         </button>
+      </div>
+    </div>
+  );
+}
+
+function AuthPanel() {
+  return (
+    <div id="lb-auth" className="lobby-section lobby-panel auth-panel" style={{ display: "none" }}>
+      <div className="auth-copy">
+        <div>Chessquestia</div>
+        <strong>Sign in or sign up</strong>
+        <span className="home-divider" aria-hidden="true"></span>
+        <p>Save progress, unlock opponents, and play co-op with friends.</p>
+      </div>
+      <div className="auth-actions">
+        <button id="auth-primary-btn" className="bot-continue-btn" type="button">
+          <img src="/assets/icons/submit-icon.png" alt="" />
+          <span>Continue with Google</span>
+        </button>
+        <button id="auth-demo-btn" className="sm-btn auth-demo-btn" type="button">
+          Try demo against Snib
+        </button>
+      </div>
+      <div id="auth-dev-login-card" className="dev-login-card auth-dev-login-card" style={{ display: "none" }}>
+        <span>Dev login</span>
+        <div id="auth-dev-login-options" className="dev-login-options"></div>
       </div>
     </div>
   );
@@ -320,6 +339,7 @@ function Lobby() {
           <button id="coop-invite-dismiss" className="sm-btn" type="button">Dismiss</button>
         </div>
       </div>
+      <AuthPanel />
       <PlayPanel />
       <SinglePlayerSetup />
       <ProfilePanel />
@@ -1580,9 +1600,10 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     gameEl.style.display  = "none";
     hideOpponentSpeech();
     lobbyEl.style.display = "";
-    showPlayView();
     if (soloActive) clearSoloGame();
-    if (location.search.includes("room=") || location.pathname !== "/")
+    if (authInfo.authEnabled && !authInfo.user) showAuthView();
+    else showPlayView();
+    if (authInfo.user && (location.search.includes("room=") || location.pathname !== "/"))
       history.replaceState(null, "", "/");
   }
 
@@ -1715,6 +1736,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   function startDemoGame() {
     setupMode = "solo";
     selectDemoOpponent();
+    setDemoGameUrl();
     startSoloGame({ demo: true });
   }
 
@@ -1849,6 +1871,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   // ── Lobby UI ──────────────────────────────────────────────────────────────
 
   const lbMain       = document.getElementById("lb-main");
+  const lbAuth       = document.getElementById("lb-auth");
   const lbSolo       = document.getElementById("lb-solo");
   const lbRoom       = document.getElementById("lb-room");
   const lbProfile    = document.getElementById("lb-profile");
@@ -1864,6 +1887,10 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   const authBar      = document.getElementById("auth-bar");
   const authLabel    = document.getElementById("auth-label");
   const authBtn      = document.getElementById("auth-btn");
+  const authPrimaryBtn = document.getElementById("auth-primary-btn");
+  const authDemoBtn = document.getElementById("auth-demo-btn");
+  const authDevLoginCard = document.getElementById("auth-dev-login-card");
+  const authDevLoginOptions = document.getElementById("auth-dev-login-options");
   const profileAccountCard = document.getElementById("profile-account-card");
   const profileAccountName = document.getElementById("profile-account-name");
   const profileAuthBtn = document.getElementById("profile-auth-btn");
@@ -1878,7 +1905,6 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   const coopInviteDismiss = document.getElementById("coop-invite-dismiss");
   const welcomeName  = document.getElementById("welcome-name");
   const botSelectTitle = document.getElementById("bot-select-title");
-  const playDemoBtn = document.getElementById("play-demo-btn");
   const soloStartBtn = document.getElementById("solo-start-btn");
   const soloBackBtn  = document.getElementById("solo-back-btn");
   opponentCards = Array.from(document.querySelectorAll("[data-opponent-strength]"));
@@ -1968,6 +1994,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     setNavActive("play");
     closeAddFriendDialog({ render: false });
     if (!pendingSoloStart) hideModelLoading();
+    lbAuth.style.display = "none";
     lbMain.style.display = "flex";
     lbSolo.style.display = "none";
     lbRoom.style.display = "none";
@@ -1992,8 +2019,32 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       ? "Waiting for host"
       : mode === "coop" ? "Start" : "Continue";
     if (readonly) soloStartBtn.disabled = true;
+    lbAuth.style.display = "none";
     lbMain.style.display = "none";
     lbSolo.style.display = "flex";
+    lbRoom.style.display = "none";
+    lbProfile.style.display = "none";
+    lbFriends.style.display = "none";
+    lbFriendInvite.style.display = "none";
+    renderInviteNotification();
+  }
+
+  function setAuthViewUrl() {
+    if (location.search.includes("room=")) return;
+    const next = searchParams.get("next");
+    const target = next ? `/?auth=login&next=${encodeURIComponent(next)}` : "/?auth=login";
+    if (`${location.pathname}${location.search}` !== target)
+      history.replaceState(null, "", target);
+  }
+
+  function showAuthView() {
+    setAuthViewUrl();
+    setNavActive("");
+    closeAddFriendDialog({ render: false });
+    if (!pendingSoloStart) hideModelLoading();
+    lbAuth.style.display = "flex";
+    lbMain.style.display = "none";
+    lbSolo.style.display = "none";
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
@@ -2048,24 +2099,32 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }
 
   const currentNextPath = () => location.pathname + location.search;
+  function nextAfterAuth() {
+    const next = searchParams.get("next");
+    if (next?.startsWith("/")) return next;
+    return searchParams.get("auth") === "login" ? "/" : currentNextPath();
+  }
   let authInfo = { authEnabled: false, user: null, loginUrl: "/auth/google", logoutUrl: "/auth/logout" };
 
   function renderDevLogin() {
     const users = authInfo.devLoginUsers || [];
     const canShow = authInfo.localAuthEnabled && !authInfo.user && users.length > 0;
-    devLoginCard.style.display = canShow ? "flex" : "none";
-    devLoginOptions.innerHTML = canShow
+    const loginButtons = canShow
       ? users.map(user => `
         <button class="sm-btn primary-mini" type="button" data-dev-login-url="${escapeHtml(user.loginUrl)}">
           ${escapeHtml(user.name)}
         </button>
       `).join("")
       : "";
+    devLoginCard.style.display = canShow ? "flex" : "none";
+    authDevLoginCard.style.display = canShow ? "flex" : "none";
+    devLoginOptions.innerHTML = loginButtons;
+    authDevLoginOptions.innerHTML = loginButtons;
   }
 
   async function loadAuth() {
     try {
-      authInfo = await fetch(`/api/me?next=${encodeURIComponent(currentNextPath())}`).then(r => r.json());
+      authInfo = await fetch(`/api/me?next=${encodeURIComponent(nextAfterAuth())}`).then(r => r.json());
     } catch {
       authInfo = { authEnabled: false, user: null, loginUrl: "/auth/google", logoutUrl: "/auth/logout" };
     }
@@ -2073,14 +2132,13 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (!authInfo.authEnabled) {
       authBar.style.display = "none";
       profileAccountCard.style.display = "none";
-      playDemoBtn.style.display = "none";
+      authDevLoginCard.style.display = "none";
       renderDevLogin();
       return;
     }
 
     authBar.style.display = "none";
     profileAccountCard.style.display = "flex";
-    playDemoBtn.style.display = authInfo.user ? "none" : "flex";
     renderDevLogin();
     if (authInfo.user) {
       const accountName = authInfo.user.name || authInfo.user.email || "Signed in";
@@ -2096,6 +2154,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       authBtn.textContent = "Sign in";
       authBtn.onclick = () => { location.href = authInfo.loginUrl; };
       profileAccountName.textContent = "Not signed in";
+      authPrimaryBtn.onclick = () => { location.href = authInfo.loginUrl; };
       profileAuthBtn.textContent = "Sign in";
       profileAuthBtn.onclick = () => { location.href = authInfo.loginUrl; };
     }
@@ -2104,11 +2163,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   await loadAuth();
 
   function promptSignIn() {
-    if (authInfo.localAuthEnabled && (authInfo.devLoginUsers || []).length) {
-      showProfileView();
-      return;
-    }
-    location.href = authInfo.loginUrl;
+    showAuthView();
   }
 
   social = createSocialController({
@@ -2129,6 +2184,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       friendRequestsEl,
       friendResultsEl,
       friendSearch,
+      lbAuth,
       lbFriendInvite,
       lbFriends,
       lbMain,
@@ -2152,13 +2208,21 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   });
   social.bindEvents();
 
-  navPlay.onclick = () => showPlayView();
+  navPlay.onclick = () => {
+    if (authInfo.authEnabled && !authInfo.user) showAuthView();
+    else showPlayView();
+  };
   devLoginOptions.addEventListener("click", (event) => {
     const button = event.target.closest("[data-dev-login-url]");
     if (!button) return;
     location.href = button.dataset.devLoginUrl;
   });
-  playDemoBtn.onclick = () => startDemoGame();
+  authDevLoginOptions.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-dev-login-url]");
+    if (!button) return;
+    location.href = button.dataset.devLoginUrl;
+  });
+  authDemoBtn.onclick = () => startDemoGame();
   document.getElementById("play-solo-btn").onclick = () => {
     if (authInfo.authEnabled && !authInfo.user) {
       promptSignIn();
@@ -2721,9 +2785,11 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
     else restoreSoloGame();
   } else if (initialView === "profile") {
-    showProfileView();
+    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
+    else showProfileView();
   } else if (initialView === "friends") {
-    showFriendsView();
+    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
+    else showFriendsView();
   } else if (initialView === "solo") {
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
     else showSoloSetup();
@@ -2731,7 +2797,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
     else connectCoop("create");
   } else if (authInfo.authEnabled && !authInfo.user) {
-    showPlayView();
+    showAuthView();
   } else {
     restoreSoloGame();
   }

@@ -361,8 +361,17 @@
       gap: clamp(30px, 5cqw, 76px);
     }
 
-    #lb-solo, #lb-room, #lb-friends, #lb-profile, #lb-friend-invite {
+    #lb-auth, #lb-solo, #lb-room, #lb-friends, #lb-profile, #lb-friend-invite {
       top: 18cqh;
+    }
+
+    #lb-auth.lobby-panel {
+      width: min(460px, calc(100% - 160px));
+      align-items: center;
+      text-align: center;
+      padding: clamp(20px, 2.2cqw, 30px);
+      gap: clamp(18px, 2cqw, 26px);
+      background: rgba(247, 239, 213, 0.9);
     }
 
     #lb-solo.lobby-panel {
@@ -970,6 +979,51 @@
       font-size: clamp(17px, 1.55cqw, 24px);
       color: #3f3020;
       line-height: 1.35;
+    }
+
+    .auth-copy {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--ink);
+      font-family: var(--story-font);
+      text-shadow: 0 1px 0 rgba(255, 248, 226, 0.92);
+    }
+    .auth-copy div {
+      font-size: clamp(20px, 1.7cqw, 26px);
+      line-height: 1.1;
+    }
+    .auth-copy strong {
+      font-size: clamp(34px, 3.1cqw, 48px);
+      line-height: 1;
+      font-weight: 800;
+    }
+    .auth-copy p {
+      max-width: 340px;
+      font-family: var(--ui-font);
+      font-size: 16px;
+      line-height: 1.45;
+      color: #4a3828;
+      text-shadow: none;
+    }
+    .auth-actions {
+      width: min(100%, 320px);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    .auth-actions .bot-continue-btn {
+      width: 100%;
+    }
+    .auth-demo-btn {
+      justify-content: center;
+      min-height: 44px;
+      background: rgba(255, 252, 239, 0.74);
+    }
+    .auth-dev-login-card {
+      width: min(100%, 340px);
     }
 
     .empty-state {
@@ -1778,6 +1832,7 @@
         overflow: auto;
       }
       #lb-main.lobby-panel,
+      #lb-auth.lobby-panel,
       #lb-solo.lobby-panel,
       #lb-room.lobby-panel,
       #lb-friends.lobby-panel,
@@ -1812,6 +1867,11 @@
         justify-content: flex-start;
         gap: 22px;
         background: transparent;
+      }
+      #lb-auth.lobby-panel {
+        width: auto;
+        align-items: center;
+        justify-content: center;
       }
       #lb-solo.lobby-panel {
         width: auto;
@@ -1868,6 +1928,12 @@
         gap: 18px;
       }
       .mode-card {
+        width: min(100%, 300px);
+      }
+      .auth-copy strong {
+        font-size: 36px;
+      }
+      .auth-actions {
         width: min(100%, 300px);
       }
     }

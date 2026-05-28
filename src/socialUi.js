@@ -77,6 +77,7 @@ export function createSocialController({
     friendRequestsEl,
     friendResultsEl,
     friendSearch,
+    lbAuth,
     lbFriendInvite,
     lbFriends,
     lbMain,
@@ -506,6 +507,7 @@ export function createSocialController({
     setNavActive("friends");
     closeAddFriendDialog({ render: false });
     hideModelLoading();
+    if (lbAuth) lbAuth.style.display = "none";
     lbMain.style.display = "none";
     lbSolo.style.display = "none";
     lbRoom.style.display = "none";
@@ -570,6 +572,11 @@ export function createSocialController({
   }
 
   function showProfileView() {
+    const authInfo = auth();
+    if (authInfo.authEnabled && !authInfo.user) {
+      promptSignIn();
+      return;
+    }
     setViewUrl("profile");
     setNavActive("profile");
     closeAddFriendDialog({ render: false });
@@ -585,9 +592,15 @@ export function createSocialController({
   }
 
   function showFriendsView({ reload = true } = {}) {
+    const authInfo = auth();
+    if (authInfo.authEnabled && !authInfo.user) {
+      promptSignIn();
+      return;
+    }
     setViewUrl("friends");
     setNavActive("friends");
     hideModelLoading();
+    if (lbAuth) lbAuth.style.display = "none";
     lbMain.style.display = "none";
     lbSolo.style.display = "none";
     lbRoom.style.display = "none";
