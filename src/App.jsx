@@ -36,6 +36,28 @@ import {
   randomLine,
 } from "./opponentReactions.js";
 
+const HOME_GREETINGS = [
+  "The board is set.",
+  "Your next match awaits.",
+  "Choose your next challenger.",
+  "The next move is yours.",
+  "A new duel begins.",
+  "A suspicious board awaits.",
+  "Another tiny villain waits.",
+  "Your next rival is ready.",
+  "The cellar league continues.",
+  "One more board, one more mistake.",
+  "Pick your opponent.",
+  "A fresh position awaits.",
+  "Step up to the board.",
+  "Make the first move.",
+  "The quest continues.",
+];
+
+function randomHomeGreeting() {
+  return HOME_GREETINGS[Math.floor(Math.random() * HOME_GREETINGS.length)];
+}
+
 function SideMenu() {
   return (
     <nav className="side-menu" aria-label="Main navigation">
@@ -56,7 +78,7 @@ function PlayPanel() {
         <div>Welcome back,</div>
         <strong id="welcome-name">Wanderer</strong>
         <span className="home-divider" aria-hidden="true"></span>
-        <p>Every move shapes your story.</p>
+        <p>{randomHomeGreeting()}</p>
       </div>
       <div className="mode-grid">
         <button id="play-solo-btn" className="mode-card" type="button">

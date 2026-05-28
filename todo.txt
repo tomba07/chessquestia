@@ -1,5 +1,12 @@
 - design improvements
  - mobile menu bar
+ - win animation (fields turn green)
+- victory screen
+ - game stats
+ - unlocks
+  - new opponent...
+  - badge...
+- timer
 - game start screen
  - pokemon-like: player vs enemy (maybe one liner of the enemy)
 - highlights

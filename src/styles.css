@@ -1663,6 +1663,10 @@
       body {
         padding: 0;
       }
+      :root {
+        --mobile-safe-top: env(safe-area-inset-top, 0px);
+        --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+      }
       .app {
         width: 100vw;
         height: 100dvh;
@@ -1695,9 +1699,9 @@
       }
       .side-menu {
         position: absolute;
-        top: 16px;
-        left: 16px;
-        right: 16px;
+        top: calc(16px + var(--mobile-safe-top));
+        left: max(16px, env(safe-area-inset-left));
+        right: max(16px, env(safe-area-inset-right));
         z-index: 4;
         min-height: 38px;
         flex-direction: row;
@@ -1738,9 +1742,9 @@
         height: 16px;
       }
       .coop-invite-notice {
-        top: 60px;
-        right: 16px;
-        left: 16px;
+        top: calc(60px + var(--mobile-safe-top));
+        right: max(16px, env(safe-area-inset-right));
+        left: max(16px, env(safe-area-inset-left));
         width: auto;
         gap: 8px;
         padding: 10px 12px;
@@ -1754,9 +1758,9 @@
       }
       .auth-bar {
         position: absolute;
-        top: 60px;
-        left: 16px;
-        right: 16px;
+        top: calc(60px + var(--mobile-safe-top));
+        left: max(16px, env(safe-area-inset-left));
+        right: max(16px, env(safe-area-inset-right));
         width: auto;
         max-width: none;
         border-radius: 10px;
@@ -1764,10 +1768,10 @@
       }
       .lobby-panel {
         position: absolute;
-        top: 66px;
-        right: 16px;
-        bottom: 16px;
-        left: 16px;
+        top: calc(66px + var(--mobile-safe-top));
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(16px, var(--mobile-safe-bottom));
+        left: max(16px, env(safe-area-inset-left));
         transform: none;
         width: auto;
         max-height: none;
@@ -1779,18 +1783,18 @@
       #lb-friends.lobby-panel,
       #lb-profile.lobby-panel,
       #lb-friend-invite.lobby-panel {
-        top: 66px;
-        right: 16px;
-        bottom: 16px;
-        left: 16px;
+        top: calc(66px + var(--mobile-safe-top));
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(16px, var(--mobile-safe-bottom));
+        left: max(16px, env(safe-area-inset-left));
         overflow-y: auto;
         overflow-x: hidden;
       }
       #lb-room.lobby-panel {
-        top: 92px;
-        right: 22px;
-        bottom: 18px;
-        left: 22px;
+        top: calc(92px + var(--mobile-safe-top));
+        right: max(22px, env(safe-area-inset-right));
+        bottom: max(18px, var(--mobile-safe-bottom));
+        left: max(22px, env(safe-area-inset-left));
         width: auto;
         max-height: none;
         transform: none;
@@ -1887,10 +1891,10 @@
     @media (max-width: 860px) {
       #lb-friends.lobby-panel {
         width: auto;
-        top: 92px;
-        right: 22px;
-        left: 22px;
-        bottom: 18px;
+        top: calc(92px + var(--mobile-safe-top));
+        right: max(22px, env(safe-area-inset-right));
+        left: max(22px, env(safe-area-inset-left));
+        bottom: max(18px, var(--mobile-safe-bottom));
         transform: none;
         overflow-y: auto;
         overflow-x: hidden;
@@ -1943,10 +1947,10 @@
       }
       #lb-profile.lobby-panel {
         width: auto;
-        top: 92px;
-        right: 22px;
-        left: 22px;
-        bottom: 18px;
+        top: calc(92px + var(--mobile-safe-top));
+        right: max(22px, env(safe-area-inset-right));
+        left: max(22px, env(safe-area-inset-left));
+        bottom: max(18px, var(--mobile-safe-bottom));
         transform: none;
         overflow-y: auto;
         overflow-x: hidden;
@@ -1956,10 +1960,10 @@
       }
       #lb-friend-invite.lobby-panel {
         width: auto;
-        top: 92px;
-        right: 22px;
-        left: 22px;
-        bottom: 18px;
+        top: calc(92px + var(--mobile-safe-top));
+        right: max(22px, env(safe-area-inset-right));
+        left: max(22px, env(safe-area-inset-left));
+        bottom: max(18px, var(--mobile-safe-bottom));
         transform: none;
       }
       #lb-friend-invite .panel-title {
@@ -2794,12 +2798,12 @@
       }
       .game-back-btn {
         width: 56px;
-        top: 14px;
-        left: 12px;
+        top: calc(14px + env(safe-area-inset-top));
+        left: max(12px, env(safe-area-inset-left));
       }
       .game-score-plaque {
         width: 178px;
-        top: 12px;
+        top: calc(12px + env(safe-area-inset-top));
       }
       #game-score {
         font-size: 30px;
