@@ -81,6 +81,13 @@ function PlayPanel() {
         <p>{randomHomeGreeting()}</p>
       </div>
       <div className="mode-grid">
+        <button id="play-demo-btn" className="mode-card demo-mode-card" type="button" style={{ display: "none" }}>
+          <img src="/assets/cards/snib_card.png" alt="" />
+          <span className="mode-card-copy">
+            <strong><img className="mode-title-icon" src="/assets/icons/solo_icon.png" alt="" />Snib demo</strong>
+            <span>Try one quick solo match. No account needed.</span>
+          </span>
+        </button>
         <button id="play-solo-btn" className="mode-card" type="button">
           <img src="/assets/buttons/solo_button.png" alt="" />
           <span className="mode-card-copy">
@@ -517,8 +524,10 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       statusDot.className = "status-dot ready";
       hideModelLoading();
       if (pendingSoloStart) {
+        const demoStart = pendingSoloStartDemo;
         pendingSoloStart = false;
-        startSoloGameWithSplash();
+        pendingSoloStartDemo = false;
+        startSoloGameWithSplash({ demo: demoStart });
         syncMaiaStatus();
         return;
       }
@@ -618,6 +627,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   let coopBotTimer = null;
   let soloActive  = false;
   let soloGameId = null;
+  let soloDemoActive = false;
   let setupMode = "solo";
   let opponentSelectionReadonly = false;
   let selectedOpponentTheme = "snib";
@@ -629,6 +639,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   let botSplashAutoTimer = null;
   let botSplashMode = null;
   let soloStartInProgress = false;
+  let pendingSoloStartDemo = false;
   let botTurnsSinceOpponentMessage = 0;
   let nextThinkingReactionAfterTurns = 3 + Math.floor(Math.random() * 3);
   const recordedSoloGameIds = new Set();
@@ -1532,6 +1543,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }
 
   function unlockNextOpponent() {
+    if (soloDemoActive) return false;
     const opponentIndex = Math.max(0, selectedOpponentIndex);
     if (opponentIndex + 1 >= SOLO_OPPONENTS.length) return false;
     const nextUnlockedCount = opponentIndex + 2;
@@ -1587,7 +1599,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }
 
   function saveSoloGame() {
-    if (!soloActive || coop.phase !== "off") return;
+    if (!soloActive || soloDemoActive || coop.phase !== "off") return;
     localStorage.setItem(SOLO_GAME_KEY, JSON.stringify({
       gameId: soloGameId,
       fen: chess.fen(),
@@ -1601,6 +1613,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   function clearSoloGame() {
     soloActive = false;
     soloGameId = null;
+    soloDemoActive = false;
     localStorage.removeItem(SOLO_GAME_KEY);
     localStorage.removeItem(LEGACY_SOLO_GAME_KEY);
   }
@@ -1610,7 +1623,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }
 
   function recordSoloGameResult(result) {
-    if (!soloActive || coop?.phase !== "off") return;
+    if (!soloActive || soloDemoActive || coop?.phase !== "off") return;
     soloGameId = soloGameId || createSoloGameId();
     if (recordedSoloGameIds.has(soloGameId)) return;
     recordedSoloGameIds.add(soloGameId);
@@ -1631,14 +1644,16 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     }).catch(() => {});
   }
 
-  function beginSoloGame({ showIntro = true } = {}) {
+  function beginSoloGame({ showIntro = true, demo = false } = {}) {
     chess.reset();
     soloActive = true;
+    soloDemoActive = demo;
     soloGameId = createSoloGameId();
     cpChips.innerHTML = "";
     hideOutcomeBanner();
     hideModelLoading();
-    setSoloGameUrl();
+    if (demo) setDemoGameUrl();
+    else setSoloGameUrl();
     showGame();
     board.setPosition(chess.fen());
     board.removeMarkers(LAST_MOVE);
@@ -1654,13 +1669,13 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     saveSoloGame();
   }
 
-  async function startSoloGameWithSplash() {
+  async function startSoloGameWithSplash({ demo = false } = {}) {
     if (soloStartInProgress) return;
     soloStartInProgress = true;
     try {
       await showBotSplash(currentOpponent(), {
         mode: "solo",
-        beforeFade: () => beginSoloGame({ showIntro: false }),
+        beforeFade: () => beginSoloGame({ showIntro: false, demo }),
       });
       showGameStartSpeech();
     } finally {
@@ -1668,16 +1683,17 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     }
   }
 
-  function startSoloGame() {
-    if (soloStartBtn.disabled) return;
+  function startSoloGame({ demo = false } = {}) {
+    if (!demo && soloStartBtn.disabled) return;
     if (!modelReady) {
       pendingSoloStart = true;
+      pendingSoloStartDemo = demo;
       showModelLoading("Preparing game...");
       requestModelDownload();
       return;
     }
 
-    startSoloGameWithSplash();
+    startSoloGameWithSplash({ demo });
   }
 
   function startSelectedGame() {
@@ -1686,6 +1702,20 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       return;
     }
     startSoloGame();
+  }
+
+  function selectDemoOpponent() {
+    const opponent = SOLO_OPPONENTS[0];
+    syncStrength(String(opponent.elo));
+    selectedOpponentIndex = 0;
+    selectedOpponentTheme = opponent.theme;
+    updateOpponentSelection(String(opponent.elo));
+  }
+
+  function startDemoGame() {
+    setupMode = "solo";
+    selectDemoOpponent();
+    startSoloGame({ demo: true });
   }
 
   function restoreSoloGame() {
@@ -1848,6 +1878,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   const coopInviteDismiss = document.getElementById("coop-invite-dismiss");
   const welcomeName  = document.getElementById("welcome-name");
   const botSelectTitle = document.getElementById("bot-select-title");
+  const playDemoBtn = document.getElementById("play-demo-btn");
   const soloStartBtn = document.getElementById("solo-start-btn");
   const soloBackBtn  = document.getElementById("solo-back-btn");
   opponentCards = Array.from(document.querySelectorAll("[data-opponent-strength]"));
@@ -1872,6 +1903,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     ? decodeURIComponent(friendInvitePathMatch[1])
     : searchParams.get("friend");
   const initialView = searchParams.get("view");
+  const demoGame = searchParams.get("demo");
 
   function setNavActive(target) {
     navPlay.classList.toggle("active", target === "play");
@@ -1910,6 +1942,13 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   function setSoloGameUrl() {
     if (location.search.includes("room=")) return;
     const target = "/?game=solo";
+    if (`${location.pathname}${location.search}` !== target)
+      history.replaceState(null, "", target);
+  }
+
+  function setDemoGameUrl() {
+    if (location.search.includes("room=")) return;
+    const target = "/?demo=snib";
     if (`${location.pathname}${location.search}` !== target)
       history.replaceState(null, "", target);
   }
@@ -2034,12 +2073,14 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (!authInfo.authEnabled) {
       authBar.style.display = "none";
       profileAccountCard.style.display = "none";
+      playDemoBtn.style.display = "none";
       renderDevLogin();
       return;
     }
 
     authBar.style.display = "none";
     profileAccountCard.style.display = "flex";
+    playDemoBtn.style.display = authInfo.user ? "none" : "flex";
     renderDevLogin();
     if (authInfo.user) {
       const accountName = authInfo.user.name || authInfo.user.email || "Signed in";
@@ -2117,6 +2158,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (!button) return;
     location.href = button.dataset.devLoginUrl;
   });
+  playDemoBtn.onclick = () => startDemoGame();
   document.getElementById("play-solo-btn").onclick = () => {
     if (authInfo.authEnabled && !authInfo.user) {
       promptSignIn();
@@ -2141,6 +2183,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   soloStartBtn.onclick = () => startSelectedGame();
   soloBackBtn.onclick = () => {
     pendingSoloStart = false;
+    pendingSoloStartDemo = false;
     if (setupMode === "coop" && coop.phase === "lobby") {
       opponentSelectionReadonly = false;
       lbSolo.classList.remove("readonly");
@@ -2672,6 +2715,8 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     }
   } else if (incomingFriendUsername) {
     await loadFriendInviteLanding();
+  } else if (demoGame === "snib") {
+    startDemoGame();
   } else if (urlGame === "solo") {
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
     else restoreSoloGame();
@@ -2686,7 +2731,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
     else connectCoop("create");
   } else if (authInfo.authEnabled && !authInfo.user) {
-    promptSignIn();
+    showPlayView();
   } else {
     restoreSoloGame();
   }

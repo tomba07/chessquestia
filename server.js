@@ -839,6 +839,17 @@ app.use((req, res, next) => {
     next();
     return;
   }
+  const appShellRequest = ["/", "/index.html"].includes(req.path);
+  const publicHome = appShellRequest
+    && !req.query.room
+    && !req.query.view
+    && !req.query.game
+    && !req.query.friend;
+  const publicDemo = appShellRequest && req.query.demo === "snib";
+  if (publicHome || publicDemo) {
+    next();
+    return;
+  }
   if (currentUser(req)) {
     next();
     return;
