@@ -12,6 +12,8 @@ export const SOLO_OPPONENTS = [
     mood: "playful dark fantasy, cute but villainous",
     concept:
       "Snib is a small goblin who lives in castle cellars and steals candles, spoons, and chess pawns. He thinks he is a fearsome villain, but he is mostly harmless and easily distracted. He makes bad chess moves because he chases shiny pieces and forgets danger.",
+    splashText:
+      "A candle-stealing cellar menace who chases shiny pieces, forgets danger, and insists this is all part of his fearsome plan.",
     introLines: [
       "Tiny hero! Snib has stolen three candles and one pawn. Your king is next... probably!",
       "Behold Snib, cellar terror! I will chase every shiny piece, even the dangerous ones.",
@@ -40,6 +42,8 @@ export const SOLO_OPPONENTS = [
     mood: "playful dark fantasy, muddy swamp trickster, cute but villainous",
     concept:
       "Muckroot is a small bog imp who lives in muddy marshes beneath crooked roots and old bridges. He steals shiny stones, lost boots, and chess pawns that fall near the swamp. He thinks he is a clever trickster, but he often confuses himself and forgets his own plans. He makes weak chess moves because he moves pieces twice, chases captures, and forgets to protect his king.",
+    splashText:
+      "A smug bog trickster from the crooked marshes, forever stealing pawns, chasing captures, and confusing his own clever plans.",
     introLines: [
       "Step careful, dry-foot! Muckroot has a swamp plan. It is probably two plans stuck together.",
       "I found a lost boot, three shiny stones, and your doom. Mostly the boot.",
@@ -59,6 +63,8 @@ export const SOLO_OPPONENTS = [
     mood: "playful dark fantasy, woodland ambusher, cute but villainous",
     concept:
       "Gribble Thornnose is a small forest goblin scout who hides in thorn bushes, hollow logs, and crooked trees. He likes setting tiny traps, stealing trail markers, and bragging about ambushes that almost worked. He thinks he is a master of surprise attacks, but he often rushes in too early and forgets to defend himself. He makes weak chess moves because he launches premature attacks, chases captures, and ignores threats to his own pieces.",
+    splashText:
+      "A thorn-bush scout with too much confidence, too many almost-working traps, and a habit of attacking before he is ready.",
     introLines: [
       "You walked right into Gribble's almost-perfect ambush. Ignore the part where I shouted first.",
       "My thorn trap is ready, my plan is sneaky, and my pieces are mostly facing the right way.",
@@ -78,6 +84,8 @@ export const SOLO_OPPONENTS = [
     mood: "playful dark fantasy, failed little spellcaster, cute but suspicious",
     concept:
       "Vexi Blackcap is a tiny hedge-witch who lives at the edge of a crooked forest and practices weak curses in a cracked teacup. She wants everyone to believe she is ancient, dangerous, and mysterious, but most of her spells fizzle into smoke. In chess, she tries clever-looking plans too early, makes dramatic attacks without enough support, and becomes flustered when her tricks fail.",
+    splashText:
+      "A dramatic hedge-witch with teacup curses, smoky little schemes, and a flair for attacks that look more dangerous than they are.",
     introLines: [
       "Silence, mortal. Vexi Blackcap begins a terribly ancient curse. It may smell like tea.",
       "My teacup has foretold your defeat. It also foretold snacks, but first: chess.",
@@ -97,6 +105,8 @@ export const SOLO_OPPONENTS = [
     mood: "playful dark fantasy, grumpy fortress guard, intimidating but still slightly comic",
     concept:
       "Drogar Gategrunt is a low-ranking orc guard posted at the crooked gate of a ruined fortress. He takes his job very seriously, even though he often misunderstands orders and gets distracted by obvious threats. In chess, he has started to understand basic safety: he protects pieces, castles sometimes, and blocks attacks. But he still falls for forks, pins, and simple tactical tricks when he gets too focused on guarding one thing.",
+    splashText:
+      "A stubborn fortress guard who protects the gate, the king, and probably lunch, but still gets baited by simple tricks.",
     introLines: [
       "Halt. Gate rules say no passing, no sneaking, and absolutely no clever forks.",
       "Drogar guards this board. Move suspiciously and I will glare at the wrong square.",

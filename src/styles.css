@@ -444,6 +444,13 @@
       transform: none;
       filter: saturate(0.9);
     }
+    .opponent-card.readonly {
+      cursor: default;
+    }
+    .opponent-card.readonly:hover {
+      transform: none;
+      filter: none;
+    }
     .opponent-card.locked .opponent-card-copy {
       display: none;
     }
@@ -2057,7 +2064,7 @@
       z-index: 0;
       pointer-events: none;
       opacity: 0.8;
-      background: var(--game-bg, url("/assets/backgrounds/snib_bg_empty.png")) center / cover no-repeat;
+      background: var(--game-bg, url("/assets/backgrounds/snib_bg.png")) center / cover no-repeat;
     }
     #game::after {
       content: "";
@@ -2070,7 +2077,7 @@
         linear-gradient(to bottom, rgba(34, 22, 12, 0.1), transparent 22%, transparent 72%, rgba(30, 19, 11, 0.16));
     }
     #game[data-opponent="snib"] {
-      --game-bg: url("/assets/backgrounds/snib_bg_empty.png");
+      --game-bg: url("/assets/backgrounds/snib_bg.png");
     }
     #game[data-opponent="muckroot"] {
       --game-bg: url("/assets/backgrounds/muckroot_bg.png");
@@ -2339,6 +2346,143 @@
       background-image: url("/assets/backgrounds/defeat_banner.png");
     }
 
+    .bot-splash {
+      position: fixed;
+      z-index: 9;
+      inset: 0;
+      overflow: hidden;
+      background: #1e1a14;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+    .bot-splash[hidden] {
+      display: none;
+    }
+    .bot-splash.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .bot-splash-art {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      object-fit: cover;
+      object-position: center;
+      transform: scale(1.02);
+      transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.24, 1);
+    }
+    .bot-splash.visible .bot-splash-art {
+      transform: scale(1);
+    }
+    .bot-splash::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(18, 13, 8, 0.12), transparent 42%),
+        linear-gradient(0deg, rgba(20, 15, 10, 0.2), transparent 46%);
+      pointer-events: none;
+    }
+    .bot-splash-copy {
+      width: min(430px, 34vw);
+      aspect-ratio: 1086 / 1448;
+      position: absolute;
+      top: 50%;
+      left: clamp(22px, 6vw, 92px);
+      transform: translate(-24px, -50%) scale(0.98);
+      opacity: 0;
+      filter: drop-shadow(0 22px 30px rgba(18, 12, 7, 0.42));
+      transition: opacity 0.38s ease 0.08s, transform 0.48s cubic-bezier(0.2, 0.9, 0.24, 1) 0.08s;
+      container-type: inline-size;
+    }
+    .bot-splash.visible .bot-splash-copy {
+      opacity: 1;
+      transform: translate(0, -50%) scale(1);
+    }
+    .bot-splash-banner {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .bot-splash-content {
+      position: absolute;
+      inset: 23% 17% 12%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5.8cqw;
+      color: #3e2c1c;
+      text-align: center;
+    }
+    .bot-splash-content h2 {
+      max-width: 100%;
+      margin: 0;
+      color: #3b2a1a;
+      font-family: var(--story-font);
+      font-size: clamp(28px, 10.8cqw, 48px);
+      font-weight: 900;
+      line-height: 0.98;
+      letter-spacing: 0;
+      text-shadow: 0 2px 0 rgba(255, 242, 204, 0.65);
+    }
+    .bot-splash-divider {
+      width: 100%;
+      height: 12px;
+      flex: 0 0 auto;
+      position: relative;
+      opacity: 0.72;
+    }
+    .bot-splash-divider::before,
+    .bot-splash-divider::after {
+      content: "";
+      width: calc(50% - 14px);
+      height: 2px;
+      position: absolute;
+      top: 50%;
+      background: rgba(79, 52, 29, 0.54);
+      transform: translateY(-50%);
+    }
+    .bot-splash-divider::before {
+      left: 0;
+    }
+    .bot-splash-divider::after {
+      right: 0;
+    }
+    .bot-splash-divider {
+      background: radial-gradient(circle at center, rgba(79, 52, 29, 0.72) 0 3px, transparent 4px);
+    }
+    .bot-splash-content p {
+      margin: 0;
+      font-family: ui-serif, Georgia, "Times New Roman", serif;
+      font-size: clamp(15px, 4.1cqw, 20px);
+      font-weight: 750;
+      line-height: 1.22;
+      letter-spacing: 0;
+    }
+    .bot-splash-strength {
+      display: flex;
+      justify-content: center;
+      gap: 4.4cqw;
+      width: 100%;
+    }
+    .bot-splash-strength img {
+      width: clamp(18px, 6cqw, 28px);
+      height: auto;
+      opacity: 0.28;
+      filter: saturate(0.45);
+    }
+    .bot-splash-strength img.filled {
+      opacity: 1;
+      filter:
+        saturate(1)
+        drop-shadow(0 4px 4px rgba(71, 43, 14, 0.22));
+    }
     .game-board-frame {
       width: var(--game-frame-size);
       aspect-ratio: 1;
@@ -2604,6 +2748,36 @@
       .game-outcome-banner {
         width: min(300px, 100%);
       }
+      .bot-splash-art {
+        object-position: 58% center;
+      }
+      .bot-splash-copy {
+        width: min(560px, 92vw);
+        aspect-ratio: 1536 / 1024;
+        top: auto;
+        bottom: 16px;
+        left: 50%;
+        transform: translate(-50%, 28px) scale(0.98);
+      }
+      .bot-splash.visible .bot-splash-copy {
+        transform: translate(-50%, 0) scale(1);
+      }
+      .bot-splash-content {
+        inset: 16% 12% 12%;
+        gap: 3.4cqw;
+      }
+      .bot-splash-content h2 {
+        font-size: clamp(22px, 8cqw, 34px);
+      }
+      .bot-splash-content p {
+        font-size: clamp(12px, 3.7cqw, 16px);
+      }
+      .bot-splash-divider {
+        height: 8px;
+      }
+      .bot-splash-strength img {
+        width: clamp(15px, 5.2cqw, 24px);
+      }
       .game-board-frame {
         margin-top: 94px;
       }
@@ -2649,6 +2823,11 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
+      .bot-splash,
+      .bot-splash-art,
+      .bot-splash-copy {
+        transition: none;
+      }
       .opponent-speech {
         transition: none;
       }

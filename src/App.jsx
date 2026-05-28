@@ -352,6 +352,24 @@ function GameView() {
   );
 }
 
+function BotSplash() {
+  return (
+    <div id="bot-splash" className="bot-splash" hidden aria-hidden="true">
+      <img id="bot-splash-art" className="bot-splash-art" src="/assets/splash/snib_splash.png" alt="" />
+      <div className="bot-splash-copy" role="dialog" aria-modal="true" aria-labelledby="bot-splash-name">
+        <img id="bot-splash-banner" className="bot-splash-banner" src="/assets/splash/splash_banner.png" alt="" />
+        <div className="bot-splash-content">
+          <h2 id="bot-splash-name">Snib the Candle Goblin</h2>
+          <span className="bot-splash-divider" aria-hidden="true"></span>
+          <p id="bot-splash-text"></p>
+          <span className="bot-splash-divider" aria-hidden="true"></span>
+          <div id="bot-splash-strength" className="bot-splash-strength" aria-label="Opponent strength"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   useEffect(() => {
     let disposed = false;
@@ -471,7 +489,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       hideModelLoading();
       if (pendingSoloStart) {
         pendingSoloStart = false;
-        beginSoloGame();
+        startSoloGameWithSplash();
         syncMaiaStatus();
         return;
       }
@@ -538,6 +556,12 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const outcomeTitleEl = document.getElementById("game-outcome-title");
   const outcomeContinueBtn = document.getElementById("game-outcome-continue");
   const victoryBoardPulseEl = document.getElementById("victory-board-pulse");
+  const botSplashEl = document.getElementById("bot-splash");
+  const botSplashArt = document.getElementById("bot-splash-art");
+  const botSplashBanner = document.getElementById("bot-splash-banner");
+  const botSplashName = document.getElementById("bot-splash-name");
+  const botSplashText = document.getElementById("bot-splash-text");
+  const botSplashStrength = document.getElementById("bot-splash-strength");
   const cpChips   = document.getElementById("cp-chips");
   const boardDevicePanel = document.getElementById("board-device-panel");
   const boardConnectBtn = document.getElementById("board-connect-btn");
@@ -563,9 +587,14 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   let soloActive  = false;
   let soloGameId = null;
   let setupMode = "solo";
+  let opponentSelectionReadonly = false;
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
+  let botSplashResolve = null;
+  let botSplashBeforeFade = null;
+  let botSplashTimer = null;
+  let soloStartInProgress = false;
   const recordedSoloGameIds = new Set();
   const chessnut = {
     device: null,
@@ -1114,6 +1143,73 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     return opponentForStrength(getElo()) || SOLO_OPPONENTS[selectedOpponentIndex] || SOLO_OPPONENTS[0];
   }
 
+  function isMobileSplashViewport() {
+    return window.matchMedia?.("(max-width: 860px)")?.matches;
+  }
+
+  function splashImageForOpponent(opponent, mobile = isMobileSplashViewport()) {
+    return `/assets/splash/${mobile ? "mobile/" : ""}${opponent?.theme || "snib"}_splash.png`;
+  }
+
+  function splashBannerImage(mobile = isMobileSplashViewport()) {
+    return mobile ? "/assets/splash/mobile/splash_banner_mobile.png" : "/assets/splash/splash_banner.png";
+  }
+
+  function renderBotSplashStrength(rank = 1) {
+    botSplashStrength.innerHTML = "";
+    Array.from({ length: 5 }, (_, index) => {
+      const icon = document.createElement("img");
+      icon.src = "/assets/splash/splash_strength_icon.png";
+      icon.alt = "";
+      icon.className = index < rank ? "filled" : "";
+      botSplashStrength.appendChild(icon);
+    });
+  }
+
+  function hideBotSplash() {
+    if (!botSplashResolve) return;
+    if (botSplashTimer) window.clearTimeout(botSplashTimer);
+    botSplashTimer = null;
+    const beforeFade = botSplashBeforeFade;
+    botSplashBeforeFade = null;
+    beforeFade?.();
+    const resolve = botSplashResolve;
+    botSplashResolve = null;
+    botSplashEl.classList.remove("visible");
+    botSplashEl.setAttribute("aria-hidden", "true");
+    window.setTimeout(() => {
+      botSplashEl.hidden = true;
+      resolve();
+    }, 280);
+  }
+
+  function showBotSplash(opponent = currentOpponent(), { beforeFade = null } = {}) {
+    return new Promise(resolve => {
+      if (!opponent || !botSplashEl) {
+        beforeFade?.();
+        resolve();
+        return;
+      }
+      if (botSplashResolve) {
+        botSplashResolve();
+        botSplashResolve = null;
+      }
+      botSplashBeforeFade = beforeFade;
+      const mobileSplash = isMobileSplashViewport();
+      botSplashArt.src = splashImageForOpponent(opponent, mobileSplash);
+      botSplashBanner.src = splashBannerImage(mobileSplash);
+      botSplashName.textContent = opponent.name;
+      botSplashText.textContent = opponent.splashText || opponent.concept || "";
+      renderBotSplashStrength(opponent.rank);
+      botSplashResolve = resolve;
+      botSplashEl.hidden = false;
+      botSplashEl.setAttribute("aria-hidden", "false");
+      botSplashEl.getBoundingClientRect();
+      botSplashEl.classList.add("visible");
+      botSplashTimer = window.setTimeout(hideBotSplash, 2400);
+    });
+  }
+
   function clearOpponentSpeechTimers() {
     if (opponentSpeechTimer) window.clearTimeout(opponentSpeechTimer);
     if (opponentSpeechWordTimer) window.clearInterval(opponentSpeechWordTimer);
@@ -1302,10 +1398,12 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       : readSoloProgress();
     opponentCards.forEach((card, index) => {
       const unlocked = index < unlockedOpponentCount;
+      const disabled = !unlocked || opponentSelectionReadonly;
       const art = card.querySelector(".opponent-card-art");
-      card.disabled = !unlocked;
+      card.disabled = disabled;
       card.classList.toggle("locked", !unlocked);
-      card.setAttribute("aria-disabled", unlocked ? "false" : "true");
+      card.classList.toggle("readonly", unlocked && opponentSelectionReadonly);
+      card.setAttribute("aria-disabled", disabled ? "true" : "false");
       if (art) art.src = unlocked ? card.dataset.unlockedSrc : "/assets/cards/locked_card.png";
     });
   }
@@ -1410,7 +1508,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     }).catch(() => {});
   }
 
-  function beginSoloGame() {
+  function beginSoloGame({ showIntro = true } = {}) {
     chess.reset();
     soloActive = true;
     soloGameId = createSoloGameId();
@@ -1428,8 +1526,21 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     enableBoardMoveInput();
     botThinking = false;
     setStatus("Your turn");
-    showGameStartSpeech();
+    if (showIntro) showGameStartSpeech();
     saveSoloGame();
+  }
+
+  async function startSoloGameWithSplash() {
+    if (soloStartInProgress) return;
+    soloStartInProgress = true;
+    try {
+      await showBotSplash(currentOpponent(), {
+        beforeFade: () => beginSoloGame({ showIntro: false }),
+      });
+      showGameStartSpeech();
+    } finally {
+      soloStartInProgress = false;
+    }
   }
 
   function startSoloGame() {
@@ -1441,7 +1552,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       return;
     }
 
-    beginSoloGame();
+    startSoloGameWithSplash();
   }
 
   function startSelectedGame() {
@@ -1686,15 +1797,21 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     renderInviteNotification();
   }
 
-  function showBotSelection(mode = "solo") {
+  function showBotSelection(mode = "solo", { readonly = false } = {}) {
     setViewUrl(mode);
     setupMode = mode;
+    opponentSelectionReadonly = readonly;
     closeAddFriendDialog({ render: false });
     setNavActive("play");
+    lbSolo.classList.toggle("readonly", readonly);
     applyOpponentLocks();
-    clearOpponentSelection();
-    botSelectTitle.textContent = mode === "coop" ? "Choose your opponent" : "Choose your opponent";
-    soloStartBtn.querySelector("span").textContent = mode === "coop" ? "Start" : "Continue";
+    if (readonly) updateOpponentSelection(getElo());
+    else clearOpponentSelection();
+    botSelectTitle.textContent = readonly ? "Opponent selected" : "Choose your opponent";
+    soloStartBtn.querySelector("span").textContent = readonly
+      ? "Waiting for host"
+      : mode === "coop" ? "Start" : "Continue";
+    if (readonly) soloStartBtn.disabled = true;
     lbMain.style.display = "none";
     lbSolo.style.display = "flex";
     lbRoom.style.display = "none";
@@ -1708,8 +1825,8 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     showBotSelection("solo");
   }
 
-  function showCoopBotSelection() {
-    showBotSelection("coop");
+  function showCoopBotSelection({ readonly = false } = {}) {
+    showBotSelection("coop", { readonly });
   }
 
   const urlRoom = new URLSearchParams(location.search).get("room");
@@ -1868,12 +1985,14 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   };
   opponentCards.forEach(card => {
     card.onclick = () => {
-      if (card.disabled || card.classList.contains("locked")) return;
+      if (opponentSelectionReadonly || card.disabled || card.classList.contains("locked")) return;
       syncStrength(card.dataset.opponentStrength);
       selectedOpponentIndex = Number(card.dataset.opponentIndex || 0);
       selectedOpponentTheme = card.dataset.opponentTheme || opponentThemeForStrength(card.dataset.opponentStrength);
       updateOpponentSelection(card.dataset.opponentStrength);
       soloStartBtn.disabled = false;
+      if (setupMode === "coop" && coop?.phase === "lobby" && coop.myIdx === 0)
+        coop.ws?.send(JSON.stringify({ type: "strength", strength: getElo() }));
     };
   });
   applyOpponentLocks();
@@ -1882,6 +2001,9 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   soloBackBtn.onclick = () => {
     pendingSoloStart = false;
     if (setupMode === "coop" && coop.phase === "lobby") {
+      opponentSelectionReadonly = false;
+      lbSolo.classList.remove("readonly");
+      if (coop.myIdx === 0) coop.ws?.send(JSON.stringify({ type: "selecting-opponent", selecting: false }));
       lbMain.style.display = "none";
       lbSolo.style.display = "none";
       lbRoom.style.display = "flex";
@@ -1902,7 +2024,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     connectCoop("create");
   };
 
-  cpStartBtn.onclick = () => showCoopBotSelection();
+  cpStartBtn.onclick = () => enterCoopBotSelection();
   cpLeaveBtn.onclick = () => leaveCoop();
 
   cpInviteList.addEventListener("click", (event) => {
@@ -1952,6 +2074,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     players: [], activeIdx: 0, midTurn: false, fen: null,
     maxUnlockedOpponentCount: 1,
     strength: 1500,
+    selectingOpponent: false,
     leaving: false,
     reconnectTimer: null,
     reconnectAttempts: 0,
@@ -2042,7 +2165,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   }
 
   function startCoopWithSelectedBot() {
-    if (soloStartBtn.disabled || coop.phase !== "lobby" || coop.myIdx !== 0) return;
+    if (opponentSelectionReadonly || soloStartBtn.disabled || coop.phase !== "lobby" || coop.myIdx !== 0) return;
     if (!modelReady) {
       showModelLoading("Preparing game...");
       requestModelDownload();
@@ -2050,6 +2173,13 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     }
     coop.ws?.send(JSON.stringify({ type: "strength", strength: getElo() }));
     coop.ws?.send(JSON.stringify({ type: "start" }));
+  }
+
+  function enterCoopBotSelection() {
+    if (coop.phase !== "lobby") return;
+    const isHost = coop.myIdx === 0;
+    if (isHost) coop.ws?.send(JSON.stringify({ type: "selecting-opponent", selecting: true }));
+    showCoopBotSelection({ readonly: !isHost });
   }
 
   function renderRoomLobby(players, myIdx) {
@@ -2080,13 +2210,16 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     const ready = allPlayersReady(players);
     const connectedPlayers = players.filter(player => player.connected);
     const hasCoopPartner = connectedPlayers.length >= 2;
+    const canOpenSelection = ready && hasCoopPartner && (host || coop.selectingOpponent);
     cpRoomMeta.textContent = `${players.length} player${players.length === 1 ? "" : "s"}`;
-    cpStartBtn.style.display = host ? "inline" : "none";
-    cpStartBtn.disabled = !ready || !hasCoopPartner;
-    cpStartBtn.textContent = ready && hasCoopPartner ? "Continue" : "Waiting...";
+    cpStartBtn.style.display = "inline";
+    cpStartBtn.disabled = !canOpenSelection;
+    cpStartBtn.textContent = host
+      ? ready && hasCoopPartner ? "Continue" : "Waiting..."
+      : coop.selectingOpponent ? "View opponent" : "Waiting for host";
     cpStartBtn.title = !hasCoopPartner
       ? "Invite at least one friend before choosing an opponent."
-      : ready ? "" : "The game is loading on all players' devices.";
+      : ready ? host || coop.selectingOpponent ? "" : "The host chooses the opponent." : "The game is loading on all players' devices.";
     if (ready || !host) hideModelLoading();
     else showModelLoading("Preparing game...");
     renderCoopInviteFriends();
@@ -2220,20 +2353,51 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       coop.fen       = msg.fen;
       coop.myIdx     = msg.myIdx;
       coop.strength  = msg.strength;
+      coop.selectingOpponent = !!msg.selectingOpponent;
       coop.maxUnlockedOpponentCount = Math.max(readSoloProgress(), Number(msg.maxUnlockedOpponentCount || 1));
       coop.reconnectAttempts = 0;
-      if (msg.strength) syncStrength(String(msg.strength));
+      if (msg.strength) {
+        syncStrength(String(msg.strength));
+        if (setupMode === "coop" && lbSolo.style.display !== "none")
+          updateOpponentSelection(String(msg.strength));
+      }
 
       if (msg.phase === "lobby") {
         coop.phase = "lobby";
-        if (setupMode === "coop" && lbSolo.style.display !== "none" && msg.myIdx === 0) {
+        if (!msg.selectingOpponent && setupMode === "coop" && lbSolo.style.display !== "none") {
+          opponentSelectionReadonly = false;
+          lbSolo.classList.remove("readonly");
+          lbMain.style.display = "none";
+          lbSolo.style.display = "none";
+          lbRoom.style.display = "flex";
+          lbProfile.style.display = "none";
+          lbFriends.style.display = "none";
+          lbFriendInvite.style.display = "none";
+          if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
+          renderRoomLobby(msg.players, msg.myIdx);
+          return;
+        }
+        if (msg.selectingOpponent && lbSolo.style.display === "none") {
+          showCoopBotSelection({ readonly: msg.myIdx !== 0 });
+          if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
+          return;
+        }
+        if (setupMode === "coop" && lbSolo.style.display !== "none") {
+          opponentSelectionReadonly = msg.myIdx !== 0;
+          lbSolo.classList.toggle("readonly", opponentSelectionReadonly);
           applyOpponentLocks();
+          if (opponentSelectionReadonly) {
+            updateOpponentSelection(String(msg.strength || getElo()));
+            soloStartBtn.disabled = true;
+          }
           if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
           return;
         }
         lbMain.style.display = "none";
         lbSolo.style.display = "none";
         lbRoom.style.display = "flex";
+        opponentSelectionReadonly = false;
+        lbSolo.classList.remove("readonly");
         lbProfile.style.display = "none";
         lbFriends.style.display = "none";
         lbFriendInvite.style.display = "none";
@@ -2257,7 +2421,11 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
           updateGameScore();
           enableBoardMoveInput();
           hideOutcomeBanner();
-          if (msg.phase === "playing") showGameStartSpeech();
+          if (msg.phase === "playing") {
+            showBotSplash(currentOpponent()).then(() => {
+              if (coop?.roomId === msg.roomId && coop?.phase === "playing") showGameStartSpeech();
+            });
+          }
         }
 
         // Render chips
@@ -2379,6 +2547,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
       if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
+      if (botSplashTimer) window.clearTimeout(botSplashTimer);
       clearOpponentSpeechTimers();
       social?.stopPresenceHeartbeat();
       disconnectChessnutBoard();
@@ -2389,6 +2558,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     <div className="app">
       <Lobby />
       <GameView />
+      <BotSplash />
       <FriendAddDialog />
     </div>
   );

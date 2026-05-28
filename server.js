@@ -1101,6 +1101,7 @@ function loadRooms() {
         activeIdx: savedRoom.active_idx || 0,
         midTurn: !!savedRoom.mid_turn,
         strength: savedRoom.strength || 1500,
+        selectingOpponent: false,
         createdAt: savedRoom.created_at || Date.now(),
         updatedAt: savedRoom.updated_at || Date.now(),
         moveHistory: savedMoves.map(move => ({
@@ -1150,6 +1151,7 @@ function roomState(room, myPlayerId, myIdx) {
     midTurn:   room.midTurn,
     fen:       room.fen,
     strength:  room.strength,
+    selectingOpponent: !!room.selectingOpponent,
     myIdx,
   };
 }
@@ -1214,6 +1216,7 @@ function attachWebSocketHandlers() {
           fen: INITIAL_FEN,
           activeIdx: 0, midTurn: false,
           strength: msg.strength || 1500,
+          selectingOpponent: false,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           moveHistory: [],
@@ -1310,6 +1313,15 @@ function attachWebSocketHandlers() {
         break;
       }
 
+      case "selecting-opponent": {
+        const room = rooms.get(currentRoomId);
+        if (!room || room.hostPlayerId !== currentPlayerId || room.phase !== "lobby") return;
+        room.selectingOpponent = !!msg.selecting;
+        room.updatedAt = Date.now();
+        broadcastRoom(room);
+        break;
+      }
+
       case "start": {
         const room = rooms.get(currentRoomId);
         if (!room || room.hostPlayerId !== currentPlayerId || room.phase !== "lobby") return;
@@ -1327,6 +1339,7 @@ function attachWebSocketHandlers() {
           return;
         }
         room.phase = "playing";
+        room.selectingOpponent = false;
         room.updatedAt = Date.now();
         persistRooms();
         broadcastRoom(room);
