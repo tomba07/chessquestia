@@ -654,6 +654,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
+  let serverUnlockedOpponentCount = 1;
   const START_FEN_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   let botSplashResolve = null;
   let botSplashBeforeFade = null;
@@ -1530,7 +1531,7 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     resetThinkingReactionCadence();
   }
 
-  function readSoloProgress() {
+  function readLocalSoloProgress() {
     try {
       const saved = JSON.parse(localStorage.getItem(SOLO_PROGRESS_KEY) || "{}");
       const unlocked = Number(saved.unlocked || 1);
@@ -1540,11 +1541,54 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     }
   }
 
-  function saveSoloProgress() {
+  function writeLocalSoloProgress(unlocked) {
     localStorage.setItem(SOLO_PROGRESS_KEY, JSON.stringify({
-      unlocked: unlockedOpponentCount,
+      unlocked: Math.min(SOLO_OPPONENTS.length, Math.max(1, Number(unlocked) || 1)),
       updatedAt: Date.now(),
     }));
+  }
+
+  function readSoloProgress() {
+    return Math.max(readLocalSoloProgress(), serverUnlockedOpponentCount);
+  }
+
+  function updateServerSoloProgress(unlocked) {
+    if (!authInfo.user) return;
+    const unlockedOpponentCount = Math.min(SOLO_OPPONENTS.length, Math.max(1, Number(unlocked) || 1));
+    fetch("/api/solo-progress", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unlockedOpponentCount }),
+    })
+      .then(response => response.ok ? response.json() : null)
+      .then(payload => {
+        const serverUnlocked = Number(payload?.soloProgress?.unlockedOpponentCount || 1);
+        serverUnlockedOpponentCount = Math.max(serverUnlockedOpponentCount, Math.min(SOLO_OPPONENTS.length, Math.max(1, serverUnlocked)));
+        if (serverUnlockedOpponentCount > readLocalSoloProgress())
+          writeLocalSoloProgress(serverUnlockedOpponentCount);
+        applyOpponentLocks();
+        syncMaiaStatus();
+      })
+      .catch(() => {})
+  }
+
+  function saveSoloProgress() {
+    writeLocalSoloProgress(unlockedOpponentCount);
+    updateServerSoloProgress(unlockedOpponentCount);
+  }
+
+  function syncSoloProgressFromAuth() {
+    serverUnlockedOpponentCount = Math.min(
+      SOLO_OPPONENTS.length,
+      Math.max(1, Number(authInfo.soloProgress?.unlockedOpponentCount || 1)),
+    );
+    const localUnlocked = readLocalSoloProgress();
+    if (authInfo.user && localUnlocked > serverUnlockedOpponentCount) {
+      serverUnlockedOpponentCount = localUnlocked;
+      updateServerSoloProgress(localUnlocked);
+    } else if (serverUnlockedOpponentCount > localUnlocked) {
+      writeLocalSoloProgress(serverUnlockedOpponentCount);
+    }
   }
 
   function applyOpponentLocks() {
@@ -2112,7 +2156,13 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     if (next?.startsWith("/")) return next;
     return searchParams.get("auth") === "login" ? "/" : currentNextPath();
   }
-  let authInfo = { authEnabled: false, user: null, loginUrl: "/auth/google", logoutUrl: "/auth/logout" };
+  let authInfo = {
+    authEnabled: false,
+    user: null,
+    soloProgress: { unlockedOpponentCount: 1 },
+    loginUrl: "/auth/google",
+    logoutUrl: "/auth/logout",
+  };
 
   function renderDevLogin() {
     const users = authInfo.devLoginUsers || [];
@@ -2134,8 +2184,15 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     try {
       authInfo = await fetch(`/api/me?next=${encodeURIComponent(nextAfterAuth())}`).then(r => r.json());
     } catch {
-      authInfo = { authEnabled: false, user: null, loginUrl: "/auth/google", logoutUrl: "/auth/logout" };
+      authInfo = {
+        authEnabled: false,
+        user: null,
+        soloProgress: { unlockedOpponentCount: 1 },
+        loginUrl: "/auth/google",
+        logoutUrl: "/auth/logout",
+      };
     }
+    syncSoloProgressFromAuth();
 
     if (!authInfo.authEnabled) {
       authBar.style.display = "none";

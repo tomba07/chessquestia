@@ -181,6 +181,12 @@ db.exec(`
     PRIMARY KEY (game_result_id, user_id, player_name)
   );
   CREATE INDEX IF NOT EXISTS idx_game_result_players_user_id ON game_result_players(user_id);
+
+  CREATE TABLE IF NOT EXISTS user_progress (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    unlocked_count INTEGER NOT NULL DEFAULT 1,
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 function inTransaction(fn) {
@@ -221,6 +227,61 @@ function normalizeUnlockedOpponentCount(count) {
   const parsed = parseInt(count, 10);
   if (!Number.isFinite(parsed)) return 1;
   return Math.max(1, Math.min(5, parsed));
+}
+
+const SEEDED_PROGRESS_BY_EMAIL = new Map([
+  ["mirko.teschke@gmail.com", 3],
+  ["majken.pluegge@gmail.com", 3],
+]);
+
+function soloProgressForUserId(userId) {
+  if (!userId) return { unlockedOpponentCount: 1 };
+  const row = db.prepare("SELECT unlocked_count FROM user_progress WHERE user_id = ?").get(userId);
+  return { unlockedOpponentCount: normalizeUnlockedOpponentCount(row?.unlocked_count || 1) };
+}
+
+function setUserUnlockedOpponentCount(userId, unlockedCount) {
+  if (!userId) return soloProgressForUserId(userId);
+  const normalized = normalizeUnlockedOpponentCount(unlockedCount);
+  db.prepare(`
+    INSERT INTO user_progress (user_id, unlocked_count, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      unlocked_count = MAX(user_progress.unlocked_count, excluded.unlocked_count),
+      updated_at = excluded.updated_at
+  `).run(userId, normalized, Date.now());
+  return soloProgressForUserId(userId);
+}
+
+function seededProgressForEmail(email) {
+  return SEEDED_PROGRESS_BY_EMAIL.get(String(email || "").trim().toLowerCase()) || 1;
+}
+
+function applySeededUserProgress(user) {
+  const seededCount = seededProgressForEmail(user?.email);
+  if (seededCount > 1) setUserUnlockedOpponentCount(user.id, seededCount);
+}
+
+function grantSeededProgress() {
+  const users = db.prepare("SELECT id, email FROM users WHERE email IS NOT NULL AND email != ''").all();
+  for (const user of users) applySeededUserProgress(user);
+}
+
+function unlockedCountForUserAndClient(user, clientCount) {
+  if (!user?.id) return normalizeUnlockedOpponentCount(clientCount);
+  const current = soloProgressForUserId(user.id).unlockedOpponentCount;
+  const merged = Math.max(current, normalizeUnlockedOpponentCount(clientCount));
+  return setUserUnlockedOpponentCount(user.id, merged).unlockedOpponentCount;
+}
+
+function unlockedCountAfterVictory(opponentStrength) {
+  const strength = parseInt(opponentStrength, 10);
+  if (!Number.isFinite(strength)) return 1;
+  if (strength <= 500) return 2;
+  if (strength <= 700) return 3;
+  if (strength <= 900) return 4;
+  if (strength <= 1100) return 5;
+  return 5;
 }
 
 function usernameSeed(profileOrUser) {
@@ -578,6 +639,8 @@ function recordGameResult({
       if (seen.has(key)) continue;
       seen.add(key);
       insertPlayer.run(id, userId, playerName, normalizedResult);
+      if (userId && normalizedResult === "victory")
+        setUserUnlockedOpponentCount(userId, unlockedCountAfterVictory(opponentStrength));
     }
   });
   return id;
@@ -609,7 +672,9 @@ function upsertGoogleUser(profile) {
     existing?.created_at || Date.now(),
     Date.now(),
   );
-  return userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
+  const user = userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
+  applySeededUserProgress(user);
+  return user;
 }
 
 function devLoginUser(key) {
@@ -639,11 +704,14 @@ function upsertLocalUser(key = "mirko") {
     existing?.created_at || Date.now(),
     Date.now(),
   );
-  return userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
+  const user = userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(userId));
+  applySeededUserProgress(user);
+  return user;
 }
 
 migrateAuthJson();
 backfillUsernames();
+grantSeededProgress();
 cleanupExpiredSessions();
 
 app.get("/api/me", (req, res) => {
@@ -653,6 +721,7 @@ app.get("/api/me", (req, res) => {
   res.json({
     authEnabled,
     user: publicUser(user),
+    soloProgress: user ? soloProgressForUserId(user.id) : { unlockedOpponentCount: 1 },
     loginUrl: `${googleAuthEnabled ? "/auth/google" : "/auth/local"}?next=${next}`,
     localAuthEnabled,
     devLoginUsers: localAuthEnabled
@@ -665,6 +734,13 @@ app.get("/api/me", (req, res) => {
       : [],
     logoutUrl: `/auth/logout?next=${next}`,
   });
+});
+
+app.patch("/api/solo-progress", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+  const unlockedCount = req.body?.unlockedOpponentCount ?? req.body?.unlocked;
+  res.json({ soloProgress: setUserUnlockedOpponentCount(user.id, unlockedCount) });
 });
 
 app.post("/api/game-results", (req, res) => {
@@ -1203,6 +1279,7 @@ function attachWebSocketHandlers() {
         touchPresence(user?.id);
         const playerId = randomUUID();
         const name = user?.username || user?.name || msg.name || "Player";
+        const unlockedCount = unlockedCountForUserAndClient(user, msg.unlockedOpponentCount);
         const room = {
           id: roomId,
           hostPlayerId: playerId,
@@ -1214,7 +1291,7 @@ function attachWebSocketHandlers() {
             ws,
             connected: true,
             maiaReady: !!msg.maiaReady,
-            unlockedCount: normalizeUnlockedOpponentCount(msg.unlockedOpponentCount),
+            unlockedCount,
             lastSeen: Date.now(),
           }]]),
           order: [playerId],
@@ -1264,6 +1341,7 @@ function attachWebSocketHandlers() {
         const existing = room.players.get(playerId);
         if (existing?.ws?.readyState === 1 && existing.ws !== ws)
           existing.ws.close(1000, "Reconnected");
+        const unlockedCount = unlockedCountForUserAndClient(user, msg.unlockedOpponentCount || existing?.unlockedCount);
         room.players.set(playerId, {
           id: playerId,
           userId: user?.id || existing?.userId || null,
@@ -1271,7 +1349,7 @@ function attachWebSocketHandlers() {
           ws,
           connected: true,
           maiaReady: !!msg.maiaReady,
-          unlockedCount: normalizeUnlockedOpponentCount(msg.unlockedOpponentCount || existing?.unlockedCount),
+          unlockedCount,
           lastSeen: Date.now(),
         });
         if (!room.order.includes(playerId)) room.order.push(playerId);
@@ -1296,7 +1374,7 @@ function attachWebSocketHandlers() {
         const player = room.players.get(currentPlayerId);
         if (!player) return;
         const maiaReady = !!msg.ready;
-        const unlockedCount = normalizeUnlockedOpponentCount(msg.unlockedOpponentCount || player.unlockedCount);
+        const unlockedCount = unlockedCountForUserAndClient(user, msg.unlockedOpponentCount || player.unlockedCount);
         if (player.maiaReady === maiaReady && player.unlockedCount === unlockedCount) return;
         player.maiaReady = maiaReady;
         player.unlockedCount = unlockedCount;
