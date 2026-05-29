@@ -2509,6 +2509,12 @@
     .game-outcome-banner.defeat .game-outcome-title {
       color: #6a3728;
     }
+    .game-outcome-banner.draw .game-outcome-title {
+      color: #355777;
+      text-shadow:
+        0 2px 0 rgba(238, 249, 255, 0.86),
+        0 6px 12px rgba(28, 54, 84, 0.22);
+    }
     .game-outcome-continue {
       width: min(300px, 76vw);
     }
@@ -2519,7 +2525,8 @@
       outline: none;
     }
     .game-outcome-banner.victory,
-    .game-outcome-banner.defeat {
+    .game-outcome-banner.defeat,
+    .game-outcome-banner.draw {
       display: block;
     }
     .game-outcome-banner.victory {
@@ -2528,6 +2535,18 @@
     .game-outcome-banner.defeat {
       aspect-ratio: 2020 / 568;
       background-image: url("/assets/backgrounds/defeat_banner.png");
+    }
+    .game-outcome-banner.draw {
+      aspect-ratio: 2027 / 625;
+      border: 2px solid rgba(72, 104, 130, 0.34);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(242, 250, 255, 0.9), rgba(214, 230, 241, 0.86)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      box-shadow:
+        inset 0 0 0 5px rgba(255, 255, 255, 0.24),
+        inset 0 0 34px rgba(62, 104, 138, 0.22),
+        0 16px 26px rgba(26, 45, 64, 0.2);
     }
 
     .bot-splash {
@@ -2749,6 +2768,14 @@
       pointer-events: none;
       mix-blend-mode: screen;
     }
+    .victory-screen-flash.draw {
+      background:
+        radial-gradient(circle at 50% 42%, rgba(203, 237, 255, 0.94), rgba(80, 166, 229, 0.48) 36%, transparent 72%);
+    }
+    .victory-screen-flash.defeat {
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255, 218, 171, 0.94), rgba(234, 95, 52, 0.5) 36%, transparent 72%);
+    }
     .victory-screen-flash.active {
       animation: victory-screen-flash 760ms ease-out forwards;
     }
@@ -2790,6 +2817,14 @@
       opacity: 0;
       transform: scale(0.72);
       transform-origin: center;
+    }
+    .victory-board-pulse.draw .victory-spread-cell {
+      background:
+        radial-gradient(circle at center, rgba(208, 238, 255, 0.78), rgba(78, 169, 235, 0.5) 62%, rgba(39, 117, 194, 0.36));
+    }
+    .victory-board-pulse.defeat .victory-spread-cell {
+      background:
+        radial-gradient(circle at center, rgba(255, 214, 156, 0.78), rgba(228, 91, 55, 0.52) 62%, rgba(154, 43, 38, 0.38));
     }
     .victory-board-pulse.active .victory-spread-cell {
       animation: victory-cell-spread 480ms cubic-bezier(0.12, 0.78, 0.2, 1) forwards;
@@ -2958,6 +2993,14 @@
     .cm-chessboard .marker.victory-mate {
       fill: #5ee870;
       opacity: 0.7;
+    }
+    .cm-chessboard .marker.defeat-mate {
+      fill: #e85e3c;
+      opacity: 0.68;
+    }
+    .cm-chessboard .marker.draw-result {
+      fill: #58b8f0;
+      opacity: 0.64;
     }
 
     @media (max-width: 860px) {

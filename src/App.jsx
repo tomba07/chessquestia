@@ -442,6 +442,8 @@ export default function App() {
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
 const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
+const DEFEAT_MARKER = { class: "defeat-mate", slice: "markerSquare" };
+const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
   const CDN       = "/cm-chessboard/assets/";
 
@@ -829,10 +831,12 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   function clearVictoryBoardPulse() {
     if (victoryBoardPulseTimer) window.clearTimeout(victoryBoardPulseTimer);
     victoryBoardPulseTimer = null;
-    victoryBoardPulseEl.classList.remove("active");
+    victoryBoardPulseEl.classList.remove("active", "victory", "defeat", "draw");
     victoryBoardPulseEl.innerHTML = "";
-    victoryScreenFlashEl.classList.remove("active");
+    victoryScreenFlashEl.classList.remove("active", "victory", "defeat", "draw");
     board?.removeMarkers(VICTORY_MARKER);
+    board?.removeMarkers(DEFEAT_MARKER);
+    board?.removeMarkers(DRAW_MARKER);
   }
 
   function squareToBoardIndex(square) {
@@ -876,15 +880,17 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     return move ? [move.from, move.to] : [];
   }
 
-  function showVictoryBoardPulse(square) {
+  function showVictoryBoardPulse(square, outcome = "victory") {
     clearVictoryBoardPulse();
     const origin = square ? squareToBoardIndex(square) : { file: 3.5, rankIndex: 3.5 };
     const highlightedSquares = [...new Set([square, ...lastMoveSquares()].filter(Boolean))];
-    highlightedSquares.forEach(highlightSquare => board.addMarker(VICTORY_MARKER, highlightSquare));
+    const marker = outcome === "draw" ? DRAW_MARKER
+      : outcome === "defeat" ? DEFEAT_MARKER : VICTORY_MARKER;
+    highlightedSquares.forEach(highlightSquare => board.addMarker(marker, highlightSquare));
 
-    victoryScreenFlashEl.classList.remove("active");
+    victoryScreenFlashEl.classList.remove("active", "victory", "defeat", "draw");
     void victoryScreenFlashEl.offsetWidth;
-    victoryScreenFlashEl.classList.add("active");
+    victoryScreenFlashEl.classList.add(outcome, "active");
 
     const cells = [];
     for (let rankIndex = 0; rankIndex < 8; rankIndex += 1) {
@@ -900,14 +906,14 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
     }
     victoryBoardPulseEl.replaceChildren(...cells);
     void victoryBoardPulseEl.offsetWidth;
-    victoryBoardPulseEl.classList.add("active");
+    victoryBoardPulseEl.classList.add(outcome, "active");
   }
 
-  function showVictoryBoardPulseAfterDelay(square, delay = 280) {
+  function showVictoryBoardPulseAfterDelay(square, delay = 280, outcome = "victory") {
     clearVictoryBoardPulse();
     victoryBoardPulseTimer = window.setTimeout(() => {
       victoryBoardPulseTimer = null;
-      showVictoryBoardPulse(square);
+      showVictoryBoardPulse(square, outcome);
     }, delay);
   }
 
@@ -1218,10 +1224,11 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
   }
 
   function showOutcomeBanner(outcome) {
+    const outcomeTitles = { victory: "Victory", defeat: "Defeat", draw: "Draw" };
     outcomeOverlayEl.className = "game-outcome-overlay visible";
     outcomeOverlayEl.setAttribute("aria-hidden", "false");
     outcomeBannerEl.className = `game-outcome-banner ${outcome}`;
-    outcomeTitleEl.textContent = outcome === "victory" ? "Victory" : "Defeat";
+    outcomeTitleEl.textContent = outcomeTitles[outcome] || "";
     outcomeBannerEl.setAttribute("aria-label", outcomeTitleEl.textContent);
   }
 
@@ -1825,8 +1832,9 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       recordSoloGameResult(playerWon ? "victory" : "defeat");
       const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
-      if (playerWon) showVictoryBoardPulseAfterDelay(findKingSquare("b"), 120);
-      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", playerWon ? 2200 : 1800);
+      const defeatedKingSquare = findKingSquare(playerWon ? "b" : "w");
+      showVictoryBoardPulseAfterDelay(defeatedKingSquare, 120, playerWon ? "victory" : "defeat");
+      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 2200);
       showEndgameOpponentReaction(playerWon, 2050);
       setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
       disableBoardMoveInput();
@@ -1836,8 +1844,10 @@ const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
       const reason = chess.isStalemate() ? "Stalemate"
         : chess.isInsufficientMaterial() ? "Insufficient material" : "Draw";
       recordSoloGameResult("draw");
+      const drawOrigin = lastMoveSquares().at(-1);
+      showVictoryBoardPulseAfterDelay(drawOrigin, 120, "draw");
+      showOutcomeBannerAfterDelay("draw", 1900);
       setStatus(reason, "over");
-      hideOutcomeBanner();
       disableBoardMoveInput();
       return true;
     }
