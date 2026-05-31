@@ -3,20 +3,6 @@ import { Chessboard, COLOR, INPUT_EVENT_TYPE } from "cm-chessboard";
 import { Markers } from "cm-chessboard/src/extensions/markers/Markers.js";
 import { Chess } from "chess.js";
 import {
-  CHESSNUT_CHARACTERISTICS,
-  CHESSNUT_DEVICE_FILTERS,
-  CHESSNUT_INIT_COMMAND,
-  CHESSNUT_SERVICE_UUIDS,
-  bestPhysicalPlacement,
-  bytesToHex,
-  chessnutBoardDataToPlacement,
-  chessnutBytes,
-  chessnutLedBytes,
-  legalMoveFromPlacementDelta,
-  placementDiffSquares,
-  rotatePlacement,
-} from "./chessnut.js";
-import {
   buildLegalMask,
   decodeMoves,
   loadMaiaMoveMaps,
@@ -35,415 +21,29 @@ import {
   opponentReactionLines,
   randomLine,
 } from "./opponentReactions.js";
-
-const HOME_GREETINGS = [
-  "The board is set.",
-  "Your next match awaits.",
-  "Choose your next challenger.",
-  "The next move is yours.",
-  "A new duel begins.",
-  "A suspicious board awaits.",
-  "Another tiny villain waits.",
-  "Your next rival is ready.",
-  "The cellar league continues.",
-  "One more board, one more mistake.",
-  "Pick your opponent.",
-  "A fresh position awaits.",
-  "Step up to the board.",
-  "Make the first move.",
-  "The quest continues.",
-];
-
-function randomHomeGreeting() {
-  return HOME_GREETINGS[Math.floor(Math.random() * HOME_GREETINGS.length)];
-}
-
-function SideMenu() {
-  return (
-    <nav className="side-menu" aria-label="Main navigation">
-      <div className="side-brand">Chessquestia</div>
-      <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/icons/solo_icon.png" alt="" />Home</button>
-      <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/profile-icon.png" alt="" />Profile</button>
-      <button id="nav-friends" className="side-link" type="button">
-        <img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends
-      </button>
-    </nav>
-  );
-}
-
-function PlayPanel() {
-  return (
-    <div id="lb-main" className="lobby-section lobby-panel">
-      <div className="home-copy">
-        <div>Welcome back,</div>
-        <strong id="welcome-name">Wanderer</strong>
-        <span className="home-divider" aria-hidden="true"></span>
-        <p>{randomHomeGreeting()}</p>
-      </div>
-      <div className="mode-grid">
-        <button id="play-solo-btn" className="mode-card" type="button">
-          <img src="/assets/buttons/solo_button.png" alt="" />
-          <span className="mode-card-copy">
-            <strong><img className="mode-title-icon" src="/assets/icons/solo_icon.png" alt="" />Solo</strong>
-            <span>Challenge AI opponents and sharpen your skills.</span>
-          </span>
-        </button>
-        <button id="play-coop-btn" className="mode-card" type="button">
-          <img src="/assets/buttons/coop_button.png" alt="" />
-          <span className="mode-card-copy">
-            <strong><img className="mode-title-icon" src="/assets/icons/coop-icon.png" alt="" />Co-op</strong>
-            <span>Team up with friends and play together.</span>
-          </span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AuthPanel() {
-  return (
-    <div id="lb-auth" className="lobby-section lobby-panel auth-panel" style={{ display: "none" }}>
-      <div className="auth-copy">
-        <div>Chessquestia</div>
-        <strong>Sign in or sign up</strong>
-        <span className="home-divider" aria-hidden="true"></span>
-        <p>Save progress, unlock opponents, and play co-op with friends.</p>
-      </div>
-      <div className="auth-actions">
-        <button id="auth-primary-btn" className="bot-continue-btn auth-primary-btn" type="button">
-          <img src="/assets/icons/submit-icon.png" alt="" />
-          <span>Continue with Google</span>
-        </button>
-        <button id="auth-demo-btn" className="sm-btn auth-demo-btn" type="button">
-          <img src="/assets/bots/snib_talk.png" alt="" />
-          <span>Try demo against Snib</span>
-        </button>
-      </div>
-      <div id="auth-dev-login-card" className="dev-login-card auth-dev-login-card" style={{ display: "none" }}>
-        <span>Dev login</span>
-        <div id="auth-dev-login-options" className="dev-login-options"></div>
-      </div>
-    </div>
-  );
-}
-
-function OpponentRank({ rank }) {
-  return (
-    <span className="opponent-rank" aria-label={`${rank} out of five`}>
-      {Array.from({ length: 5 }, (_, index) => (
-        <img
-          key={index}
-          className={index < rank ? "filled" : ""}
-          src="/assets/icons/solo_icon.png"
-          alt=""
-        />
-      ))}
-    </span>
-  );
-}
-
-function SinglePlayerSetup() {
-  return (
-    <div id="lb-solo" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <button id="solo-back-btn" className="bot-back-btn" type="button" aria-label="Back">
-        <img src="/assets/icons/back-icon.png" alt="" />
-      </button>
-      <div className="bot-select-head">
-        <h2 id="bot-select-title">Choose your opponent</h2>
-        <span className="home-divider" aria-hidden="true"></span>
-      </div>
-      <input type="hidden" id="strength-slider" defaultValue="1500" />
-      <span id="strength-val" className="sr-only">1500</span>
-      <div className="opponent-grid" aria-label="Choose your opponent">
-        {SOLO_OPPONENTS.map((opponent, index) => (
-          <button
-            key={opponent.elo}
-            className={`opponent-card${index > 0 ? " locked" : ""}`}
-            type="button"
-            data-opponent-strength={opponent.elo}
-            data-opponent-theme={opponent.theme}
-            data-opponent-index={index}
-            data-unlocked-src={`/assets/cards/${opponent.card}`}
-            aria-pressed="false"
-            aria-disabled={index > 0 ? "true" : "false"}
-            disabled={index > 0}
-          >
-            <img
-              className="opponent-card-art"
-              src={index > 0 ? "/assets/cards/locked_card.png" : `/assets/cards/${opponent.card}`}
-              alt=""
-            />
-            <span className="opponent-card-copy">
-              <strong>{opponent.name}</strong>
-              <OpponentRank rank={opponent.rank} />
-            </span>
-            <span className="opponent-locked-copy">Locked</span>
-          </button>
-        ))}
-      </div>
-      <button id="solo-start-btn" className="bot-continue-btn" type="button" disabled>
-        <img src="/assets/icons/submit-icon.png" alt="" />
-        <span>Continue</span>
-      </button>
-    </div>
-  );
-}
-
-function FriendsPanel() {
-  return (
-    <div id="lb-friends" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
-        <div className="panel-title">Friends</div>
-        <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker">Players</div>
-      </div>
-      <div className="friend-link-card">
-        <div className="friend-section-title">Friend link</div>
-        <p>Share this once so someone can add you directly.</p>
-        <div className="friend-link-actions">
-          <input id="friend-invite-link" readOnly />
-          <button id="friend-link-copy" className="sm-btn primary-mini" type="button">Copy</button>
-          <button id="friend-link-share" className="sm-btn" type="button">Share</button>
-        </div>
-      </div>
-      <div id="friend-message" className="friend-message"></div>
-      <div id="friend-requests" className="friend-section"></div>
-      <div id="friend-list" className="friend-section"></div>
-    </div>
-  );
-}
-
-function FriendAddDialog() {
-  return (
-    <div id="friend-add-dialog" className="friend-add-dialog-backdrop" hidden>
-      <div className="friend-add-dialog" role="dialog" aria-modal="true" aria-labelledby="friend-add-title">
-        <div className="friend-add-head">
-          <h3 id="friend-add-title">Add friend</h3>
-          <button id="friend-add-close" className="sm-btn" type="button">Close</button>
-        </div>
-        <label className="friend-search-box" htmlFor="friend-search">
-          <span>Search username</span>
-          <input id="friend-search" placeholder="Search username" autoComplete="off" autoCapitalize="none" />
-        </label>
-        <div id="friend-results" className="friend-section friend-search-results"></div>
-      </div>
-    </div>
-  );
-}
-
-function FriendInvitePanel() {
-  return (
-    <div id="lb-friend-invite" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
-        <div className="panel-title">Friend invite</div>
-        <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker">Players</div>
-      </div>
-      <div id="friend-invite-landing" className="friend-invite-landing"></div>
-    </div>
-  );
-}
-
-function ProfilePanel() {
-  return (
-    <div id="lb-profile" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
-        <div className="panel-title">Profile</div>
-        <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker">Identity</div>
-      </div>
-      <div className="username-card">
-        <label htmlFor="profile-username">Your username</label>
-        <div className="username-row">
-          <input id="profile-username" minLength="3" maxLength="20" autoCapitalize="none" autoComplete="off" />
-          <button id="username-save" className="sm-btn primary-mini" type="button">Save</button>
-        </div>
-        <p id="username-help">Other players can search for this username.</p>
-      </div>
-      <div className="profile-setting-card">
-        <label className="profile-toggle-row" htmlFor="profile-board-toggle">
-          <span>
-            <strong>Chessnut board</strong>
-            <small>Show board connection controls</small>
-          </span>
-          <input id="profile-board-toggle" type="checkbox" />
-        </label>
-      </div>
-      <div id="profile-account-card" className="profile-account-card" style={{ display: "none" }}>
-        <div>
-          <span>Signed in as</span>
-          <strong id="profile-account-name"></strong>
-        </div>
-        <button id="profile-auth-btn" className="sm-btn" type="button"></button>
-      </div>
-      <div id="dev-login-card" className="dev-login-card" style={{ display: "none" }}>
-        <span>Dev login</span>
-        <div id="dev-login-options" className="dev-login-options"></div>
-      </div>
-    </div>
-  );
-}
-
-function CoopRoomPanel() {
-  return (
-    <div id="lb-room" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
-        <div className="panel-title">Waiting room</div>
-        <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker" id="cp-room-meta">Lobby</div>
-      </div>
-      <div id="cp-player-list"></div>
-      <div className="room-invite-panel">
-        <div className="friend-section-title">Invite friends</div>
-        <div id="cp-invite-message" className="friend-message"></div>
-        <div id="cp-invite-list" className="room-invite-list"></div>
-      </div>
-      <div className="lb-btns room-actions">
-        <button id="cp-start" className="lb-btn primary" style={{ display: "none" }} type="button">Continue</button>
-        <button id="cp-leave" className="sm-btn" type="button">Leave</button>
-      </div>
-    </div>
-  );
-}
-
-function ModelLoading() {
-  return (
-    <div className="model-loading" id="model-loading" style={{ display: "none" }} aria-live="polite">
-      <div className="model-status-row">
-        <span className="status-dot" id="status-dot"></span>
-        <span id="status-label">Preparing game...</span>
-        <button id="download-btn" className="sm-btn" style={{ display: "none" }} type="button">Retry</button>
-      </div>
-      <div className="progress-bar" id="progress-bar">
-        <div className="progress-fill" id="progress-fill"></div>
-      </div>
-    </div>
-  );
-}
-
-function Lobby() {
-  return (
-    <div id="lobby">
-      <SideMenu />
-      <div className="lobby-title">Chessquestia</div>
-      <div id="auth-bar" className="auth-bar" style={{ display: "none" }}>
-        <span id="auth-label"></span>
-        <button id="auth-btn" className="sm-btn" type="button"></button>
-      </div>
-      <div id="coop-invite-notice" className="coop-invite-notice" style={{ display: "none" }}>
-        <div>
-          <strong id="coop-invite-title">Co-op invite</strong>
-          <span id="coop-invite-text"></span>
-        </div>
-        <div className="friend-actions">
-          <button id="coop-invite-join" className="sm-btn primary-mini" type="button">Join</button>
-          <button id="coop-invite-dismiss" className="sm-btn" type="button">Dismiss</button>
-        </div>
-      </div>
-      <AuthPanel />
-      <PlayPanel />
-      <SinglePlayerSetup />
-      <ProfilePanel />
-      <FriendsPanel />
-      <FriendInvitePanel />
-      <CoopRoomPanel />
-      <ModelLoading />
-    </div>
-  );
-}
-
-function GameView() {
-  return (
-    <div id="game">
-      <button id="back-btn" className="game-back-btn" type="button" aria-label="Back to lobby">
-        <img src="/assets/icons/back-icon.png" alt="" />
-      </button>
-      <div className="game-score-plaque" aria-live="polite">
-        <div id="game-score">+0</div>
-        <div id="game-status">...</div>
-      </div>
-      <div id="board-device-panel" className="board-device-panel" aria-live="polite">
-        <button id="board-connect-btn" className="board-connect-btn" type="button">
-          <span className="board-device-dot"></span>
-          <span id="board-connect-label">Connect board</span>
-        </button>
-        <button id="board-disconnect-btn" className="board-disconnect-btn" type="button" aria-label="Disconnect board" hidden>
-          ×
-        </button>
-        <div id="board-device-status" className="board-device-status">Chessnut Air</div>
-      </div>
-      <div id="game-outcome-overlay" className="game-outcome-overlay" aria-hidden="true">
-        <div className="game-outcome-modal" role="dialog" aria-modal="true" aria-label="Game result">
-          <div id="game-outcome-banner" className="game-outcome-banner">
-            <span id="game-outcome-title" className="game-outcome-title"></span>
-          </div>
-          <button id="game-outcome-continue" className="bot-continue-btn game-outcome-continue" type="button">
-            <img src="/assets/icons/submit-icon.png" alt="" />
-            <span>Continue</span>
-          </button>
-        </div>
-      </div>
-      <div id="victory-screen-flash" className="victory-screen-flash" aria-hidden="true"></div>
-      <div className="game-board-frame">
-        <div id="board"></div>
-        <div id="victory-board-pulse" className="victory-board-pulse" aria-hidden="true">
-        </div>
-      </div>
-      <div id="opponent-speech" className="opponent-speech" hidden aria-live="polite">
-        <img id="opponent-speech-portrait" src="/assets/bots/snib_talk.png" alt="" />
-        <div className="opponent-speech-bubble">
-          <button id="opponent-speech-close" className="opponent-speech-close" type="button" aria-label="Close speech">×</button>
-          <strong id="opponent-speech-name"></strong>
-          <p id="opponent-speech-text"></p>
-        </div>
-      </div>
-      <div id="cp-chips"></div>
-    </div>
-  );
-}
-
-function BotSplash() {
-  return (
-    <div id="bot-splash" className="bot-splash" hidden aria-hidden="true">
-      <img id="bot-splash-art" className="bot-splash-art" src="/assets/splash/snib_splash.png" alt="" />
-      <div className="bot-splash-panel">
-        <div className="bot-splash-copy" role="dialog" aria-modal="true" aria-labelledby="bot-splash-name">
-          <img id="bot-splash-banner" className="bot-splash-banner" src="/assets/splash/splash_banner.png" alt="" />
-          <div className="bot-splash-content">
-            <h2 id="bot-splash-name">Snib the Candle Goblin</h2>
-            <span className="bot-splash-divider" aria-hidden="true"></span>
-            <p id="bot-splash-text"></p>
-            <span className="bot-splash-divider" aria-hidden="true"></span>
-            <div id="bot-splash-strength" className="bot-splash-strength" aria-label="Opponent strength"></div>
-          </div>
-        </div>
-        <button id="bot-splash-start" className="bot-continue-btn bot-splash-start" type="button">
-          <img src="/assets/icons/submit-icon.png" alt="" />
-          <span>Start game</span>
-        </button>
-      </div>
-    </div>
-  );
-}
+import {
+  BotSplash,
+  FriendAddDialog,
+  GameView,
+  Lobby,
+} from "./components/AppScreens.jsx";
+import { createBotSplash } from "./botSplash.js";
+import { createChessnutController } from "./chessnutController.js";
+import { createOutcomeScreen } from "./outcomeScreen.js";
 
 export default function App() {
   useEffect(() => {
     let disposed = false;
     let invitePollTimer = null;
-    let outcomeBannerTimer = null;
     let opponentSpeechTimer = null;
     let opponentSpeechWordTimer = null;
     let opponentSpeechAnimationFrame = null;
     let opponentSpeechHideTimer = null;
     let opponentSpeechDelayTimer = null;
-    let victoryBoardPulseTimer = null;
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
 const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
-const VICTORY_MARKER = { class: "victory-mate", slice: "markerSquare" };
-const DEFEAT_MARKER = { class: "defeat-mate", slice: "markerSquare" };
-const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
   const CDN       = "/cm-chessboard/assets/";
 
@@ -616,6 +216,14 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
   const outcomeBannerEl = document.getElementById("game-outcome-banner");
   const outcomeTitleEl = document.getElementById("game-outcome-title");
   const outcomeContinueBtn = document.getElementById("game-outcome-continue");
+  const outcomeResultsEl = document.getElementById("game-outcome-results");
+  const outcomeMovesEl = document.getElementById("game-outcome-moves");
+  const outcomeTimeEl = document.getElementById("game-outcome-time");
+  const outcomeUnlockEl = document.getElementById("game-outcome-unlock");
+  const outcomeUnlockNameEl = document.getElementById("game-outcome-unlock-name");
+  const outcomeUnlockTextEl = document.getElementById("game-outcome-unlock-text");
+  const outcomeUnlockCardEl = document.getElementById("game-outcome-unlock-card");
+  const outcomeChallengeBtn = document.getElementById("game-outcome-challenge");
   const victoryBoardPulseEl = document.getElementById("victory-board-pulse");
   const victoryScreenFlashEl = document.getElementById("victory-screen-flash");
   const gameBoardFrameEl = document.querySelector(".game-board-frame");
@@ -632,6 +240,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
   const boardConnectLabel = document.getElementById("board-connect-label");
   const boardDisconnectBtn = document.getElementById("board-disconnect-btn");
   const boardDeviceStatus = document.getElementById("board-device-status");
+  const profileBoardToggle = document.getElementById("profile-board-toggle");
   const opponentSpeechEl = document.getElementById("opponent-speech");
   const opponentSpeechPortrait = document.getElementById("opponent-speech-portrait");
   const opponentSpeechName = document.getElementById("opponent-speech-name");
@@ -651,40 +260,18 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
   let soloActive  = false;
   let soloGameId = null;
   let soloDemoActive = false;
+  let gameStartedAt = null;
   let setupMode = "solo";
   let opponentSelectionReadonly = false;
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
   let serverUnlockedOpponentCount = 1;
-  const START_FEN_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
-  let botSplashResolve = null;
-  let botSplashBeforeFade = null;
-  let botSplashAutoTimer = null;
-  let botSplashMode = null;
   let soloStartInProgress = false;
   let pendingSoloStartDemo = false;
   let botTurnsSinceOpponentMessage = 0;
   let nextThinkingReactionAfterTurns = 3 + Math.floor(Math.random() * 3);
   const recordedSoloGameIds = new Set();
-  const chessnut = {
-    device: null,
-    server: null,
-    writeChar: null,
-    boardChar: null,
-    miscChar: null,
-    connected: false,
-    connecting: false,
-    lastPlacement: "",
-    notifications: 0,
-    orientation: "normal",
-    pollTimer: null,
-    polling: false,
-    lastRawHex: "",
-    lastSeenPlacement: "",
-    lastOrientedPlacement: "",
-    ledAnimationToken: 0,
-  };
 
   function setStatus(text, cls = "") {
     statusEl.textContent = text;
@@ -714,53 +301,8 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     gameScoreEl.className = score > 0 ? "ahead" : score < 0 ? "behind" : "";
   }
 
-  function setBoardDeviceStatus(text, state = "") {
-    boardDeviceStatus.textContent = text;
-    boardDevicePanel.dataset.state = state;
-  }
-
-  function updateBoardDeviceUi() {
-    boardDevicePanel.hidden = !shouldShowBoardDevicePanel();
-    boardConnectBtn.disabled = chessnut.connecting;
-    boardDisconnectBtn.hidden = !chessnut.connected && !chessnut.connecting;
-    boardConnectLabel.textContent = chessnut.connected
-      ? "Board connected"
-      : chessnut.connecting ? "Connecting..." : "Connect board";
-  }
-
-  function boardDeviceSettingEnabled() {
-    return localStorage.getItem(BOARD_DEVICE_VISIBLE_KEY) === "1";
-  }
-
-  function shouldShowBoardDevicePanel() {
-    return boardDeviceSettingEnabled()
-      && !window.matchMedia?.("(max-width: 860px)")?.matches;
-  }
-
-  function renderBoardDeviceSetting() {
-    if (profileBoardToggle) profileBoardToggle.checked = boardDeviceSettingEnabled();
-    updateBoardDeviceUi();
-  }
-
-  function setBoardDeviceSetting(enabled) {
-    if (enabled) localStorage.setItem(BOARD_DEVICE_VISIBLE_KEY, "1");
-    else localStorage.removeItem(BOARD_DEVICE_VISIBLE_KEY);
-    renderBoardDeviceSetting();
-  }
-
   function boardPlacement(fen = chess.fen()) {
     return fen.split(" ")[0];
-  }
-
-  function updateChessnutDiffLeds() {
-    if (!chessnut.connected || !chessnut.lastOrientedPlacement) return;
-    chessnut.ledAnimationToken += 1;
-    const diffs = placementDiffSquares(chessnut.lastOrientedPlacement, boardPlacement());
-    setChessnutLeds(diffs.slice(0, 16));
-  }
-
-  function pieceCount(placement) {
-    return (placement.match(/[pnbrqkPNBRQK]/g) || []).length;
   }
 
   function canAcceptPlayerMove() {
@@ -783,69 +325,12 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     return null;
   }
 
-  function legalMoveFromBoardPlacement(placement) {
-    const normalMove = legalMoveForPlacement(placement);
-    if (normalMove) {
-      chessnut.orientation = "normal";
-      return normalMove;
-    }
-
-    const rotatedMove = legalMoveForPlacement(rotatePlacement(placement));
-    if (rotatedMove) {
-      chessnut.orientation = "rotated";
-      return rotatedMove;
-    }
-
-    return null;
-  }
-
-  async function writeChessnut(bytes) {
-    if (chessnut.writeChar.writeValueWithoutResponse && chessnut.writeChar.properties?.writeWithoutResponse) {
-      await chessnut.writeChar.writeValueWithoutResponse(bytes);
-      return;
-    }
-    if (chessnut.writeChar.writeValueWithResponse && chessnut.writeChar.properties?.write) {
-      await chessnut.writeChar.writeValueWithResponse(bytes);
-      return;
-    }
-    await chessnut.writeChar.writeValue(bytes);
-  }
-
-  async function setChessnutLeds(squares) {
-    if (!chessnut.connected || !chessnut.writeChar) return;
-    try {
-      await writeChessnut(chessnutLedBytes(squares));
-    } catch {
-      setBoardDeviceStatus("LED update failed", "warning");
-    }
-  }
-
   function markLastMove(from, to) {
     board.removeMarkers(LAST_MOVE);
     board.addMarker(LAST_MOVE, from);
     board.addMarker(LAST_MOVE, to);
     updateCheckMarker();
-    updateChessnutDiffLeds();
-  }
-
-  function clearVictoryBoardPulse() {
-    if (victoryBoardPulseTimer) window.clearTimeout(victoryBoardPulseTimer);
-    victoryBoardPulseTimer = null;
-    victoryBoardPulseEl.classList.remove("active", "victory", "defeat", "draw");
-    victoryBoardPulseEl.innerHTML = "";
-    victoryScreenFlashEl.classList.remove("active", "victory", "defeat", "draw");
-    board?.removeMarkers(VICTORY_MARKER);
-    board?.removeMarkers(DEFEAT_MARKER);
-    board?.removeMarkers(DRAW_MARKER);
-  }
-
-  function squareToBoardIndex(square) {
-    const file = square.charCodeAt(0) - 97;
-    const rank = parseInt(square[1], 10);
-    return {
-      file,
-      rankIndex: 8 - rank,
-    };
+    chessnutBoard.updateDiffLeds();
   }
 
   function findKingSquare(color) {
@@ -872,49 +357,6 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     if (!isCurrentSideInCheck()) return;
     const kingSquare = findKingSquare(chess.turn());
     if (kingSquare) board.addMarker(CHECK_MARKER, kingSquare);
-  }
-
-  function lastMoveSquares() {
-    const history = chess.history({ verbose: true });
-    const move = history[history.length - 1];
-    return move ? [move.from, move.to] : [];
-  }
-
-  function showVictoryBoardPulse(square, outcome = "victory") {
-    clearVictoryBoardPulse();
-    const origin = square ? squareToBoardIndex(square) : { file: 3.5, rankIndex: 3.5 };
-    const highlightedSquares = [...new Set([square, ...lastMoveSquares()].filter(Boolean))];
-    const marker = outcome === "draw" ? DRAW_MARKER
-      : outcome === "defeat" ? DEFEAT_MARKER : VICTORY_MARKER;
-    highlightedSquares.forEach(highlightSquare => board.addMarker(marker, highlightSquare));
-
-    victoryScreenFlashEl.classList.remove("active", "victory", "defeat", "draw");
-    void victoryScreenFlashEl.offsetWidth;
-    victoryScreenFlashEl.classList.add(outcome, "active");
-
-    const cells = [];
-    for (let rankIndex = 0; rankIndex < 8; rankIndex += 1) {
-      for (let file = 0; file < 8; file += 1) {
-        const cell = document.createElement("span");
-        cell.className = "victory-spread-cell";
-        const distance = Math.abs(file - origin.file) + Math.abs(rankIndex - origin.rankIndex);
-        cell.style.setProperty("--cell-file", file);
-        cell.style.setProperty("--cell-rank", rankIndex);
-        cell.style.setProperty("--spread-delay", `${Math.min(distance * 34, 360)}ms`);
-        cells.push(cell);
-      }
-    }
-    victoryBoardPulseEl.replaceChildren(...cells);
-    void victoryBoardPulseEl.offsetWidth;
-    victoryBoardPulseEl.classList.add(outcome, "active");
-  }
-
-  function showVictoryBoardPulseAfterDelay(square, delay = 280, outcome = "victory") {
-    clearVictoryBoardPulse();
-    victoryBoardPulseTimer = window.setTimeout(() => {
-      victoryBoardPulseTimer = null;
-      showVictoryBoardPulse(square, outcome);
-    }, delay);
   }
 
   function syncBoardAfterMove(move) {
@@ -960,7 +402,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     if (incomingMove) markLastMove(incomingMove.from, incomingMove.to);
     else {
       updateCheckMarker();
-      updateChessnutDiffLeds();
+      chessnutBoard.updateDiffLeds();
     }
     updateGameScore();
   }
@@ -1025,226 +467,6 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     }
   }
 
-  function handleChessnutBoardNotification(event) {
-    chessnut.notifications += 1;
-    const bytes = chessnutBytes(event.target.value);
-    chessnut.lastRawHex = bytesToHex(bytes);
-    const placement = chessnutBoardDataToPlacement(bytes);
-    if (!placement) {
-      setBoardDeviceStatus(`Board data #${chessnut.notifications}: unreadable`, "warning");
-      return;
-    }
-    chessnut.lastSeenPlacement = placement;
-    const bestPlacement = bestPhysicalPlacement(placement, boardPlacement());
-    const previousOrientedPlacement = chessnut.lastOrientedPlacement;
-    const nextOrientedPlacement = bestPlacement.placement;
-    window.__chessnutDebug = {
-      notifications: chessnut.notifications,
-      orientation: chessnut.orientation,
-      rawHex: chessnut.lastRawHex,
-      physicalPlacement: placement,
-      previousOrientedPlacement,
-      orientedPlacement: nextOrientedPlacement,
-      gamePlacement: boardPlacement(),
-      gameFen: chess.fen(),
-      mismatchSquares: bestPlacement.diffs,
-    };
-    if (placement === chessnut.lastPlacement) {
-      updateChessnutDiffLeds();
-      setBoardDeviceStatus(`Board data #${chessnut.notifications}`, "connected");
-      return;
-    }
-    chessnut.lastPlacement = placement;
-    chessnut.lastOrientedPlacement = nextOrientedPlacement;
-
-    if (placement === boardPlacement()) {
-      chessnut.orientation = "normal";
-      updateChessnutDiffLeds();
-      setBoardDeviceStatus(`Board in sync #${chessnut.notifications}`, "connected");
-      return;
-    }
-
-    if (rotatePlacement(placement) === boardPlacement()) {
-      chessnut.orientation = "rotated";
-      updateChessnutDiffLeds();
-      setBoardDeviceStatus(`Board in sync rotated #${chessnut.notifications}`, "connected");
-      return;
-    }
-
-    if (!canAcceptPlayerMove()) {
-      setBoardDeviceStatus(`Waiting for your turn #${chessnut.notifications}`, "warning");
-      return;
-    }
-
-    const deltaMove = legalMoveFromPlacementDelta(chess.moves({ verbose: true }), previousOrientedPlacement, nextOrientedPlacement);
-    const move = deltaMove || legalMoveFromBoardPlacement(placement);
-    if (move && applyPlayerMove(move.from, move.to, move.promotion || "q")) {
-      setBoardDeviceStatus(`Move received #${chessnut.notifications}`, "connected");
-      return;
-    }
-
-    if (pieceCount(bestPlacement.placement) < pieceCount(boardPlacement())) {
-      setBoardDeviceStatus(`Complete the move #${chessnut.notifications}`, "warning");
-      return;
-    }
-    updateChessnutDiffLeds();
-    setBoardDeviceStatus(`Board out of sync #${chessnut.notifications}`, "warning");
-  }
-
-  async function pollChessnutBoard() {
-    if (!chessnut.connected || !chessnut.boardChar || chessnut.polling) return;
-    chessnut.polling = true;
-    try {
-      const value = await chessnut.boardChar.readValue();
-      handleChessnutBoardNotification({ target: { value } });
-    } catch {
-      if (!chessnut.notifications) setBoardDeviceStatus("Waiting for board data", "warning");
-    } finally {
-      chessnut.polling = false;
-    }
-  }
-
-  function startChessnutPolling() {
-    if (chessnut.pollTimer) window.clearInterval(chessnut.pollTimer);
-    if (!chessnut.boardChar?.properties?.read) return;
-    chessnut.pollTimer = window.setInterval(pollChessnutBoard, 600);
-    pollChessnutBoard();
-  }
-
-  function handleChessnutDisconnect(eventOrStatus = "Disconnected") {
-    const statusText = typeof eventOrStatus === "string" ? eventOrStatus : "Disconnected";
-    if (chessnut.pollTimer) window.clearInterval(chessnut.pollTimer);
-    chessnut.connected = false;
-    chessnut.server = null;
-    chessnut.writeChar = null;
-    chessnut.boardChar = null;
-    chessnut.miscChar = null;
-    chessnut.notifications = 0;
-    chessnut.ledAnimationToken += 1;
-    chessnut.pollTimer = null;
-    chessnut.polling = false;
-    setBoardDeviceStatus(statusText, "");
-    updateBoardDeviceUi();
-  }
-
-  async function findChessnutCharacteristics(server) {
-    const found = {};
-    const services = await server.getPrimaryServices();
-    for (const service of services) {
-      const characteristics = await service.getCharacteristics();
-      for (const characteristic of characteristics) {
-        const uuid = characteristic.uuid.toLowerCase();
-        if (uuid === CHESSNUT_CHARACTERISTICS.write) found.writeChar = characteristic;
-        if (uuid === CHESSNUT_CHARACTERISTICS.readBoardData) found.boardChar = characteristic;
-        if (uuid === CHESSNUT_CHARACTERISTICS.readMiscData) found.miscChar = characteristic;
-      }
-    }
-    return found;
-  }
-
-  async function connectChessnutBoard() {
-    if (!navigator.bluetooth) {
-      setBoardDeviceStatus("Use Chrome or Edge for Bluetooth", "warning");
-      return;
-    }
-    if (chessnut.connecting) return;
-
-    chessnut.connecting = true;
-    setBoardDeviceStatus("Select your Chessnut Air", "connecting");
-    updateBoardDeviceUi();
-    try {
-      const device = chessnut.device || await navigator.bluetooth.requestDevice({
-        filters: CHESSNUT_DEVICE_FILTERS,
-        optionalServices: CHESSNUT_SERVICE_UUIDS,
-      });
-      chessnut.device = device;
-      device.removeEventListener("gattserverdisconnected", handleChessnutDisconnect);
-      device.addEventListener("gattserverdisconnected", handleChessnutDisconnect);
-
-      const server = await device.gatt.connect();
-      const found = await findChessnutCharacteristics(server);
-      if (!found.writeChar || !found.boardChar) throw new Error("Chessnut board services were not found.");
-
-      chessnut.server = server;
-      chessnut.writeChar = found.writeChar;
-      chessnut.boardChar = found.boardChar;
-      chessnut.miscChar = found.miscChar;
-      await chessnut.boardChar.startNotifications();
-      chessnut.boardChar.removeEventListener("characteristicvaluechanged", handleChessnutBoardNotification);
-      chessnut.boardChar.addEventListener("characteristicvaluechanged", handleChessnutBoardNotification);
-      if (chessnut.miscChar?.properties?.notify) await chessnut.miscChar.startNotifications().catch(() => {});
-      await writeChessnut(CHESSNUT_INIT_COMMAND);
-
-      chessnut.connected = true;
-      chessnut.lastPlacement = "";
-      chessnut.lastOrientedPlacement = "";
-      chessnut.notifications = 0;
-      setBoardDeviceStatus("Connected, waiting for board", "connected");
-      startChessnutPolling();
-    } catch (err) {
-      const cancelled = err?.name === "NotFoundError";
-      const needsGesture = err?.name === "SecurityError" || /user gesture/i.test(err?.message || "");
-      const permissionBlocked = err?.name === "NotAllowedError" || /permission.*blocked|blocked.*permission/i.test(err?.message || "");
-      const message = cancelled
-        ? "Connection cancelled"
-        : needsGesture ? "Click Connect board again"
-          : permissionBlocked ? "Bluetooth is blocked for this site"
-            : err.message || "Could not connect";
-      handleChessnutDisconnect(message);
-      setBoardDeviceStatus(message, "warning");
-    } finally {
-      chessnut.connecting = false;
-      updateBoardDeviceUi();
-    }
-  }
-
-  async function disconnectChessnutBoard() {
-    try {
-      if (chessnut.boardChar) {
-        chessnut.boardChar.removeEventListener("characteristicvaluechanged", handleChessnutBoardNotification);
-        await chessnut.boardChar.stopNotifications().catch(() => {});
-      }
-      if (chessnut.miscChar?.properties?.notify) await chessnut.miscChar.stopNotifications().catch(() => {});
-      await setChessnutLeds([]);
-      chessnut.device?.gatt?.disconnect();
-    } finally {
-      handleChessnutDisconnect();
-    }
-  }
-
-  function hideOutcomeBanner() {
-    if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
-    outcomeBannerTimer = null;
-    outcomeOverlayEl.className = "game-outcome-overlay";
-    outcomeOverlayEl.setAttribute("aria-hidden", "true");
-    outcomeBannerEl.className = "game-outcome-banner";
-    outcomeTitleEl.textContent = "";
-    outcomeBannerEl.removeAttribute("aria-label");
-    clearVictoryBoardPulse();
-  }
-
-  function showOutcomeBanner(outcome) {
-    const outcomeTitles = { victory: "Victory", defeat: "Defeat", draw: "Draw" };
-    outcomeOverlayEl.className = "game-outcome-overlay visible";
-    outcomeOverlayEl.setAttribute("aria-hidden", "false");
-    outcomeBannerEl.className = `game-outcome-banner ${outcome}`;
-    outcomeTitleEl.textContent = outcomeTitles[outcome] || "";
-    outcomeBannerEl.setAttribute("aria-label", outcomeTitleEl.textContent);
-  }
-
-  function showOutcomeBannerAfterDelay(outcome, delay = 1000) {
-    if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
-    outcomeOverlayEl.className = "game-outcome-overlay";
-    outcomeOverlayEl.setAttribute("aria-hidden", "true");
-    outcomeBannerEl.className = "game-outcome-banner";
-    outcomeTitleEl.textContent = "";
-    outcomeBannerEl.removeAttribute("aria-label");
-    outcomeBannerTimer = window.setTimeout(() => {
-      outcomeBannerTimer = null;
-      showOutcomeBanner(outcome);
-    }, delay);
-  }
-
   function opponentThemeForStrength(value) {
     return opponentForStrength(value)?.theme || "snib";
   }
@@ -1259,110 +481,73 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     return opponentForStrength(getElo()) || SOLO_OPPONENTS[selectedOpponentIndex] || SOLO_OPPONENTS[0];
   }
 
-  function isMobileSplashViewport() {
-    return window.matchMedia?.("(max-width: 860px), (orientation: portrait)")?.matches;
-  }
+  const chessnutBoard = createChessnutController({
+    elements: {
+      panel: boardDevicePanel,
+      connectBtn: boardConnectBtn,
+      connectLabel: boardConnectLabel,
+      disconnectBtn: boardDisconnectBtn,
+      statusEl: boardDeviceStatus,
+      profileToggle: profileBoardToggle,
+    },
+    storageKey: BOARD_DEVICE_VISIBLE_KEY,
+    getFen: () => chess.fen(),
+    getLegalMoves: () => chess.moves({ verbose: true }),
+    canAcceptMove: canAcceptPlayerMove,
+    applyMove: (from, to, promotion = "q") => applyPlayerMove(from, to, promotion),
+  });
 
-  function splashImageForOpponent(opponent, mobile = isMobileSplashViewport()) {
-    return `/assets/splash/${mobile ? "mobile/" : ""}${opponent?.theme || "snib"}_splash.png`;
-  }
+  const outcomeScreen = createOutcomeScreen({
+    elements: {
+      overlayEl: outcomeOverlayEl,
+      bannerEl: outcomeBannerEl,
+      titleEl: outcomeTitleEl,
+      continueBtn: outcomeContinueBtn,
+      resultsEl: outcomeResultsEl,
+      movesEl: outcomeMovesEl,
+      timeEl: outcomeTimeEl,
+      unlockEl: outcomeUnlockEl,
+      unlockNameEl: outcomeUnlockNameEl,
+      unlockTextEl: outcomeUnlockTextEl,
+      unlockCardEl: outcomeUnlockCardEl,
+      challengeBtn: outcomeChallengeBtn,
+      boardPulseEl: victoryBoardPulseEl,
+      screenFlashEl: victoryScreenFlashEl,
+    },
+    getBoard: () => board,
+    getCoopPhase: () => coop?.phase || "off",
+    getGameStartedAt: () => gameStartedAt,
+    getLastMoveSquares: () => {
+      const history = chess.history({ verbose: true });
+      const move = history[history.length - 1];
+      return move ? [move.from, move.to] : [];
+    },
+    getMoveCount: () => chess.history().length,
+    opponents: SOLO_OPPONENTS,
+  });
+  const clearVictoryBoardPulse = outcomeScreen.clearBoardPulse;
+  const hideOutcomeBanner = outcomeScreen.hideBanner;
+  const showOutcomeBannerAfterDelay = outcomeScreen.showBannerAfterDelay;
+  const showVictoryBoardPulseAfterDelay = outcomeScreen.showBoardPulseAfterDelay;
 
-  function splashBannerImage(mobile = isMobileSplashViewport()) {
-    return mobile ? "/assets/splash/mobile/splash_banner_mobile.png" : "/assets/splash/splash_banner.png";
-  }
-
-  function renderBotSplashStrength(rank = 1) {
-    botSplashStrength.innerHTML = "";
-    Array.from({ length: 5 }, (_, index) => {
-      const icon = document.createElement("img");
-      icon.src = "/assets/splash/splash_strength_icon.png";
-      icon.alt = "";
-      icon.className = index < rank ? "filled" : "";
-      botSplashStrength.appendChild(icon);
-    });
-  }
-
-  function isStartingCoopPosition(fen) {
-    return String(fen || "").split(" ")[0] === START_FEN_POSITION;
-  }
-
-  function shouldAutoStartCoopSplash(msg) {
-    return msg.phase === "playing"
-      && msg.activeIdx === msg.myIdx
-      && !msg.midTurn
-      && !isStartingCoopPosition(msg.fen);
-  }
-
-  function clearBotSplashAutoTimer() {
-    if (botSplashAutoTimer) window.clearTimeout(botSplashAutoTimer);
-    botSplashAutoTimer = null;
-  }
-
-  function scheduleBotSplashAutoStart() {
-    clearBotSplashAutoTimer();
-    botSplashAutoTimer = window.setTimeout(() => {
-      botSplashAutoTimer = null;
-      hideBotSplash();
-    }, 500);
-  }
-
-  function hideBotSplash() {
-    if (!botSplashResolve) return;
-    clearBotSplashAutoTimer();
-    const beforeFade = botSplashBeforeFade;
-    botSplashBeforeFade = null;
-    botSplashMode = null;
-    beforeFade?.();
-    const resolve = botSplashResolve;
-    botSplashResolve = null;
-    botSplashEl.classList.remove("visible", "auto-start");
-    botSplashEl.setAttribute("aria-hidden", "true");
-    window.setTimeout(() => {
-      botSplashEl.hidden = true;
-      resolve();
-    }, 280);
-  }
-
-  function showBotSplash(opponent = currentOpponent(), { beforeFade = null, mode = "solo", autoStart = false } = {}) {
-    return new Promise(resolve => {
-      if (!opponent || !botSplashEl) {
-        beforeFade?.();
-        resolve();
-        return;
-      }
-      if (botSplashResolve) {
-        const pendingBeforeFade = botSplashBeforeFade;
-        botSplashBeforeFade = null;
-        botSplashResolve();
-        pendingBeforeFade?.();
-        botSplashResolve = null;
-      }
-      clearBotSplashAutoTimer();
-      botSplashBeforeFade = beforeFade;
-      botSplashMode = mode;
-      const mobileSplash = isMobileSplashViewport();
-      botSplashArt.src = splashImageForOpponent(opponent, mobileSplash);
-      botSplashBanner.src = splashBannerImage(mobileSplash);
-      botSplashName.textContent = opponent.name;
-      botSplashText.textContent = opponent.splashText || opponent.concept || "";
-      renderBotSplashStrength(opponent.rank);
-      botSplashEl.classList.toggle("auto-start", autoStart);
-      botSplashStart.hidden = false;
-      botSplashResolve = resolve;
-      botSplashEl.hidden = false;
-      botSplashEl.setAttribute("aria-hidden", "false");
-      botSplashEl.getBoundingClientRect();
-      botSplashEl.classList.add("visible");
-      if (autoStart) scheduleBotSplashAutoStart();
-      else botSplashStart.focus({ preventScroll: true });
-    });
-  }
-
-  function maybeAutoStartCoopSplash(msg) {
-    if (botSplashMode !== "coop" || !botSplashResolve || !shouldAutoStartCoopSplash(msg)) return;
-    botSplashEl.classList.add("auto-start");
-    scheduleBotSplashAutoStart();
-  }
+  const {
+    bindStartButton: bindBotSplashStartButton,
+    clearBotSplashAutoTimer,
+    maybeAutoStartCoopSplash,
+    shouldAutoStartCoopSplash,
+    showBotSplash,
+  } = createBotSplash({
+    elements: {
+      botSplashEl,
+      botSplashArt,
+      botSplashBanner,
+      botSplashName,
+      botSplashText,
+      botSplashStrength,
+      botSplashStart,
+    },
+    getCurrentOpponent: currentOpponent,
+  });
 
   function clearOpponentSpeechTimers() {
     if (opponentSpeechTimer) window.clearTimeout(opponentSpeechTimer);
@@ -1679,6 +864,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
       strength: getElo(),
       opponentTheme: selectedOpponentTheme,
       opponentIndex: selectedOpponentIndex,
+      startedAt: gameStartedAt,
       savedAt: Date.now(),
     }));
   }
@@ -1687,6 +873,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     soloActive = false;
     soloGameId = null;
     soloDemoActive = false;
+    gameStartedAt = null;
     localStorage.removeItem(SOLO_GAME_KEY);
     localStorage.removeItem(LEGACY_SOLO_GAME_KEY);
   }
@@ -1722,6 +909,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     soloActive = true;
     soloDemoActive = demo;
     soloGameId = createSoloGameId();
+    gameStartedAt = Date.now();
     cpChips.innerHTML = "";
     hideOutcomeBanner();
     hideModelLoading();
@@ -1731,8 +919,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     board.setPosition(chess.fen());
     board.removeMarkers(LAST_MOVE);
     board.removeMarkers(CHECK_MARKER);
-    chessnut.lastPlacement = "";
-    chessnut.lastOrientedPlacement = "";
+    chessnutBoard.resetPlacement();
     updateGameScore();
     enableBoardMoveInput();
     botThinking = false;
@@ -1802,6 +989,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
       chess.load(state.fen);
       soloActive = true;
       soloGameId = state.gameId || createSoloGameId();
+      gameStartedAt = Number(state.startedAt || state.savedAt || Date.now());
       if (state.strength) syncStrength(String(state.strength));
       selectedOpponentIndex = Number(state.opponentIndex || 0);
       selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
@@ -1831,10 +1019,13 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
       const playerWon = chess.turn() === "b";
       recordSoloGameResult(playerWon ? "victory" : "defeat");
       const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
+      const nextOpponent = playerWon ? SOLO_OPPONENTS[selectedOpponentIndex + 1] : null;
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
       const defeatedKingSquare = findKingSquare(playerWon ? "b" : "w");
       showVictoryBoardPulseAfterDelay(defeatedKingSquare, 120, playerWon ? "victory" : "defeat");
-      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 2200);
+      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 2200, {
+        unlockedOpponent: unlockedNext ? nextOpponent : null,
+      });
       showEndgameOpponentReaction(playerWon, 2050);
       setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
       disableBoardMoveInput();
@@ -1844,8 +1035,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
       const reason = chess.isStalemate() ? "Stalemate"
         : chess.isInsufficientMaterial() ? "Insufficient material" : "Draw";
       recordSoloGameResult("draw");
-      const drawOrigin = lastMoveSquares().at(-1);
-      showVictoryBoardPulseAfterDelay(drawOrigin, 120, "draw");
+      showVictoryBoardPulseAfterDelay(null, 120, "draw");
       showOutcomeBannerAfterDelay("draw", 1900);
       setStatus(reason, "over");
       disableBoardMoveInput();
@@ -1967,7 +1157,6 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
   const profileUsername = document.getElementById("profile-username");
   const usernameSaveBtn = document.getElementById("username-save");
   const usernameHelp = document.getElementById("username-help");
-  const profileBoardToggle = document.getElementById("profile-board-toggle");
   const friendMessage = document.getElementById("friend-message");
   const friendRequestsEl = document.getElementById("friend-requests");
   const friendResultsEl = document.getElementById("friend-results");
@@ -2368,25 +1557,34 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
   };
 
-  boardConnectBtn.onclick = () => connectChessnutBoard();
-  boardDisconnectBtn.onclick = () => disconnectChessnutBoard();
-  profileBoardToggle.onchange = () => setBoardDeviceSetting(profileBoardToggle.checked);
-  window.matchMedia?.("(max-width: 860px)")?.addEventListener?.("change", renderBoardDeviceSetting);
+  chessnutBoard.bind();
   opponentSpeechClose.onclick = () => hideOpponentSpeech();
-  if (!navigator.bluetooth) setBoardDeviceStatus("Chrome or Edge required", "warning");
-  renderBoardDeviceSetting();
 
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
     if (coop.phase !== "off") leaveCoop();
     else showLobby();
   };
-  outcomeContinueBtn.onclick = () => {
-    hideOutcomeBanner();
-    if (coop.phase !== "off") leaveCoop();
-    else showLobby();
-  };
-  botSplashStart.onclick = () => hideBotSplash();
+  outcomeScreen.bindActions({
+    onContinue: () => {
+      hideOutcomeBanner();
+      if (coop.phase !== "off") leaveCoop();
+      else showLobby();
+    },
+    onChallenge: (opponentIndex) => {
+      const opponent = SOLO_OPPONENTS[opponentIndex];
+      if (!opponent) return;
+      hideOutcomeBanner();
+      setupMode = "solo";
+      selectedOpponentIndex = opponentIndex;
+      selectedOpponentTheme = opponent.theme;
+      syncStrength(String(opponent.elo));
+      updateOpponentSelection(String(opponent.elo));
+      soloStartBtn.disabled = false;
+      startSoloGame();
+    },
+  });
+  bindBotSplashStartButton();
 
   // ── Coop mode ─────────────────────────────────────────────────────────────
 
@@ -2741,7 +1939,7 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
           board.setPosition(msg.fen, false);
           board.removeMarkers(LAST_MOVE);
           updateCheckMarker();
-          updateChessnutDiffLeds();
+          chessnutBoard.updateDiffLeds();
           updateGameScore();
           enableBoardMoveInput();
           hideOutcomeBanner();
@@ -2882,12 +2080,12 @@ const DRAW_MARKER = { class: "draw-result", slice: "markerSquare" };
     return () => {
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
-      if (outcomeBannerTimer) window.clearTimeout(outcomeBannerTimer);
+      outcomeScreen.dispose();
       clearBotSplashAutoTimer();
       window.removeEventListener("orientationchange", requestPortraitOrientation);
       clearOpponentSpeechTimers();
       social?.stopPresenceHeartbeat();
-      disconnectChessnutBoard();
+      chessnutBoard.disconnect();
     };
   }, []);
 

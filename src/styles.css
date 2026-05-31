@@ -2448,6 +2448,7 @@
       align-items: center;
       justify-content: center;
       padding: 28px;
+      overflow-y: auto;
       background:
         radial-gradient(circle at 50% 43%, rgba(255, 248, 224, 0.28), transparent 38%),
         rgba(41, 28, 16, 0.54);
@@ -2464,11 +2465,12 @@
       transition-delay: 0s;
     }
     .game-outcome-modal {
-      width: min(560px, 88vw);
+      width: min(600px, 88vw);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 22px;
+      gap: 18px;
+      margin: auto 0;
       padding: 0;
       opacity: 0;
       transform: translateY(12px) scale(0.98);
@@ -2516,7 +2518,8 @@
         0 6px 12px rgba(28, 54, 84, 0.22);
     }
     .game-outcome-continue {
-      width: min(300px, 76vw);
+      width: min(320px, 76vw);
+      font-size: clamp(26px, 4vw, 36px);
     }
     .game-outcome-continue:focus {
       outline: none;
@@ -2547,6 +2550,132 @@
         inset 0 0 0 5px rgba(255, 255, 255, 0.24),
         inset 0 0 34px rgba(62, 104, 138, 0.22),
         0 16px 26px rgba(26, 45, 64, 0.2);
+    }
+    .game-outcome-results {
+      width: min(500px, 100%);
+      aspect-ratio: 1323 / 630;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: clamp(12px, 2.4vw, 18px);
+      padding: clamp(68px, 12vw, 94px) clamp(42px, 8vw, 66px) clamp(30px, 5.8vw, 48px);
+      background: url("/assets/backgrounds/stats_bg.png") center / contain no-repeat;
+      color: #5a412a;
+      filter: drop-shadow(0 16px 22px rgba(34, 24, 14, 0.18));
+    }
+    .game-outcome-results[hidden],
+    .game-outcome-unlock[hidden],
+    .outcome-challenge-btn[hidden] {
+      display: none;
+    }
+    .outcome-section-label {
+      min-width: min(270px, 70%);
+      min-height: 58px;
+      position: absolute;
+      top: 13px;
+      left: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 28px 4px;
+      background: url("/assets/misc/banner.png") center / 100% 100% no-repeat;
+      color: #fff7df;
+      font-family: var(--story-font);
+      font-size: clamp(20px, 3.6vw, 28px);
+      font-weight: 800;
+      line-height: 1;
+      text-align: center;
+      text-shadow: 0 2px 0 rgba(52, 39, 23, 0.38);
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+    .outcome-result-row {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      font-family: var(--story-font);
+      font-size: clamp(23px, 4.1vw, 33px);
+      font-weight: 800;
+      line-height: 1;
+    }
+    .outcome-result-row img {
+      width: 30px;
+      height: 34px;
+      justify-self: center;
+      object-fit: contain;
+      opacity: 0.82;
+      filter: sepia(0.3) saturate(0.8);
+    }
+    .outcome-result-row strong {
+      min-width: 74px;
+      text-align: right;
+    }
+    .outcome-result-divider {
+      height: 1px;
+      margin-left: 62px;
+      background: linear-gradient(90deg, transparent, rgba(121, 83, 45, 0.36), transparent);
+    }
+    .game-outcome-unlock {
+      width: min(520px, 100%);
+      min-height: 200px;
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) min(34%, 170px);
+      align-items: center;
+      gap: clamp(16px, 3vw, 24px);
+      padding: 36px 28px 24px 36px;
+      border: 2px solid rgba(113, 78, 39, 0.36);
+      border-radius: 8px;
+      background:
+        linear-gradient(rgba(255, 248, 226, 0.94), rgba(240, 218, 178, 0.9)),
+        url("/assets/backgrounds/background_parchment.png") center / cover;
+      color: #4b3521;
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 255, 255, 0.22),
+        0 16px 24px rgba(33, 23, 13, 0.18);
+    }
+    .outcome-unlock-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+    .outcome-unlock-label {
+      top: 18px;
+      min-width: min(260px, 64%);
+      min-height: 48px;
+      font-size: clamp(19px, 3.4vw, 27px);
+    }
+    .game-outcome-unlock strong {
+      margin-top: 28px;
+      font-family: var(--story-font);
+      font-size: clamp(28px, 5vw, 38px);
+      font-weight: 900;
+      line-height: 1;
+      text-wrap: balance;
+    }
+    .game-outcome-unlock p {
+      max-width: 27ch;
+      margin: 0;
+      font-family: ui-serif, Georgia, "Times New Roman", serif;
+      font-size: clamp(15px, 2.7vw, 20px);
+      font-weight: 700;
+      line-height: 1.22;
+    }
+    .game-outcome-unlock-card {
+      width: 100%;
+      align-self: stretch;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 10px rgba(42, 29, 14, 0.22));
+    }
+    .outcome-challenge-btn {
+      width: min(230px, 100%);
+      margin-top: 8px;
+      font-size: clamp(20px, 3.3vw, 27px);
     }
 
     .bot-splash {
@@ -3032,15 +3161,70 @@
         display: none;
       }
       .game-outcome-overlay {
-        padding: 18px;
+        align-items: flex-start;
+        padding: max(18px, env(safe-area-inset-top)) 14px max(22px, env(safe-area-inset-bottom));
       }
       .game-outcome-modal {
-        width: min(390px, 92vw);
-        gap: 16px;
-        padding: 22px 18px;
+        width: min(390px, 94vw);
+        gap: 12px;
+        padding: 10px 0 150px;
       }
       .game-outcome-banner {
         width: min(300px, 100%);
+      }
+      .game-outcome-results {
+        width: min(370px, 100%);
+        padding: 60px 34px 28px;
+        gap: 11px;
+      }
+      .outcome-section-label {
+        min-height: 44px;
+        top: 9px;
+        padding: 0 22px 3px;
+        font-size: 18px;
+      }
+      .outcome-result-row {
+        grid-template-columns: 36px minmax(0, 1fr) auto;
+        gap: 12px;
+        font-size: 22px;
+      }
+      .outcome-result-row img {
+        width: 24px;
+        height: 28px;
+      }
+      .outcome-result-row strong {
+        min-width: 54px;
+      }
+      .outcome-result-divider {
+        margin-left: 48px;
+      }
+      .game-outcome-unlock {
+        width: min(370px, 100%);
+        min-height: 176px;
+        grid-template-columns: minmax(0, 1fr) 112px;
+        gap: 12px;
+        padding: 30px 18px 18px 22px;
+      }
+      .outcome-unlock-label {
+        min-height: 39px;
+        top: 11px;
+        font-size: 17px;
+      }
+      .game-outcome-unlock strong {
+        margin-top: 20px;
+        font-size: 25px;
+      }
+      .game-outcome-unlock p {
+        max-width: 22ch;
+        font-size: 14px;
+      }
+      .outcome-challenge-btn {
+        width: 176px;
+        font-size: 18px;
+      }
+      .game-outcome-continue {
+        width: min(260px, 76vw);
+        font-size: 26px;
       }
       .bot-splash-art {
         object-position: top center;
