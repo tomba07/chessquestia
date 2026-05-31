@@ -9,18 +9,13 @@ import {
   prepareMaiaPosition,
   sampleMove,
 } from "./maia.js";
-import {
-  createSocialController,
-  escapeHtml,
-  friendMeta,
-  friendRow,
-} from "./socialUi.js";
+import { createSocialController } from "./socialUi.js";
 import { SOLO_OPPONENTS } from "./soloOpponents.js";
 import {
-  opponentEmotionPortrait,
-  opponentReactionLines,
-  randomLine,
-} from "./opponentReactions.js";
+  apiJson,
+  createAppShellController,
+  defaultAuthInfo,
+} from "./appShellController.js";
 import {
   BotSplash,
   FriendAddDialog,
@@ -29,17 +24,16 @@ import {
 } from "./components/AppScreens.jsx";
 import { createBotSplash } from "./botSplash.js";
 import { createChessnutController } from "./chessnutController.js";
+import { createCoopInviteController } from "./coopInviteController.js";
+import { createMaiaWorker } from "./maiaWorker.js";
+import { createOpponentSpeechController } from "./opponentSpeechController.js";
 import { createOutcomeScreen } from "./outcomeScreen.js";
+import { createSoloSessionController } from "./soloSessionController.js";
 
 export default function App() {
   useEffect(() => {
     let disposed = false;
     let invitePollTimer = null;
-    let opponentSpeechTimer = null;
-    let opponentSpeechWordTimer = null;
-    let opponentSpeechAnimationFrame = null;
-    let opponentSpeechHideTimer = null;
-    let opponentSpeechDelayTimer = null;
     (async () => {
       if (disposed) return;
 const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
@@ -83,11 +77,6 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
 
   // ── Web Worker (Maia 3 ONNX inference) ───────────────────────────────────
 
-  const worker    = new Worker("/maia-worker.js");
-  const pending   = new Map();
-  let inferenceId = 0;
-  let modelReady  = false;
-  let modelDownloadRequested = false;
   let coop = null;
 
   const statusDot   = document.getElementById("status-dot");
@@ -98,63 +87,19 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const progressFill = document.getElementById("progress-fill");
   let pendingSoloStart = false;
 
-  function showModelLoading(text = "Preparing game...") {
-    modelLoadingEl.style.display = "flex";
-    statusLabel.textContent = text;
-  }
-
-  function hideModelLoading() {
-    modelLoadingEl.style.display = "none";
-    downloadBtn.style.display = "none";
-    progressBar.classList.remove("visible");
-  }
-
-  function requestModelDownload() {
-    if (modelDownloadRequested || modelReady) return;
-    modelDownloadRequested = true;
-    worker.postMessage({ type: "download" });
-  }
-
-  function syncMaiaStatus() {
-    if (coop?.ws?.readyState === WebSocket.OPEN)
-      coop.ws.send(JSON.stringify({
-        type: "maia-status",
-        ready: modelReady,
-        unlockedOpponentCount: readSoloProgress(),
-      }));
-  }
-
-  function handleModelStatus(status) {
-    if (status === "loading") {
-      modelReady = false;
-      statusDot.className = "status-dot working";
-      if (pendingSoloStart || coop?.phase === "lobby") showModelLoading("Preparing game...");
-    } else if (status === "no-cache") {
-      modelReady = false;
-      statusDot.className = "status-dot working";
-      if (pendingSoloStart || coop?.phase === "lobby") showModelLoading("Preparing game...");
-      downloadBtn.style.display = "none";
-      requestModelDownload();
-    } else if (status === "downloading") {
-      modelReady = false;
-      statusDot.className = "status-dot working";
-      if (pendingSoloStart || coop?.phase === "lobby") showModelLoading("Preparing game...");
-      downloadBtn.style.display = "none";
-      progressBar.classList.add("visible");
-    } else if (status === "ready") {
-      modelReady = true;
-      modelDownloadRequested = false;
-      statusDot.className = "status-dot ready";
-      hideModelLoading();
+  const maia = createMaiaWorker({
+    elements: { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill },
+    getCoop: () => coop,
+    readSoloProgress,
+    onPendingSoloStart: () => pendingSoloStart,
+    onReady: () => {
       if (pendingSoloStart) {
         const demoStart = pendingSoloStartDemo;
         pendingSoloStart = false;
         pendingSoloStartDemo = false;
         startSoloGameWithSplash({ demo: demoStart });
-        syncMaiaStatus();
         return;
       }
-      // If a solo game is already in progress, unblock the player
       if (gameEl.style.display !== "none" && coop?.phase !== "playing") {
         if (!chess.isGameOver() && chess.turn() === "w") setStatus("Your turn");
       }
@@ -163,47 +108,16 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       }
       maybeRunSoloBotTurn();
       maybeRunCoopBotTurn();
-    }
-    syncMaiaStatus();
-  }
-
-  worker.onmessage = ({ data: msg }) => {
-    if (msg.type === "inference-result") {
-      const r = pending.get(msg.id);
-      pending.delete(msg.id);
-      r?.resolve({ logitsMove: new Float32Array(msg.logitsMove) });
-    } else if (msg.type === "status") {
-      handleModelStatus(msg.status);
-    } else if (msg.type === "progress") {
-      progressFill.style.width = `${msg.progress}%`;
-    } else if (msg.type === "error") {
-      const r = pending.get(msg.id);
-      if (r) { pending.delete(msg.id); r.reject(new Error(msg.message)); }
-      else {
-        modelReady = false;
-        modelDownloadRequested = false;
-        statusDot.className = "status-dot error";
-        showModelLoading("The game model could not load.");
-        downloadBtn.style.display = "inline-flex";
-        syncMaiaStatus();
-      }
-    }
-  };
-
-  worker.postMessage({ type: "init", modelUrl: "/maia3/maia3_simplified.onnx", modelVersion: "3" });
-  downloadBtn.onclick = () => requestModelDownload();
-
-  function runInference(tokens, elo) {
-    return new Promise((resolve, reject) => {
-      const id = inferenceId++;
-      pending.set(id, { resolve, reject });
-      const t = tokens.slice();
-      worker.postMessage(
-        { type: "inference", id, tokens: t.buffer, eloSelfs: [elo], eloOppos: [elo], batchSize: 1 },
-        [t.buffer],
-      );
-    });
-  }
+    },
+  });
+  maia.bindDownloadButton();
+  const {
+    hideModelLoading,
+    requestModelDownload,
+    runInference,
+    showModelLoading,
+    syncMaiaStatus,
+  } = maia;
 
   // ── Game state ────────────────────────────────────────────────────────────
 
@@ -257,21 +171,15 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   let board       = null;
   let botThinking = false;
   let coopBotTimer = null;
-  let soloActive  = false;
-  let soloGameId = null;
-  let soloDemoActive = false;
-  let gameStartedAt = null;
+  let soloSession = null;
   let setupMode = "solo";
   let opponentSelectionReadonly = false;
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let unlockedOpponentCount = 1;
-  let serverUnlockedOpponentCount = 1;
   let soloStartInProgress = false;
   let pendingSoloStartDemo = false;
-  let botTurnsSinceOpponentMessage = 0;
-  let nextThinkingReactionAfterTurns = 3 + Math.floor(Math.random() * 3);
-  const recordedSoloGameIds = new Set();
+  let authInfo = defaultAuthInfo();
 
   function setStatus(text, cls = "") {
     statusEl.textContent = text;
@@ -281,7 +189,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   function setCoopTurnStatus() {
     if (!coop || coop.phase !== "playing") return;
     if (coop.activeIdx === coop.myIdx && !coop.midTurn) {
-      setStatus(modelReady ? "Your turn" : "Preparing game...", modelReady ? "" : "thinking");
+      setStatus(maia.modelReady ? "Your turn" : "Preparing game...", maia.modelReady ? "" : "thinking");
       return;
     }
 
@@ -306,9 +214,9 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   }
 
   function canAcceptPlayerMove() {
-    if (chess.isGameOver() || !modelReady || botThinking) return false;
+    if (chess.isGameOver() || !maia.modelReady || botThinking) return false;
     if (coop?.phase === "playing") return !coop.midTurn && coop.activeIdx === coop.myIdx;
-    return soloActive && coop?.phase === "off" && chess.turn() === "w";
+    return soloSession.active && coop?.phase === "off" && chess.turn() === "w";
   }
 
   function legalMoveForPlacement(targetPlacement) {
@@ -424,7 +332,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     return coop?.phase === "playing"
       && coop.activeIdx === coop.myIdx
       && coop.midTurn
-      && modelReady
+      && maia.modelReady
       && !chess.isGameOver();
   }
 
@@ -516,7 +424,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     },
     getBoard: () => board,
     getCoopPhase: () => coop?.phase || "off",
-    getGameStartedAt: () => gameStartedAt,
+    getGameStartedAt: () => soloSession?.gameStartedAt,
     getLastMoveSquares: () => {
       const history = chess.history({ verbose: true });
       const move = history[history.length - 1];
@@ -549,244 +457,58 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     getCurrentOpponent: currentOpponent,
   });
 
-  function clearOpponentSpeechTimers() {
-    if (opponentSpeechTimer) window.clearTimeout(opponentSpeechTimer);
-    if (opponentSpeechWordTimer) window.clearInterval(opponentSpeechWordTimer);
-    if (opponentSpeechAnimationFrame) window.cancelAnimationFrame(opponentSpeechAnimationFrame);
-    if (opponentSpeechHideTimer) window.clearTimeout(opponentSpeechHideTimer);
-    if (opponentSpeechDelayTimer) window.clearTimeout(opponentSpeechDelayTimer);
-    opponentSpeechTimer = null;
-    opponentSpeechWordTimer = null;
-    opponentSpeechAnimationFrame = null;
-    opponentSpeechHideTimer = null;
-    opponentSpeechDelayTimer = null;
-  }
+  const opponentSpeech = createOpponentSpeechController({
+    elements: {
+      speechEl: opponentSpeechEl,
+      portraitEl: opponentSpeechPortrait,
+      nameEl: opponentSpeechName,
+      textEl: opponentSpeechText,
+      closeBtn: opponentSpeechClose,
+    },
+    getCurrentOpponent: currentOpponent,
+    isCurrentSideInCheck,
+  });
+  const hideOpponentSpeech = opponentSpeech.hide;
+  const resetThinkingReactionCadence = opponentSpeech.resetThinkingCadence;
+  const showBotMoveReaction = opponentSpeech.showBotMoveReaction;
+  const showEndgameOpponentReaction = opponentSpeech.showEndgameReaction;
+  const showGameStartSpeech = opponentSpeech.showGameStartSpeech;
+  const showOpponentThinkingReaction = opponentSpeech.showThinkingReaction;
+  const showPlayerMoveReaction = opponentSpeech.showPlayerMoveReaction;
 
-  function hideOpponentSpeech() {
-    clearOpponentSpeechTimers();
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    if (opponentSpeechEl.hidden || reduceMotion) {
-      opponentSpeechEl.hidden = true;
-      opponentSpeechEl.classList.remove("visible");
-      opponentSpeechEl.classList.remove("foreground");
-      return;
-    }
-    opponentSpeechEl.classList.remove("visible");
-    opponentSpeechHideTimer = window.setTimeout(() => {
-      opponentSpeechHideTimer = null;
-      opponentSpeechEl.hidden = true;
-      opponentSpeechEl.classList.remove("foreground");
-    }, 480);
-  }
-
-  function revealOpponentSpeechText(text, wordDelay = 82) {
-    if (opponentSpeechWordTimer) window.clearInterval(opponentSpeechWordTimer);
-    opponentSpeechWordTimer = null;
-    const fullText = String(text || "");
-    const words = fullText.trim().split(/\s+/).filter(Boolean);
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    if (!words.length || reduceMotion) {
-      opponentSpeechText.textContent = fullText;
-      return 0;
-    }
-    let index = 0;
-    opponentSpeechText.textContent = "";
-    opponentSpeechWordTimer = window.setInterval(() => {
-      index += 1;
-      opponentSpeechText.textContent = words.slice(0, index).join(" ");
-      if (index >= words.length) {
-        window.clearInterval(opponentSpeechWordTimer);
-        opponentSpeechWordTimer = null;
-      }
-    }, wordDelay);
-    return words.length * wordDelay;
-  }
-
-  function showOpponentSpeech({
-    name,
-    text,
-    portrait = "/assets/bots/snib_talk.png",
-    duration = 5600,
-    foreground = false,
-    sticky = true,
-  }) {
-    clearOpponentSpeechTimers();
-    opponentSpeechPortrait.src = portrait;
-    opponentSpeechName.textContent = name;
-    opponentSpeechText.textContent = "";
-    opponentSpeechEl.classList.remove("visible");
-    opponentSpeechEl.classList.toggle("foreground", foreground);
-    opponentSpeechEl.hidden = false;
-    opponentSpeechAnimationFrame = window.requestAnimationFrame(() => {
-      opponentSpeechAnimationFrame = null;
-      opponentSpeechEl.classList.add("visible");
-    });
-    const revealDuration = revealOpponentSpeechText(text);
-    if (!sticky) {
-      opponentSpeechTimer = window.setTimeout(hideOpponentSpeech, Math.max(duration, revealDuration + 2400));
-    }
-  }
-
-  function resetThinkingReactionCadence() {
-    botTurnsSinceOpponentMessage = 0;
-    nextThinkingReactionAfterTurns = 3 + Math.floor(Math.random() * 3);
-  }
-
-  function showOpponentReaction(emotion, {
-    reaction = emotion,
-    lines = null,
-    duration = 2600,
-    chance = 1,
-    allowInterrupt = true,
-    foreground = false,
-    sticky = true,
-  } = {}) {
-    if (Math.random() > chance) return false;
-    if (!allowInterrupt && !opponentSpeechEl.hidden) return false;
-    const opponent = currentOpponent();
-    const reactionLines = lines || opponentReactionLines(opponent, reaction);
-    showOpponentSpeech({
-      name: opponent.name,
-      portrait: opponentEmotionPortrait(opponent, emotion),
-      text: randomLine(reactionLines),
-      duration,
-      foreground,
-      sticky,
-    });
-    resetThinkingReactionCadence();
-    return true;
-  }
-
-  function showOpponentThinkingReaction() {
-    botTurnsSinceOpponentMessage += 1;
-    if (botTurnsSinceOpponentMessage < nextThinkingReactionAfterTurns) return false;
-    return showOpponentReaction("thinking", {
-      duration: 2400,
-      allowInterrupt: true,
-      sticky: false,
-    });
-  }
-
-  function showEndgameOpponentReaction(playerWon, delay = 1900) {
-    if (opponentSpeechDelayTimer) window.clearTimeout(opponentSpeechDelayTimer);
-    opponentSpeechDelayTimer = window.setTimeout(() => {
-      opponentSpeechDelayTimer = null;
-      showOpponentReaction(playerWon ? "sad" : "win", {
-        reaction: playerWon ? "playerVictory" : "botVictory",
-        foreground: true,
-        sticky: true,
-      });
-    }, delay);
-  }
-
-  function showPlayerMoveReaction(move) {
-    if (isCurrentSideInCheck()) {
-      showOpponentReaction("surprised", {
-        reaction: "playerCheck",
-        duration: 2400,
-      });
-    } else if (move?.captured) {
-      showOpponentReaction(Math.random() < 0.55 ? "surprised" : "angry", {
-        reaction: "playerCapture",
-        duration: 2500,
-      });
-    }
-  }
-
-  function showBotMoveReaction(move) {
-    if (isCurrentSideInCheck()) {
-      showOpponentReaction("laughing", {
-        reaction: "botCheck",
-        duration: 2400,
-        chance: 0.7,
-      });
-    } else if (move?.captured) {
-      showOpponentReaction("laughing", {
-        reaction: "botCapture",
-        duration: 2500,
-      });
-    }
-  }
-
-  function showGameStartSpeech() {
-    const selectedOpponent = currentOpponent();
-    const lines = selectedOpponent?.introLines || [];
-    if (!selectedOpponent || !lines.length) {
-      hideOpponentSpeech();
-      return;
-    }
-    showOpponentSpeech({
-      name: selectedOpponent.name,
-      portrait: `/assets/bots/${selectedOpponent.talkPortrait || "snib_talk.png"}`,
-      text: lines[Math.floor(Math.random() * lines.length)],
-    });
-    resetThinkingReactionCadence();
-  }
-
-  function readLocalSoloProgress() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(SOLO_PROGRESS_KEY) || "{}");
-      const unlocked = Number(saved.unlocked || 1);
-      return Math.min(SOLO_OPPONENTS.length, Math.max(1, unlocked));
-    } catch {
-      return 1;
-    }
-  }
-
-  function writeLocalSoloProgress(unlocked) {
-    localStorage.setItem(SOLO_PROGRESS_KEY, JSON.stringify({
-      unlocked: Math.min(SOLO_OPPONENTS.length, Math.max(1, Number(unlocked) || 1)),
-      updatedAt: Date.now(),
-    }));
-  }
+  soloSession = createSoloSessionController({
+    storageKeys: {
+      soloGameKey: SOLO_GAME_KEY,
+      legacySoloGameKey: LEGACY_SOLO_GAME_KEY,
+      soloProgressKey: SOLO_PROGRESS_KEY,
+    },
+    opponentCount: SOLO_OPPONENTS.length,
+    getAuthInfo: () => authInfo,
+    getCoopPhase: () => coop?.phase || "off",
+    getCurrentOpponent: currentOpponent,
+    getElo,
+    getFen: () => chess.fen(),
+    getHistoryLength: () => chess.history().length,
+    getOpponentIndex: () => selectedOpponentIndex,
+    onProgressChanged: () => {
+      applyOpponentLocks();
+      syncMaiaStatus();
+    },
+  });
 
   function readSoloProgress() {
-    return Math.max(readLocalSoloProgress(), serverUnlockedOpponentCount);
-  }
-
-  function updateServerSoloProgress(unlocked) {
-    if (!authInfo.user) return;
-    const unlockedOpponentCount = Math.min(SOLO_OPPONENTS.length, Math.max(1, Number(unlocked) || 1));
-    fetch("/api/solo-progress", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unlockedOpponentCount }),
-    })
-      .then(response => response.ok ? response.json() : null)
-      .then(payload => {
-        const serverUnlocked = Number(payload?.soloProgress?.unlockedOpponentCount || 1);
-        serverUnlockedOpponentCount = Math.max(serverUnlockedOpponentCount, Math.min(SOLO_OPPONENTS.length, Math.max(1, serverUnlocked)));
-        if (serverUnlockedOpponentCount > readLocalSoloProgress())
-          writeLocalSoloProgress(serverUnlockedOpponentCount);
-        applyOpponentLocks();
-        syncMaiaStatus();
-      })
-      .catch(() => {})
-  }
-
-  function saveSoloProgress() {
-    writeLocalSoloProgress(unlockedOpponentCount);
-    updateServerSoloProgress(unlockedOpponentCount);
+    return soloSession?.readProgress() || 1;
   }
 
   function syncSoloProgressFromAuth() {
-    serverUnlockedOpponentCount = Math.min(
-      SOLO_OPPONENTS.length,
-      Math.max(1, Number(authInfo.soloProgress?.unlockedOpponentCount || 1)),
-    );
-    const localUnlocked = readLocalSoloProgress();
-    if (authInfo.user && localUnlocked > serverUnlockedOpponentCount) {
-      serverUnlockedOpponentCount = localUnlocked;
-      updateServerSoloProgress(localUnlocked);
-    } else if (serverUnlockedOpponentCount > localUnlocked) {
-      writeLocalSoloProgress(serverUnlockedOpponentCount);
-    }
+    soloSession.syncProgressFromAuth();
   }
 
   function applyOpponentLocks() {
-    unlockedOpponentCount = setupMode === "coop"
-      ? Math.max(readSoloProgress(), coop?.maxUnlockedOpponentCount || 1)
-      : readSoloProgress();
+    unlockedOpponentCount = soloSession.unlockedCountForMode({
+      setupMode,
+      coopMaxUnlocked: coop?.maxUnlockedOpponentCount || 1,
+    });
     opponentCards.forEach((card, index) => {
       const unlocked = index < unlockedOpponentCount;
       const disabled = !unlocked || opponentSelectionReadonly;
@@ -800,17 +522,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   }
 
   function unlockNextOpponent() {
-    if (soloDemoActive) return false;
-    const opponentIndex = Math.max(0, selectedOpponentIndex);
-    if (opponentIndex + 1 >= SOLO_OPPONENTS.length) return false;
-    const nextUnlockedCount = opponentIndex + 2;
-    unlockedOpponentCount = readSoloProgress();
-    if (unlockedOpponentCount >= nextUnlockedCount) return false;
-    unlockedOpponentCount = nextUnlockedCount;
-    saveSoloProgress();
-    syncMaiaStatus();
-    applyOpponentLocks();
-    return true;
+    return soloSession.unlockNextOpponent();
   }
 
   function showGame() {
@@ -837,7 +549,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     gameEl.style.display  = "none";
     hideOpponentSpeech();
     lobbyEl.style.display = "";
-    if (soloActive) clearSoloGame();
+    if (soloSession.active) clearSoloGame();
     if (authInfo.authEnabled && !authInfo.user) showAuthView();
     else showPlayView();
     if (authInfo.user && (location.search.includes("room=") || location.pathname !== "/"))
@@ -857,59 +569,23 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   }
 
   function saveSoloGame() {
-    if (!soloActive || soloDemoActive || coop.phase !== "off") return;
-    localStorage.setItem(SOLO_GAME_KEY, JSON.stringify({
-      gameId: soloGameId,
-      fen: chess.fen(),
-      strength: getElo(),
+    soloSession.saveGame({
       opponentTheme: selectedOpponentTheme,
       opponentIndex: selectedOpponentIndex,
-      startedAt: gameStartedAt,
-      savedAt: Date.now(),
-    }));
+    });
   }
 
   function clearSoloGame() {
-    soloActive = false;
-    soloGameId = null;
-    soloDemoActive = false;
-    gameStartedAt = null;
-    localStorage.removeItem(SOLO_GAME_KEY);
-    localStorage.removeItem(LEGACY_SOLO_GAME_KEY);
-  }
-
-  function createSoloGameId() {
-    return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    soloSession.clearGame();
   }
 
   function recordSoloGameResult(result) {
-    if (!soloActive || soloDemoActive || coop?.phase !== "off") return;
-    soloGameId = soloGameId || createSoloGameId();
-    if (recordedSoloGameIds.has(soloGameId)) return;
-    recordedSoloGameIds.add(soloGameId);
-    const opponent = currentOpponent();
-    fetch("/api/game-results", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify({
-        mode: "solo",
-        result,
-        gameId: soloGameId,
-        opponentStrength: getElo(),
-        opponentKey: opponent?.theme || null,
-        movesCount: chess.history().length,
-        finalFen: chess.fen(),
-      }),
-    }).catch(() => {});
+    soloSession.recordResult(result);
   }
 
   function beginSoloGame({ showIntro = true, demo = false } = {}) {
     chess.reset();
-    soloActive = true;
-    soloDemoActive = demo;
-    soloGameId = createSoloGameId();
-    gameStartedAt = Date.now();
+    soloSession.startGame({ demo });
     cpChips.innerHTML = "";
     hideOutcomeBanner();
     hideModelLoading();
@@ -945,7 +621,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
 
   function startSoloGame({ demo = false } = {}) {
     if (!demo && soloStartBtn.disabled) return;
-    if (!modelReady) {
+    if (!maia.modelReady) {
       pendingSoloStart = true;
       pendingSoloStartDemo = demo;
       showModelLoading("Preparing game...");
@@ -981,15 +657,11 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
 
   function restoreSoloGame() {
     if (location.search.includes("room=")) return;
-    const saved = localStorage.getItem(SOLO_GAME_KEY) || localStorage.getItem(LEGACY_SOLO_GAME_KEY);
-    if (!saved) return;
+    const state = soloSession.readSavedGame();
+    if (!state) return;
     try {
-      const state = JSON.parse(saved);
-      if (!state?.fen) return;
       chess.load(state.fen);
-      soloActive = true;
-      soloGameId = state.gameId || createSoloGameId();
-      gameStartedAt = Number(state.startedAt || state.savedAt || Date.now());
+      soloSession.restoreSavedSession(state);
       if (state.strength) syncStrength(String(state.strength));
       selectedOpponentIndex = Number(state.opponentIndex || 0);
       selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
@@ -1003,10 +675,10 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       if (checkGameOver()) return;
       if (chess.turn() === "w") {
         enableBoardMoveInput();
-        setStatus(modelReady ? "Your turn" : "Preparing game...");
+        setStatus(maia.modelReady ? "Your turn" : "Preparing game...");
       } else {
         disableBoardMoveInput();
-        setStatus(modelReady ? "Thinking…" : "Preparing game...", modelReady ? "thinking" : "");
+        setStatus(maia.modelReady ? "Thinking…" : "Preparing game...", maia.modelReady ? "thinking" : "");
         maybeRunSoloBotTurn();
       }
     } catch {
@@ -1018,7 +690,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     if (chess.isCheckmate()) {
       const playerWon = chess.turn() === "b";
       recordSoloGameResult(playerWon ? "victory" : "defeat");
-      const canUnlockProgress = soloActive || coop?.phase === "playing" || coop?.phase === "over";
+      const canUnlockProgress = soloSession.active || coop?.phase === "playing" || coop?.phase === "over";
       const nextOpponent = playerWon ? SOLO_OPPONENTS[selectedOpponentIndex + 1] : null;
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
       const defeatedKingSquare = findKingSquare(playerWon ? "b" : "w");
@@ -1046,13 +718,13 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   }
 
   async function botMove() {
-    if (chess.isGameOver() || !modelReady || botThinking) return;
+    if (chess.isGameOver() || !maia.modelReady || botThinking) return;
     botThinking = true;
     setStatus("Thinking…", "thinking");
     const showedThinkingReaction = showOpponentThinkingReaction();
     if (showedThinkingReaction) {
       await wait(thinkingMoveDelay());
-      if (chess.isGameOver() || !soloActive || coop?.phase !== "off" || gameEl.style.display === "none") {
+      if (chess.isGameOver() || !soloSession.active || coop?.phase !== "off" || gameEl.style.display === "none") {
         botThinking = false;
         return;
       }
@@ -1077,8 +749,8 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   }
 
   function maybeRunSoloBotTurn() {
-    if (soloActive && coop?.phase === "off" && gameEl.style.display !== "none"
-      && chess.turn() === "b" && modelReady && !botThinking && !chess.isGameOver())
+    if (soloSession.active && coop?.phase === "off" && gameEl.style.display !== "none"
+      && chess.turn() === "b" && maia.modelReady && !botThinking && !chess.isGameOver())
       setTimeout(botMove, nextBotMoveDelay());
   }
 
@@ -1086,8 +758,8 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     switch (event.type) {
       case INPUT_EVENT_TYPE.moveInputStarted:
         if (coop.phase === "playing")
-          return !coop.midTurn && coop.activeIdx === coop.myIdx && modelReady;
-        return chess.turn() === "w" && !botThinking && modelReady && !chess.isGameOver();
+          return !coop.midTurn && coop.activeIdx === coop.myIdx && maia.modelReady;
+        return chess.turn() === "w" && !botThinking && maia.modelReady && !chess.isGameOver();
 
       case INPUT_EVENT_TYPE.validateMoveInput: {
         return applyPlayerMove(event.squareFrom, event.squareTo, "q");
@@ -1175,58 +847,6 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const initialView = searchParams.get("view");
   const demoGame = searchParams.get("demo");
 
-  function setNavActive(target) {
-    navPlay.classList.toggle("active", target === "play");
-    navProfile.classList.toggle("active", target === "profile");
-    navFriends.classList.toggle("active", target === "friends");
-  }
-
-  function setAuthLayout(active) {
-    lobbyEl.classList.toggle("auth-mode", active);
-  }
-
-  const coopInviteState = {
-    loading: false,
-    error: "",
-    friends: [],
-    sent: new Set(),
-    busyKey: "",
-  };
-
-  async function apiJson(url, options = {}) {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
-        ...(options.headers || {}),
-      },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "Request failed");
-    return payload;
-  }
-
-  function setViewUrl(view) {
-    if (location.search.includes("room=")) return;
-    const target = view === "play" ? "/" : `/?view=${view}`;
-    if (`${location.pathname}${location.search}` !== target)
-      history.replaceState(null, "", target);
-  }
-
-  function setSoloGameUrl() {
-    if (location.search.includes("room=")) return;
-    const target = "/?game=solo";
-    if (`${location.pathname}${location.search}` !== target)
-      history.replaceState(null, "", target);
-  }
-
-  function setDemoGameUrl() {
-    if (location.search.includes("room=")) return;
-    const target = "/?demo=snib";
-    if (`${location.pathname}${location.search}` !== target)
-      history.replaceState(null, "", target);
-  }
-
   let social = null;
   const closeAddFriendDialog = (options) => social?.closeAddFriendDialog(options);
   const loadFriendInviteLanding = (...args) => social.loadFriendInviteLanding(...args);
@@ -1237,79 +857,78 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const showProfileView = (...args) => social.showProfileView(...args);
   const startPresenceHeartbeat = (...args) => social.startPresenceHeartbeat(...args);
 
-  function showPlayView() {
-    setAuthLayout(false);
-    setViewUrl("play");
-    setNavActive("play");
-    closeAddFriendDialog({ render: false });
-    if (!pendingSoloStart) hideModelLoading();
-    lbAuth.style.display = "none";
-    lbMain.style.display = "flex";
-    lbSolo.style.display = "none";
-    lbRoom.style.display = "none";
-    lbProfile.style.display = "none";
-    lbFriends.style.display = "none";
-    lbFriendInvite.style.display = "none";
-    renderInviteNotification();
-  }
+  const appShell = createAppShellController({
+    elements: {
+      authBar,
+      authBtn,
+      authDemoBtn,
+      authDevLoginCard,
+      authDevLoginOptions,
+      authLabel,
+      authPrimaryBtn,
+      botSelectTitle,
+      devLoginCard,
+      devLoginOptions,
+      lbAuth,
+      lbFriendInvite,
+      lbFriends,
+      lbMain,
+      lbProfile,
+      lbRoom,
+      lbSolo,
+      lobbyEl,
+      navFriends,
+      navPlay,
+      navProfile,
+      playCoopBtn: document.getElementById("play-coop-btn"),
+      playSoloBtn: document.getElementById("play-solo-btn"),
+      profileAccountCard,
+      profileAccountName,
+      profileAuthBtn,
+      soloStartBtn,
+      welcomeName,
+    },
+    searchParams,
+    getAuthInfo: () => authInfo,
+    setAuthInfo: (nextAuthInfo) => { authInfo = nextAuthInfo; },
+    onAuthLoaded: syncSoloProgressFromAuth,
+    closeAddFriendDialog,
+    renderInviteNotification,
+    getPendingSoloStart: () => pendingSoloStart,
+    hideModelLoading,
+    setSetupMode: (mode) => { setupMode = mode; },
+    setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
+    applyOpponentLocks,
+    updateOpponentSelection,
+    clearOpponentSelection,
+    getElo,
+  });
+  const {
+    currentNextPath,
+    promptSignIn,
+    setDemoGameUrl,
+    setNavActive,
+    setSoloGameUrl,
+    setViewUrl,
+    showAuthView,
+    showCoopBotSelection,
+    showPlayView,
+    showSoloSetup,
+  } = appShell;
 
-  function showBotSelection(mode = "solo", { readonly = false } = {}) {
-    setAuthLayout(false);
-    setViewUrl(mode);
-    setupMode = mode;
-    opponentSelectionReadonly = readonly;
-    closeAddFriendDialog({ render: false });
-    setNavActive("play");
-    lbSolo.classList.toggle("readonly", readonly);
-    applyOpponentLocks();
-    if (readonly) updateOpponentSelection(getElo());
-    else clearOpponentSelection();
-    botSelectTitle.textContent = readonly ? "Opponent selected" : "Choose your opponent";
-    soloStartBtn.querySelector("span").textContent = readonly
-      ? "Waiting for host"
-      : mode === "coop" ? "Start" : "Continue";
-    if (readonly) soloStartBtn.disabled = true;
-    lbAuth.style.display = "none";
-    lbMain.style.display = "none";
-    lbSolo.style.display = "flex";
-    lbRoom.style.display = "none";
-    lbProfile.style.display = "none";
-    lbFriends.style.display = "none";
-    lbFriendInvite.style.display = "none";
-    renderInviteNotification();
-  }
-
-  function setAuthViewUrl() {
-    if (location.search.includes("room=")) return;
-    const next = searchParams.get("next");
-    const target = next ? `/?auth=login&next=${encodeURIComponent(next)}` : "/?auth=login";
-    if (`${location.pathname}${location.search}` !== target)
-      history.replaceState(null, "", target);
-  }
-
-  function showAuthView() {
-    setAuthLayout(true);
-    setAuthViewUrl();
-    setNavActive("");
-    closeAddFriendDialog({ render: false });
-    if (!pendingSoloStart) hideModelLoading();
-    lbAuth.style.display = "flex";
-    lbMain.style.display = "none";
-    lbSolo.style.display = "none";
-    lbRoom.style.display = "none";
-    lbProfile.style.display = "none";
-    lbFriends.style.display = "none";
-    lbFriendInvite.style.display = "none";
-    renderInviteNotification();
-  }
-
-  function showSoloSetup() {
-    showBotSelection("solo");
-  }
-
-  function showCoopBotSelection({ readonly = false } = {}) {
-    showBotSelection("coop", { readonly });
-  }
+  const coopInvites = createCoopInviteController({
+    apiJson,
+    elements: {
+      inviteMessageEl: cpInviteMessage,
+      inviteListEl: cpInviteList,
+    },
+    getAuthInfo: () => authInfo,
+    getRoomId: () => coop?.roomId,
+    getJoinedUserIds: () => new Set((coop?.players || []).map(player => player.userId).filter(Boolean)),
+  });
+  const loadCoopInviteFriends = coopInvites.loadFriends;
+  const renderCoopInviteFriends = coopInvites.renderInviteFriends;
+  const sendCoopInvite = coopInvites.sendInvite;
 
   const urlRoom = new URLSearchParams(location.search).get("room");
   const urlGame = new URLSearchParams(location.search).get("game");
@@ -1349,86 +968,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       history.replaceState(null, "", target);
   }
 
-  const currentNextPath = () => location.pathname + location.search;
-  function nextAfterAuth() {
-    const next = searchParams.get("next");
-    if (next?.startsWith("/")) return next;
-    return searchParams.get("auth") === "login" ? "/" : currentNextPath();
-  }
-  let authInfo = {
-    authEnabled: false,
-    user: null,
-    soloProgress: { unlockedOpponentCount: 1 },
-    loginUrl: "/auth/google",
-    logoutUrl: "/auth/logout",
-  };
-
-  function renderDevLogin() {
-    const users = authInfo.devLoginUsers || [];
-    const canShow = authInfo.localAuthEnabled && !authInfo.user && users.length > 0;
-    const loginButtons = canShow
-      ? users.map(user => `
-        <button class="sm-btn primary-mini" type="button" data-dev-login-url="${escapeHtml(user.loginUrl)}">
-          ${escapeHtml(user.name)}
-        </button>
-      `).join("")
-      : "";
-    devLoginCard.style.display = canShow ? "flex" : "none";
-    authDevLoginCard.style.display = canShow ? "flex" : "none";
-    devLoginOptions.innerHTML = loginButtons;
-    authDevLoginOptions.innerHTML = loginButtons;
-  }
-
-  async function loadAuth() {
-    try {
-      authInfo = await fetch(`/api/me?next=${encodeURIComponent(nextAfterAuth())}`).then(r => r.json());
-    } catch {
-      authInfo = {
-        authEnabled: false,
-        user: null,
-        soloProgress: { unlockedOpponentCount: 1 },
-        loginUrl: "/auth/google",
-        logoutUrl: "/auth/logout",
-      };
-    }
-    syncSoloProgressFromAuth();
-
-    if (!authInfo.authEnabled) {
-      authBar.style.display = "none";
-      profileAccountCard.style.display = "none";
-      authDevLoginCard.style.display = "none";
-      renderDevLogin();
-      return;
-    }
-
-    authBar.style.display = "none";
-    profileAccountCard.style.display = "flex";
-    renderDevLogin();
-    if (authInfo.user) {
-      const accountName = authInfo.user.name || authInfo.user.email || "Signed in";
-      authLabel.textContent = accountName;
-      profileAccountName.textContent = accountName;
-      welcomeName.textContent = authInfo.user.username || authInfo.user.name || "Wanderer";
-      authBtn.textContent = "Sign out";
-      authBtn.onclick = () => { location.href = authInfo.logoutUrl; };
-      profileAuthBtn.textContent = "Sign out";
-      profileAuthBtn.onclick = () => { location.href = authInfo.logoutUrl; };
-    } else {
-      authLabel.textContent = "Sign in to save games";
-      authBtn.textContent = "Sign in";
-      authBtn.onclick = () => { location.href = authInfo.loginUrl; };
-      profileAccountName.textContent = "Not signed in";
-      authPrimaryBtn.onclick = () => { location.href = authInfo.loginUrl; };
-      profileAuthBtn.textContent = "Sign in";
-      profileAuthBtn.onclick = () => { location.href = authInfo.loginUrl; };
-    }
-  }
-
-  await loadAuth();
-
-  function promptSignIn() {
-    showAuthView();
-  }
+  await appShell.loadAuth();
 
   social = createSocialController({
     apiJson,
@@ -1462,7 +1002,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       usernameSaveBtn,
     },
     getAuthInfo: () => authInfo,
-    setAuthUser: (user) => { authInfo.user = user; },
+    setAuthUser: appShell.setAuthUser,
     getCoopPhase: () => coop?.phase || "off",
     hideModelLoading,
     incomingFriendUsername,
@@ -1472,28 +1012,10 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   });
   social.bindEvents();
 
-  navPlay.onclick = () => {
-    if (authInfo.authEnabled && !authInfo.user) showAuthView();
-    else showPlayView();
-  };
-  devLoginOptions.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-dev-login-url]");
-    if (!button) return;
-    location.href = button.dataset.devLoginUrl;
+  appShell.bindEvents({
+    onStartDemo: () => startDemoGame(),
+    onConnectCoop: () => connectCoop("create"),
   });
-  authDevLoginOptions.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-dev-login-url]");
-    if (!button) return;
-    location.href = button.dataset.devLoginUrl;
-  });
-  authDemoBtn.onclick = () => startDemoGame();
-  document.getElementById("play-solo-btn").onclick = () => {
-    if (authInfo.authEnabled && !authInfo.user) {
-      promptSignIn();
-      return;
-    }
-    showSoloSetup();
-  };
   opponentCards.forEach(card => {
     card.onclick = () => {
       if (opponentSelectionReadonly || card.disabled || card.classList.contains("locked")) return;
@@ -1528,14 +1050,6 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     showPlayView();
   };
 
-  document.getElementById("play-coop-btn").onclick = () => {
-    if (authInfo.authEnabled && !authInfo.user) {
-      promptSignIn();
-      return;
-    }
-    connectCoop("create");
-  };
-
   cpStartBtn.onclick = () => enterCoopBotSelection();
   cpLeaveBtn.onclick = () => leaveCoop();
 
@@ -1558,7 +1072,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   };
 
   chessnutBoard.bind();
-  opponentSpeechClose.onclick = () => hideOpponentSpeech();
+  opponentSpeech.bindCloseButton();
 
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
@@ -1606,89 +1120,9 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     return players.length > 0 && players.every(player => player.maiaReady);
   }
 
-  function renderCoopInviteFriends() {
-    cpInviteMessage.textContent = coopInviteState.error;
-    cpInviteMessage.className = `friend-message${coopInviteState.error ? " visible" : ""}`;
-
-    if (!authInfo.user) {
-      cpInviteList.innerHTML = `
-        <div class="empty-state friend-empty">
-          <div>
-            <strong>Sign in to invite friends</strong>
-            <span>Co-op rooms are connected to your account.</span>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    if (coopInviteState.loading) {
-      cpInviteList.innerHTML = `<div class="empty-state friend-empty">Loading friends...</div>`;
-      return;
-    }
-
-    const joinedUserIds = new Set((coop.players || []).map(player => player.userId).filter(Boolean));
-    const friends = coopInviteState.friends.filter(friend => !joinedUserIds.has(friend.id));
-    cpInviteList.innerHTML = friends.map(friend => {
-      const sent = coopInviteState.sent.has(friend.id);
-      const busy = coopInviteState.busyKey === friend.id;
-      return friendRow(
-        friend,
-        sent ? "Invite sent" : friendMeta(friend),
-        `<button class="sm-btn ${sent ? "" : "primary-mini"}" type="button" data-coop-invite-user-id="${escapeHtml(friend.id)}" ${sent || busy ? "disabled" : ""}>${busy ? "Sending..." : sent ? "Sent" : "Invite"}</button>`
-      );
-    }).join("") || `
-      <div class="empty-state friend-empty">
-        <div>
-          <strong>No friends to invite</strong>
-          <span>Add friends first, then invite them here.</span>
-        </div>
-      </div>
-    `;
-  }
-
-  async function loadCoopInviteFriends() {
-    if (!authInfo.user || !coop.roomId) {
-      renderCoopInviteFriends();
-      return;
-    }
-    coopInviteState.loading = true;
-    coopInviteState.error = "";
-    renderCoopInviteFriends();
-    try {
-      const payload = await apiJson("/api/friends");
-      coopInviteState.friends = payload.friends || [];
-    } catch (err) {
-      coopInviteState.error = err.message;
-      coopInviteState.friends = [];
-    } finally {
-      coopInviteState.loading = false;
-      renderCoopInviteFriends();
-    }
-  }
-
-  async function sendCoopInvite(userId) {
-    if (!coop.roomId || !userId) return;
-    coopInviteState.busyKey = userId;
-    coopInviteState.error = "";
-    renderCoopInviteFriends();
-    try {
-      await apiJson("/api/coop/invites", {
-        method: "POST",
-        body: JSON.stringify({ roomId: coop.roomId, userId }),
-      });
-      coopInviteState.sent.add(userId);
-    } catch (err) {
-      coopInviteState.error = err.message;
-    } finally {
-      coopInviteState.busyKey = "";
-      renderCoopInviteFriends();
-    }
-  }
-
   function startCoopWithSelectedBot() {
     if (opponentSelectionReadonly || soloStartBtn.disabled || coop.phase !== "lobby" || coop.myIdx !== 0) return;
-    if (!modelReady) {
+    if (!maia.modelReady) {
       showModelLoading("Preparing game...");
       requestModelDownload();
       return;
@@ -1764,13 +1198,13 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     ws.onopen = () => ws.send(JSON.stringify(
       action === "create"
         ? { type: "create", name,
-            strength: getElo(), maiaReady: modelReady, unlockedOpponentCount: readSoloProgress() }
+            strength: getElo(), maiaReady: maia.modelReady, unlockedOpponentCount: readSoloProgress() }
         : {
             type: "join",
             roomId,
             name,
             playerId: opts.playerId || coop.playerId || storedPlayerId(roomId),
-            maiaReady: modelReady,
+            maiaReady: maia.modelReady,
             unlockedOpponentCount: readSoloProgress(),
           }
     ));
@@ -1841,7 +1275,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;
       coop.reconnectAttempts = 0;
-      coopInviteState.sent.clear();
+      coopInvites.clearSent();
       rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
       loadCoopInviteFriends();
@@ -1895,13 +1329,13 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
           lbProfile.style.display = "none";
           lbFriends.style.display = "none";
           lbFriendInvite.style.display = "none";
-          if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
+          if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
           renderRoomLobby(msg.players, msg.myIdx);
           return;
         }
         if (msg.selectingOpponent && lbSolo.style.display === "none") {
           showCoopBotSelection({ readonly: msg.myIdx !== 0 });
-          if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
+          if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
           return;
         }
         if (setupMode === "coop" && lbSolo.style.display !== "none") {
@@ -1912,7 +1346,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
             updateOpponentSelection(String(msg.strength || getElo()));
             soloStartBtn.disabled = true;
           }
-          if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
+          if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
           return;
         }
         lbMain.style.display = "none";
@@ -1923,7 +1357,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
         lbProfile.style.display = "none";
         lbFriends.style.display = "none";
         lbFriendInvite.style.display = "none";
-        if (!coopInviteState.friends.length && !coopInviteState.loading) loadCoopInviteFriends();
+        if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
         renderRoomLobby(msg.players, msg.myIdx);
         return;
       }
@@ -2083,7 +1517,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       outcomeScreen.dispose();
       clearBotSplashAutoTimer();
       window.removeEventListener("orientationchange", requestPortraitOrientation);
-      clearOpponentSpeechTimers();
+      opponentSpeech.clearTimers();
       social?.stopPresenceHeartbeat();
       chessnutBoard.disconnect();
     };
