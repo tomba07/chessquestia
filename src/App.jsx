@@ -16,6 +16,7 @@ import {
   createAppShellController,
   defaultAuthInfo,
 } from "./appShellController.js";
+import { createBoardController } from "./boardController.js";
 import {
   BotSplash,
   FriendAddDialog,
@@ -37,8 +38,6 @@ export default function App() {
     let invitePollTimer = null;
     (async () => {
       if (disposed) return;
-const LAST_MOVE = { class: "last-move", slice: "markerSquare" };
-const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
   const CDN       = "/cm-chessboard/assets/";
 
@@ -199,121 +198,36 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     setStatus(coop.midTurn ? `${activeName}: bot thinking...` : `${activeName}'s turn`, coop.midTurn ? "thinking" : "");
   }
 
-  const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-  function updateGameScore() {
-    const score = chess.board().flat().reduce((total, piece) => {
-      if (!piece) return total;
-      const value = pieceValues[piece.type] || 0;
-      return total + (piece.color === "w" ? value : -value);
-    }, 0);
-    gameScoreEl.textContent = score === 0 ? "+0" : score > 0 ? `+${score}` : String(score);
-    gameScoreEl.className = score > 0 ? "ahead" : score < 0 ? "behind" : "";
-  }
-
-  function boardPlacement(fen = chess.fen()) {
-    return fen.split(" ")[0];
-  }
-
   function canAcceptPlayerMove() {
     if (chess.isGameOver() || !maia.modelReady || botThinking) return false;
     if (coop?.phase === "playing") return !coop.midTurn && coop.activeIdx === coop.myIdx;
     return soloSession.active && coop?.phase === "off" && chess.turn() === "w";
   }
 
-  function legalMoveForPlacement(targetPlacement) {
-    for (const move of chess.moves({ verbose: true })) {
-      const probe = new Chess(chess.fen());
-      const moveInput = {
-        from: move.from,
-        to: move.to,
-      };
-      if (move.promotion) moveInput.promotion = move.promotion;
-      probe.move(moveInput);
-      if (boardPlacement(probe.fen()) === targetPlacement) return move;
-    }
-    return null;
-  }
-
-  function markLastMove(from, to) {
-    board.removeMarkers(LAST_MOVE);
-    board.addMarker(LAST_MOVE, from);
-    board.addMarker(LAST_MOVE, to);
-    updateCheckMarker();
-    chessnutBoard.updateDiffLeds();
-  }
-
-  function findKingSquare(color) {
-    const position = chess.board();
-    for (let rankIndex = 0; rankIndex < position.length; rankIndex += 1) {
-      for (let fileIndex = 0; fileIndex < position[rankIndex].length; fileIndex += 1) {
-        const piece = position[rankIndex][fileIndex];
-        if (piece?.type === "k" && piece.color === color) {
-          return `${String.fromCharCode(97 + fileIndex)}${8 - rankIndex}`;
-        }
-      }
-    }
-    return null;
-  }
-
-  function isCurrentSideInCheck() {
-    if (typeof chess.isCheck === "function") return chess.isCheck();
-    if (typeof chess.inCheck === "function") return chess.inCheck();
-    return false;
-  }
-
-  function updateCheckMarker() {
-    board.removeMarkers(CHECK_MARKER);
-    if (!isCurrentSideInCheck()) return;
-    const kingSquare = findKingSquare(chess.turn());
-    if (kingSquare) board.addMarker(CHECK_MARKER, kingSquare);
-  }
-
-  function syncBoardAfterMove(move) {
-    board.setPosition(chess.fen(), true);
-    markLastMove(move.from, move.to);
-    updateGameScore();
-  }
-
-  function enableBoardMoveInput() {
-    board.disableMoveInput();
-    board.enableMoveInput(inputHandler);
-    gameBoardFrameEl.classList.remove("not-your-turn");
-  }
-
-  function disableBoardMoveInput() {
-    board?.disableMoveInput();
-    gameBoardFrameEl.classList.add("not-your-turn");
-  }
-
-  function moveInputFromUci(uci) {
-    return {
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      promotion: uci[4] || "q",
-    };
-  }
-
-  function commitBotMove(uci) {
-    const move = chess.move(moveInputFromUci(uci));
-    if (!move) return null;
-    syncBoardAfterMove(move);
-    return move;
-  }
+  const boardController = createBoardController({
+    elements: {
+      scoreEl: gameScoreEl,
+      frameEl: gameBoardFrameEl,
+    },
+    getBoard: () => board,
+    getChess: () => chess,
+    inputHandler,
+    onDiffLeds: () => chessnutBoard.updateDiffLeds(),
+  });
+  const applyRemoteFen = boardController.applyRemoteFen;
+  const clearCheckMarker = boardController.clearCheckMarker;
+  const clearLastMove = boardController.clearLastMove;
+  const commitBotMove = boardController.commitBotMove;
+  const disableBoardMoveInput = boardController.disableMoveInput;
+  const enableBoardMoveInput = boardController.enableMoveInput;
+  const findKingSquare = boardController.findKingSquare;
+  const isCurrentSideInCheck = boardController.isCurrentSideInCheck;
+  const syncBoardAfterMove = boardController.syncAfterMove;
+  const updateCheckMarker = boardController.updateCheckMarker;
+  const updateGameScore = boardController.updateScore;
 
   function publishCoopMove() {
     coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
-  }
-
-  function applyRemoteFen(fen) {
-    const incomingMove = legalMoveForPlacement(boardPlacement(fen));
-    chess.load(fen);
-    board.setPosition(fen, true);
-    if (incomingMove) markLastMove(incomingMove.from, incomingMove.to);
-    else {
-      updateCheckMarker();
-      chessnutBoard.updateDiffLeds();
-    }
-    updateGameScore();
   }
 
   function nextBotMoveDelay() {
@@ -594,8 +508,8 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     else setSoloGameUrl();
     showGame();
     board.setPosition(chess.fen());
-    board.removeMarkers(LAST_MOVE);
-    board.removeMarkers(CHECK_MARKER);
+    clearLastMove();
+    clearCheckMarker();
     chessnutBoard.resetPlacement();
     updateGameScore();
     enableBoardMoveInput();
@@ -669,7 +583,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       cpChips.innerHTML = "";
       showGame();
       board.setPosition(chess.fen(), false);
-      board.removeMarkers(LAST_MOVE);
+      clearLastMove();
       updateCheckMarker();
       updateGameScore();
       botThinking = false;
@@ -1299,7 +1213,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
           cpChips.innerHTML = "";
           showGame();
           board.setPosition(msg.fen, false);
-          board.removeMarkers(LAST_MOVE);
+          clearLastMove();
           updateCheckMarker();
           chessnutBoard.updateDiffLeds();
           updateGameScore();
