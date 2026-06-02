@@ -25,6 +25,7 @@ import {
 import { createBotSplash } from "./botSplash.js";
 import { createChessnutController } from "./chessnutController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
+import { createCoopRoomController } from "./coopRoomController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSpeechController } from "./opponentSpeechController.js";
 import { createOutcomeScreen } from "./outcomeScreen.js";
@@ -938,35 +939,36 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
   const legacyNameKey = (roomId) => legacyStorageKey(`room.${roomId}.name`);
   const playerKey = (roomId) => storageKey(`room.${roomId}.playerId`);
 
-  function storedPlayerName(roomId) {
-    return roomId ? (localStorage.getItem(nameKey(roomId)) || localStorage.getItem(legacyNameKey(roomId)) || "") : "";
-  }
-
-  function storedPlayerId(roomId) {
-    return roomId ? (localStorage.getItem(playerKey(roomId)) || "") : "";
-  }
-
-  function rememberRoom(roomId, name, playerId) {
-    if (!roomId) return;
-    localStorage.setItem(LAST_ROOM_KEY, roomId);
-    localStorage.removeItem(LEGACY_LAST_ROOM_KEY);
-    if (name) localStorage.setItem(nameKey(roomId), name);
-    if (playerId) localStorage.setItem(playerKey(roomId), playerId);
-  }
-
-  function coopPlayerName(roomId) {
-    return authInfo.user?.username
-      || authInfo.user?.name
-      || authInfo.user?.email
-      || storedPlayerName(roomId)
-      || "Player";
-  }
-
-  function setRoomUrl(roomId) {
-    const target = `/?room=${roomId}`;
-    if (`${location.pathname}${location.search}` !== target)
-      history.replaceState(null, "", target);
-  }
+  const coopRoom = createCoopRoomController({
+    elements: {
+      cpPlayerList,
+      cpRoomMeta,
+      cpStartBtn,
+      lbFriendInvite,
+      lbFriends,
+      lbMain,
+      lbProfile,
+      lbRoom,
+      lbSolo,
+    },
+    storage: {
+      lastRoomKey: LAST_ROOM_KEY,
+      legacyLastRoomKey: LEGACY_LAST_ROOM_KEY,
+      nameKey,
+      legacyNameKey,
+      playerKey,
+    },
+    getAuthInfo: () => authInfo,
+    getCoop: () => coop,
+    hideModelLoading,
+    showModelLoading,
+    renderCoopInviteFriends,
+  });
+  const coopPlayerName = coopRoom.playerName;
+  const rememberRoom = coopRoom.rememberRoom;
+  const renderRoomLobby = coopRoom.renderLobby;
+  const setRoomUrl = coopRoom.setRoomUrl;
+  const storedPlayerId = coopRoom.storedPlayerId;
 
   await appShell.loadAuth();
 
@@ -1038,12 +1040,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       opponentSelectionReadonly = false;
       lbSolo.classList.remove("readonly");
       if (coop.myIdx === 0) coop.ws?.send(JSON.stringify({ type: "selecting-opponent", selecting: false }));
-      lbMain.style.display = "none";
-      lbSolo.style.display = "none";
-      lbRoom.style.display = "flex";
-      lbProfile.style.display = "none";
-      lbFriends.style.display = "none";
-      lbFriendInvite.style.display = "none";
+      coopRoom.showRoomPanel();
       renderRoomLobby(coop.players || [], coop.myIdx);
       return;
     }
@@ -1116,10 +1113,6 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     reconnectAttempts: 0,
   };
 
-  function allPlayersReady(players) {
-    return players.length > 0 && players.every(player => player.maiaReady);
-  }
-
   function startCoopWithSelectedBot() {
     if (opponentSelectionReadonly || soloStartBtn.disabled || coop.phase !== "lobby" || coop.myIdx !== 0) return;
     if (!maia.modelReady) {
@@ -1136,49 +1129,6 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     const isHost = coop.myIdx === 0;
     if (isHost) coop.ws?.send(JSON.stringify({ type: "selecting-opponent", selecting: true }));
     showCoopBotSelection({ readonly: !isHost });
-  }
-
-  function renderRoomLobby(players, myIdx) {
-    cpPlayerList.innerHTML = "";
-    players.forEach((player, i) => {
-      const row = document.createElement("div");
-      row.className = "player-row";
-
-      const name = document.createElement("div");
-      name.className = "player-name";
-      const unlocked = Number(player.unlockedCount || 1);
-      name.textContent = `${player.name}${i === myIdx ? " (you)" : ""} · ${unlocked} bot${unlocked === 1 ? "" : "s"}`;
-
-      const status = document.createElement("div");
-      const statusText = player.connected
-        ? (player.maiaReady ? "Ready" : "Preparing")
-        : "Offline";
-      status.className = "player-status"
-        + (statusText === "Ready" ? " ready" : "")
-        + (statusText === "Preparing" ? " waiting" : "");
-      status.textContent = statusText;
-
-      row.append(name, status);
-      cpPlayerList.appendChild(row);
-    });
-
-    const host = myIdx === 0;
-    const ready = allPlayersReady(players);
-    const connectedPlayers = players.filter(player => player.connected);
-    const hasCoopPartner = connectedPlayers.length >= 2;
-    const canOpenSelection = ready && hasCoopPartner && (host || coop.selectingOpponent);
-    cpRoomMeta.textContent = `${players.length} player${players.length === 1 ? "" : "s"}`;
-    cpStartBtn.style.display = "inline";
-    cpStartBtn.disabled = !canOpenSelection;
-    cpStartBtn.textContent = host
-      ? ready && hasCoopPartner ? "Continue" : "Waiting..."
-      : coop.selectingOpponent ? "View opponent" : "Waiting for host";
-    cpStartBtn.title = !hasCoopPartner
-      ? "Invite at least one friend before choosing an opponent."
-      : ready ? host || coop.selectingOpponent ? "" : "The host chooses the opponent." : "The game is loading on all players' devices.";
-    if (ready || !host) hideModelLoading();
-    else showModelLoading("Preparing game...");
-    renderCoopInviteFriends();
   }
 
   function clearReconnectTimer() {
@@ -1231,14 +1181,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
     }
 
     if (coop.phase === "lobby") {
-      lbMain.style.display = "none";
-      lbSolo.style.display = "none";
-      lbRoom.style.display = "flex";
-      lbProfile.style.display = "none";
-      lbFriends.style.display = "none";
-      lbFriendInvite.style.display = "none";
-      cpRoomMeta.textContent = "Reconnecting…";
-      cpStartBtn.disabled = true;
+      coopRoom.showReconnectingLobby();
     } else if (coop.phase === "playing") {
       disableBoardMoveInput();
       setStatus("Reconnecting…", "thinking");
@@ -1279,12 +1222,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
       rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
       loadCoopInviteFriends();
-      lbMain.style.display = "none";
-      lbSolo.style.display = "none";
-      lbRoom.style.display = "flex";
-      lbProfile.style.display = "none";
-      lbFriends.style.display = "none";
-      lbFriendInvite.style.display = "none";
+      coopRoom.showRoomPanel();
       coop.phase = "lobby";
       return;
     }
@@ -1323,12 +1261,7 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
         if (!msg.selectingOpponent && setupMode === "coop" && lbSolo.style.display !== "none") {
           opponentSelectionReadonly = false;
           lbSolo.classList.remove("readonly");
-          lbMain.style.display = "none";
-          lbSolo.style.display = "none";
-          lbRoom.style.display = "flex";
-          lbProfile.style.display = "none";
-          lbFriends.style.display = "none";
-          lbFriendInvite.style.display = "none";
+          coopRoom.showRoomPanel();
           if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
           renderRoomLobby(msg.players, msg.myIdx);
           return;
@@ -1349,14 +1282,9 @@ const CHECK_MARKER = { class: "king-check", slice: "markerSquare" };
           if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
           return;
         }
-        lbMain.style.display = "none";
-        lbSolo.style.display = "none";
-        lbRoom.style.display = "flex";
+        coopRoom.showRoomPanel();
         opponentSelectionReadonly = false;
         lbSolo.classList.remove("readonly");
-        lbProfile.style.display = "none";
-        lbFriends.style.display = "none";
-        lbFriendInvite.style.display = "none";
         if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
         renderRoomLobby(msg.players, msg.myIdx);
         return;
