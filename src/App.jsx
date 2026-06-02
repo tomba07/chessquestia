@@ -24,6 +24,7 @@ import {
   Lobby,
 } from "./components/AppScreens.jsx";
 import { createBotSplash } from "./botSplash.js";
+import { createBotTurnController } from "./botTurnController.js";
 import { createChessnutController } from "./chessnutController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
 import { createCoopRoomController } from "./coopRoomController.js";
@@ -170,7 +171,6 @@ export default function App() {
   const BOARD_DEVICE_VISIBLE_KEY = storageKey("board-device-visible");
   let board       = null;
   let botThinking = false;
-  let coopBotTimer = null;
   let soloSession = null;
   let setupMode = "solo";
   let opponentSelectionReadonly = false;
@@ -230,19 +230,6 @@ export default function App() {
     coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
   }
 
-  function nextBotMoveDelay() {
-    const { min, max } = BOT_MOVE_DELAY_MS;
-    return Math.round(min + Math.random() * (max - min));
-  }
-
-  function thinkingMoveDelay() {
-    return Math.round(1300 + Math.random() * 1100);
-  }
-
-  function wait(ms) {
-    return new Promise(resolve => window.setTimeout(resolve, ms));
-  }
-
   function isMyCoopBotTurn() {
     return coop?.phase === "playing"
       && coop.activeIdx === coop.myIdx
@@ -251,19 +238,17 @@ export default function App() {
       && !chess.isGameOver();
   }
 
-  function clearCoopBotTimer() {
-    if (!coopBotTimer) return;
-    clearTimeout(coopBotTimer);
-    coopBotTimer = null;
-  }
-
-  function scheduleCoopBotMove() {
-    if (!isMyCoopBotTurn() || botThinking || coopBotTimer) return;
-    coopBotTimer = setTimeout(() => {
-      coopBotTimer = null;
-      coopBotMove();
-    }, nextBotMoveDelay());
-  }
+  const botTurns = createBotTurnController({
+    botMoveDelayMs: BOT_MOVE_DELAY_MS,
+    isBotThinking: () => botThinking,
+    isMyCoopBotTurn,
+    onCoopBotMove: () => coopBotMove(),
+  });
+  const clearCoopBotTimer = botTurns.clearCoopBotTimer;
+  const nextBotMoveDelay = botTurns.nextBotMoveDelay;
+  const scheduleCoopBotMove = botTurns.scheduleCoopBotMove;
+  const thinkingMoveDelay = botTurns.thinkingMoveDelay;
+  const wait = botTurns.wait;
 
   function applyPlayerMove(from, to, promotion = "q") {
     if (!canAcceptPlayerMove()) return false;
@@ -1356,6 +1341,7 @@ export default function App() {
     return () => {
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
+      botTurns.dispose();
       outcomeScreen.dispose();
       clearBotSplashAutoTimer();
       window.removeEventListener("orientationchange", requestPortraitOrientation);
