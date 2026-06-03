@@ -26,6 +26,7 @@ import {
 import { createBotSplash } from "./botSplash.js";
 import { createBotTurnController } from "./botTurnController.js";
 import { createChessnutController } from "./chessnutController.js";
+import { createCoopGameViewController } from "./coopGameViewController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
 import { createCoopRoomController } from "./coopRoomController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
@@ -846,6 +847,44 @@ export default function App() {
   const setRoomUrl = coopRoom.setRoomUrl;
   const storedPlayerId = coopRoom.storedPlayerId;
 
+  const coopGameView = createCoopGameViewController({
+    elements: {
+      cpChips,
+      lbSolo,
+      soloStartBtn,
+    },
+    getBoard: () => board,
+    getChess: () => chess,
+    getCoop: () => coop,
+    getCurrentOpponent: currentOpponent,
+    getElo,
+    getSetupMode: () => setupMode,
+    applyOpponentLocks,
+    applyRemoteFen,
+    checkGameOver,
+    clearLastMove,
+    disableBoardMoveInput,
+    enableBoardMoveInput,
+    hideOutcomeBanner,
+    loadCoopInviteFriends,
+    maybeAutoStartCoopSplash,
+    maybeRunCoopBotTurn,
+    renderRoomLobby,
+    setCoopTurnStatus,
+    setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
+    shouldAutoStartCoopSplash,
+    shouldLoadInviteFriends: () => coopInvites.shouldLoadFriends(),
+    showBotSplash,
+    showCoopBotSelection,
+    showGame,
+    showGameStartSpeech,
+    showRoomPanel: coopRoom.showRoomPanel,
+    updateCheckMarker,
+    updateGameScore,
+    updateOpponentSelection,
+    updatePlacementDiffs: () => chessnutBoard.updateDiffLeds(),
+  });
+
   await appShell.loadAuth();
 
   social = createSocialController({
@@ -1122,97 +1161,12 @@ export default function App() {
       }
 
       if (msg.phase === "lobby") {
-        coop.phase = "lobby";
-        if (!msg.selectingOpponent && setupMode === "coop" && lbSolo.style.display !== "none") {
-          opponentSelectionReadonly = false;
-          lbSolo.classList.remove("readonly");
-          coopRoom.showRoomPanel();
-          if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
-          renderRoomLobby(msg.players, msg.myIdx);
-          return;
-        }
-        if (msg.selectingOpponent && lbSolo.style.display === "none") {
-          showCoopBotSelection({ readonly: msg.myIdx !== 0 });
-          if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
-          return;
-        }
-        if (setupMode === "coop" && lbSolo.style.display !== "none") {
-          opponentSelectionReadonly = msg.myIdx !== 0;
-          lbSolo.classList.toggle("readonly", opponentSelectionReadonly);
-          applyOpponentLocks();
-          if (opponentSelectionReadonly) {
-            updateOpponentSelection(String(msg.strength || getElo()));
-            soloStartBtn.disabled = true;
-          }
-          if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
-          return;
-        }
-        coopRoom.showRoomPanel();
-        opponentSelectionReadonly = false;
-        lbSolo.classList.remove("readonly");
-        if (coopInvites.shouldLoadFriends()) loadCoopInviteFriends();
-        renderRoomLobby(msg.players, msg.myIdx);
+        coopGameView.applyLobbyState(msg);
         return;
       }
 
       if (msg.phase === "playing" || msg.phase === "over") {
-        const wasInActiveGame = coop.phase === "playing" || coop.phase === "over";
-        coop.phase = msg.phase;
-
-        if (!wasInActiveGame) {
-          chess.load(msg.fen);
-          cpChips.innerHTML = "";
-          showGame();
-          board.setPosition(msg.fen, false);
-          clearLastMove();
-          updateCheckMarker();
-          chessnutBoard.updateDiffLeds();
-          updateGameScore();
-          enableBoardMoveInput();
-          hideOutcomeBanner();
-          if (msg.phase === "playing") {
-            showBotSplash(currentOpponent(), {
-              mode: "coop",
-              autoStart: shouldAutoStartCoopSplash(msg),
-            }).then(() => {
-              if (coop?.roomId === msg.roomId && coop?.phase === "playing") showGameStartSpeech();
-            });
-          }
-        }
-
-        // Render chips
-        cpChips.innerHTML = "";
-        msg.players.forEach((p, i) => {
-          const chip = document.createElement("span");
-          chip.className = "chip"
-            + (i === msg.activeIdx && !msg.midTurn ? " active" : "")
-            + (i === msg.myIdx ? " me" : "");
-          chip.textContent = p.name;
-          cpChips.appendChild(chip);
-        });
-        if (msg.midTurn) {
-          const bot = document.createElement("span");
-          bot.className = "chip active";
-          bot.textContent = "Maia";
-          cpChips.appendChild(bot);
-        }
-
-        if (msg.fen !== chess.fen()) applyRemoteFen(msg.fen);
-
-        if (msg.phase === "over") {
-          checkGameOver();
-          disableBoardMoveInput();
-        } else if (msg.activeIdx === msg.myIdx && !msg.midTurn) {
-          hideOutcomeBanner();
-          enableBoardMoveInput();
-          setCoopTurnStatus();
-        } else {
-          hideOutcomeBanner();
-          disableBoardMoveInput();
-          setCoopTurnStatus();
-        }
-        maybeAutoStartCoopSplash(msg);
-        maybeRunCoopBotTurn();
+        coopGameView.applyActiveState(msg);
       }
     }
   }
