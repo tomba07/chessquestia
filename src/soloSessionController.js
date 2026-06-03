@@ -187,6 +187,7 @@ export function createSoloSessionController({
     recordResult,
     restoreSavedSession,
     saveGame,
+    startGame,
     syncProgressFromAuth,
     unlockNextOpponent,
     unlockedCountForMode,
