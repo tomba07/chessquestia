@@ -3148,7 +3148,7 @@
         top: calc(12px + env(safe-area-inset-top));
       }
       #game-score {
-        font-size: 30px;
+        font-size: 24px;
       }
       #game-status {
         top: 65%;
@@ -3283,7 +3283,7 @@
         font-size: clamp(18px, 4.8vw, 24px);
       }
       .game-board-frame {
-        margin-top: 94px;
+        margin-top: calc(112px + env(safe-area-inset-top));
       }
       .opponent-speech {
         --opponent-speech-width: calc(100vw - 22px);
