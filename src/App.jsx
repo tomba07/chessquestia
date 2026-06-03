@@ -29,6 +29,7 @@ import { createChessnutController } from "./chessnutController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
 import { createCoopRoomController } from "./coopRoomController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
+import { createOpponentSelectionController } from "./opponentSelectionController.js";
 import { createOpponentSpeechController } from "./opponentSpeechController.js";
 import { createOutcomeScreen } from "./outcomeScreen.js";
 import { createSoloSessionController } from "./soloSessionController.js";
@@ -44,33 +45,6 @@ export default function App() {
 
   const strengthSlider = document.getElementById("strength-slider");
   const strengthVal    = document.getElementById("strength-val");
-  let opponentCards = [];
-  function updateOpponentSelection(value) {
-    opponentCards.forEach(card => {
-      const selected = card.dataset.opponentStrength === String(value);
-      card.classList.toggle("selected", selected);
-      card.setAttribute("aria-pressed", selected ? "true" : "false");
-    });
-  }
-  function clearOpponentSelection() {
-    opponentCards.forEach(card => {
-      card.classList.remove("selected");
-      card.setAttribute("aria-pressed", "false");
-    });
-    if (soloStartBtn) soloStartBtn.disabled = true;
-  }
-  function opponentForStrength(value) {
-    return SOLO_OPPONENTS.find(opponent => opponent.elo === parseInt(value, 10));
-  }
-  function syncStrength(value) {
-    strengthSlider.value = value;
-    strengthVal.textContent = value;
-    const opponent = opponentForStrength(value);
-    if (opponent) selectedOpponentIndex = SOLO_OPPONENTS.indexOf(opponent);
-    selectedOpponentTheme = opponent?.theme || opponentThemeForStrength(value);
-  }
-  strengthSlider.oninput = () => syncStrength(strengthSlider.value);
-  const getElo = () => parseInt(strengthSlider.value);
 
   // ── Load move mappings ────────────────────────────────────────────────────
 
@@ -176,10 +150,39 @@ export default function App() {
   let opponentSelectionReadonly = false;
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
-  let unlockedOpponentCount = 1;
   let soloStartInProgress = false;
   let pendingSoloStartDemo = false;
   let authInfo = defaultAuthInfo();
+
+  const opponentSelection = createOpponentSelectionController({
+    elements: {
+      strengthSlider,
+      strengthVal,
+      soloStartBtn: () => soloStartBtn,
+    },
+    opponents: SOLO_OPPONENTS,
+    readProgress: () => readSoloProgress(),
+    getCoopMaxUnlocked: () => coop?.maxUnlockedOpponentCount || 1,
+    getReadonly: () => opponentSelectionReadonly,
+    getSetupMode: () => setupMode,
+    onSelected: ({ index, theme }) => {
+      if (Number.isInteger(index)) selectedOpponentIndex = index;
+      if (theme) selectedOpponentTheme = theme;
+    },
+    onHostStrengthChange: (strength) => {
+      if (setupMode === "coop" && coop?.phase === "lobby" && coop.myIdx === 0)
+        coop.ws?.send(JSON.stringify({ type: "strength", strength }));
+    },
+  });
+  const applyOpponentLocks = () => {
+    opponentSelection.applyLocks();
+  };
+  const clearOpponentSelection = opponentSelection.clearSelection;
+  const currentOpponent = () => opponentSelection.currentOpponent(selectedOpponentIndex);
+  const getElo = opponentSelection.getElo;
+  const opponentThemeForStrength = opponentSelection.themeForStrength;
+  const syncStrength = opponentSelection.syncStrength;
+  const updateOpponentSelection = opponentSelection.updateSelection;
 
   function setStatus(text, cls = "") {
     statusEl.textContent = text;
@@ -275,18 +278,10 @@ export default function App() {
     }
   }
 
-  function opponentThemeForStrength(value) {
-    return opponentForStrength(value)?.theme || "snib";
-  }
-
   function setGameOpponentTheme(value = getElo(), theme = selectedOpponentTheme) {
     const legacyThemes = { imp: "snib", witch: "vexi" };
     const nextTheme = theme || opponentThemeForStrength(value);
     gameEl.dataset.opponent = legacyThemes[nextTheme] || nextTheme;
-  }
-
-  function currentOpponent() {
-    return opponentForStrength(getElo()) || SOLO_OPPONENTS[selectedOpponentIndex] || SOLO_OPPONENTS[0];
   }
 
   const chessnutBoard = createChessnutController({
@@ -402,23 +397,6 @@ export default function App() {
 
   function syncSoloProgressFromAuth() {
     soloSession.syncProgressFromAuth();
-  }
-
-  function applyOpponentLocks() {
-    unlockedOpponentCount = soloSession.unlockedCountForMode({
-      setupMode,
-      coopMaxUnlocked: coop?.maxUnlockedOpponentCount || 1,
-    });
-    opponentCards.forEach((card, index) => {
-      const unlocked = index < unlockedOpponentCount;
-      const disabled = !unlocked || opponentSelectionReadonly;
-      const art = card.querySelector(".opponent-card-art");
-      card.disabled = disabled;
-      card.classList.toggle("locked", !unlocked);
-      card.classList.toggle("readonly", unlocked && opponentSelectionReadonly);
-      card.setAttribute("aria-disabled", disabled ? "true" : "false");
-      if (art) art.src = unlocked ? card.dataset.unlockedSrc : "/assets/cards/locked_card.png";
-    });
   }
 
   function unlockNextOpponent() {
@@ -724,7 +702,6 @@ export default function App() {
   const botSelectTitle = document.getElementById("bot-select-title");
   const soloStartBtn = document.getElementById("solo-start-btn");
   const soloBackBtn  = document.getElementById("solo-back-btn");
-  opponentCards = Array.from(document.querySelectorAll("[data-opponent-strength]"));
   const friendSearch = document.getElementById("friend-search");
   const profileUsername = document.getElementById("profile-username");
   const usernameSaveBtn = document.getElementById("username-save");
@@ -917,18 +894,7 @@ export default function App() {
     onStartDemo: () => startDemoGame(),
     onConnectCoop: () => connectCoop("create"),
   });
-  opponentCards.forEach(card => {
-    card.onclick = () => {
-      if (opponentSelectionReadonly || card.disabled || card.classList.contains("locked")) return;
-      syncStrength(card.dataset.opponentStrength);
-      selectedOpponentIndex = Number(card.dataset.opponentIndex || 0);
-      selectedOpponentTheme = card.dataset.opponentTheme || opponentThemeForStrength(card.dataset.opponentStrength);
-      updateOpponentSelection(card.dataset.opponentStrength);
-      soloStartBtn.disabled = false;
-      if (setupMode === "coop" && coop?.phase === "lobby" && coop.myIdx === 0)
-        coop.ws?.send(JSON.stringify({ type: "strength", strength: getElo() }));
-    };
-  });
+  opponentSelection.bindCards();
   applyOpponentLocks();
   clearOpponentSelection();
   soloStartBtn.onclick = () => startSelectedGame();
