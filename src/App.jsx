@@ -26,6 +26,7 @@ import {
 import { createBotSplash } from "./botSplash.js";
 import { createBotTurnController } from "./botTurnController.js";
 import { createChessnutController } from "./chessnutController.js";
+import { createCoopConnectionController } from "./coopConnectionController.js";
 import { createCoopGameViewController } from "./coopGameViewController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
 import { createCoopRoomController } from "./coopRoomController.js";
@@ -154,6 +155,7 @@ export default function App() {
   let soloStartInProgress = false;
   let pendingSoloStartDemo = false;
   let authInfo = defaultAuthInfo();
+  let coopConnection = null;
 
   const opponentSelection = createOpponentSelectionController({
     elements: {
@@ -231,6 +233,7 @@ export default function App() {
   const updateGameScore = boardController.updateScore;
 
   function publishCoopMove() {
+    if (coop?.phase === "playing") coop.moveCount = Number(coop.moveCount || 0) + 1;
     coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
   }
 
@@ -320,13 +323,13 @@ export default function App() {
     },
     getBoard: () => board,
     getCoopPhase: () => coop?.phase || "off",
-    getGameStartedAt: () => soloSession?.gameStartedAt,
+    getGameStartedAt: () => coop?.phase !== "off" ? coop.startedAt : soloSession?.gameStartedAt,
     getLastMoveSquares: () => {
       const history = chess.history({ verbose: true });
       const move = history[history.length - 1];
       return move ? [move.from, move.to] : [];
     },
-    getMoveCount: () => chess.history().length,
+    getMoveCount: () => coop?.phase !== "off" ? coop.moveCount : chess.history().length,
     opponents: SOLO_OPPONENTS,
   });
   const clearVictoryBoardPulse = outcomeScreen.clearBoardPulse;
@@ -1009,6 +1012,8 @@ export default function App() {
     myIdx: -1,
     phase: "off",
     players: [], activeIdx: 0, midTurn: false, fen: null,
+    startedAt: null,
+    moveCount: 0,
     maxUnlockedOpponentCount: 1,
     strength: 1500,
     selectingOpponent: false,
@@ -1016,6 +1021,24 @@ export default function App() {
     reconnectTimer: null,
     reconnectAttempts: 0,
   };
+
+  coopConnection = createCoopConnectionController({
+    getCoop: () => coop,
+    getElo,
+    getMaiaReady: () => maia.modelReady,
+    getPlayerName: coopPlayerName,
+    getRoomFromUrl: () => new URLSearchParams(location.search).get("room"),
+    readSoloProgress,
+    setSetupMode: (mode) => { setupMode = mode; },
+    showLobby,
+    storedPlayerId,
+    onMessage: handleCoopMsg,
+    onPlayingReconnect: () => {
+      disableBoardMoveInput();
+      setStatus("Reconnecting…", "thinking");
+    },
+    onReconnectingLobby: coopRoom.showReconnectingLobby,
+  });
 
   function startCoopWithSelectedBot() {
     if (opponentSelectionReadonly || soloStartBtn.disabled || coop.phase !== "lobby" || coop.myIdx !== 0) return;
@@ -1035,71 +1058,8 @@ export default function App() {
     showCoopBotSelection({ readonly: !isHost });
   }
 
-  function clearReconnectTimer() {
-    if (!coop?.reconnectTimer) return;
-    clearTimeout(coop.reconnectTimer);
-    coop.reconnectTimer = null;
-  }
-
-  function connectCoop(action, opts = {}) {
-    const roomId = opts.roomId || new URLSearchParams(location.search).get("room") || coop.roomId;
-    const name = opts.name || coopPlayerName(roomId);
-    clearReconnectTimer();
-    coop.leaving = false;
-    const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${wsProto}//${location.host}`);
-    coop.ws = ws;
-    ws.onopen = () => ws.send(JSON.stringify(
-      action === "create"
-        ? { type: "create", name,
-            strength: getElo(), maiaReady: maia.modelReady, unlockedOpponentCount: readSoloProgress() }
-        : {
-            type: "join",
-            roomId,
-            name,
-            playerId: opts.playerId || coop.playerId || storedPlayerId(roomId),
-            maiaReady: maia.modelReady,
-            unlockedOpponentCount: readSoloProgress(),
-          }
-    ));
-    ws.onmessage = ({ data }) => handleCoopMsg(JSON.parse(data));
-    ws.onclose   = () => {
-      if (coop.ws !== ws) return;
-      handleCoopDisconnect();
-    };
-    ws.onerror   = () => ws.close();
-  }
-
-  function handleCoopDisconnect() {
-    coop.ws = null;
-    if (coop.leaving || coop.phase === "off") {
-      coop.leaving = false;
-      return;
-    }
-
-    const roomId = coop.roomId || new URLSearchParams(location.search).get("room");
-    const name = coopPlayerName(roomId);
-    if (!roomId || !name) {
-      leaveCoop();
-      return;
-    }
-
-    if (coop.phase === "lobby") {
-      coopRoom.showReconnectingLobby();
-    } else if (coop.phase === "playing") {
-      disableBoardMoveInput();
-      setStatus("Reconnecting…", "thinking");
-    }
-
-    const delay = Math.min(1000 * 2 ** coop.reconnectAttempts, 8000);
-    coop.reconnectAttempts += 1;
-    coop.reconnectTimer = setTimeout(() => {
-      connectCoop("join", {
-        roomId,
-        name,
-        playerId: coop.playerId || storedPlayerId(roomId),
-      });
-    }, delay);
+  function connectCoop(...args) {
+    coopConnection.connect(...args);
   }
 
   async function handleCoopMsg(msg) {
@@ -1150,6 +1110,8 @@ export default function App() {
       coop.midTurn   = msg.midTurn;
       coop.fen       = msg.fen;
       coop.myIdx     = msg.myIdx;
+      coop.startedAt = Number(msg.startedAt || coop.startedAt || Date.now());
+      coop.moveCount = Number(msg.moveCount ?? coop.moveCount ?? 0);
       coop.strength  = msg.strength;
       coop.selectingOpponent = !!msg.selectingOpponent;
       coop.maxUnlockedOpponentCount = Math.max(readSoloProgress(), Number(msg.maxUnlockedOpponentCount || 1));
@@ -1210,13 +1172,7 @@ export default function App() {
   }
 
   function leaveCoop() {
-    clearReconnectTimer();
-    coop.leaving = true;
-    coop.ws?.close();
-    coop.ws    = null;
-    coop.phase = "off";
-    setupMode = "solo";
-    showLobby();
+    coopConnection.leave();
   }
 
   if (authInfo.user) {
@@ -1262,6 +1218,7 @@ export default function App() {
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
       botTurns.dispose();
+      coopConnection?.dispose();
       outcomeScreen.dispose();
       clearBotSplashAutoTimer();
       window.removeEventListener("orientationchange", requestPortraitOrientation);

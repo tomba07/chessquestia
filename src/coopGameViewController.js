@@ -28,6 +28,7 @@ export function createCoopGameViewController({
   showRoomPanel,
   updateCheckMarker,
   updateGameScore,
+  updateOpponentSelection,
   updatePlacementDiffs,
 }) {
   const { cpChips, lbSolo, soloStartBtn } = elements;

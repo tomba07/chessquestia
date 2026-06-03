@@ -91,6 +91,7 @@ db.exec(`
     active_idx INTEGER NOT NULL,
     mid_turn INTEGER NOT NULL,
     strength INTEGER NOT NULL,
+    started_at INTEGER,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -211,6 +212,9 @@ if (!columnExists("users", "username")) {
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL");
 if (!columnExists("room_players", "unlocked_count")) {
   db.exec("ALTER TABLE room_players ADD COLUMN unlocked_count INTEGER NOT NULL DEFAULT 1");
+}
+if (!columnExists("rooms", "started_at")) {
+  db.exec("ALTER TABLE rooms ADD COLUMN started_at INTEGER");
 }
 
 function normalizeUsername(username) {
@@ -1057,6 +1061,7 @@ function serializeRoom(room) {
     midTurn: room.midTurn,
     strength: room.strength,
     hostUserId: room.hostUserId || null,
+    startedAt: room.startedAt || null,
     createdAt: room.createdAt || Date.now(),
     updatedAt: room.updatedAt || Date.now(),
     moveHistory: room.moveHistory || [],
@@ -1067,8 +1072,8 @@ function saveSerializedRoomToDb(room) {
   inTransaction(() => {
     db.prepare(`
       INSERT INTO rooms
-        (id, host_player_id, host_user_id, phase, fen, active_idx, mid_turn, strength, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, host_player_id, host_user_id, phase, fen, active_idx, mid_turn, strength, started_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         host_player_id = excluded.host_player_id,
         host_user_id = excluded.host_user_id,
@@ -1077,6 +1082,7 @@ function saveSerializedRoomToDb(room) {
         active_idx = excluded.active_idx,
         mid_turn = excluded.mid_turn,
         strength = excluded.strength,
+        started_at = excluded.started_at,
         updated_at = excluded.updated_at
     `).run(
       room.id,
@@ -1087,6 +1093,7 @@ function saveSerializedRoomToDb(room) {
       room.activeIdx || 0,
       room.midTurn ? 1 : 0,
       room.strength || 1500,
+      room.startedAt || null,
       room.createdAt || Date.now(),
       room.updatedAt || Date.now(),
     );
@@ -1184,6 +1191,7 @@ function loadRooms() {
         midTurn: !!savedRoom.mid_turn,
         strength: savedRoom.strength || 1500,
         selectingOpponent: false,
+        startedAt: savedRoom.started_at || null,
         createdAt: savedRoom.created_at || Date.now(),
         updatedAt: savedRoom.updated_at || Date.now(),
         moveHistory: savedMoves.map(move => ({
@@ -1222,6 +1230,8 @@ function roomState(room, myPlayerId, myIdx) {
       unlockedCount: normalizeUnlockedOpponentCount(player.unlockedCount),
     };
   });
+  const moveHistory = room.moveHistory || [];
+  const startedAt = room.startedAt || moveHistory[0]?.at || room.createdAt || Date.now();
   return {
     type: "room-state",
     roomId:    room.id,
@@ -1234,6 +1244,8 @@ function roomState(room, myPlayerId, myIdx) {
     fen:       room.fen,
     strength:  room.strength,
     selectingOpponent: !!room.selectingOpponent,
+    startedAt,
+    moveCount: moveHistory.length,
     myIdx,
   };
 }
@@ -1424,6 +1436,7 @@ function attachWebSocketHandlers() {
         }
         room.phase = "playing";
         room.selectingOpponent = false;
+        room.startedAt = Date.now();
         room.updatedAt = Date.now();
         persistRooms();
         broadcastRoom(room);
