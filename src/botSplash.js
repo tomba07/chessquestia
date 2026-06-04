@@ -21,18 +21,18 @@ export function createBotSplash({ elements, getCurrentOpponent }) {
   }
 
   function splashImageForOpponent(opponent, mobile = isMobileSplashViewport()) {
-    return `/assets/splash/${mobile ? "mobile/" : ""}${opponent?.theme || "snib"}_splash.png`;
+    return `/assets/splash/${mobile ? "mobile" : "desktop"}/${opponent?.theme || "snib"}_splash.png`;
   }
 
   function splashBannerImage(mobile = isMobileSplashViewport()) {
-    return mobile ? "/assets/splash/mobile/splash_banner_mobile.png" : "/assets/splash/splash_banner.png";
+    return mobile ? "/assets/splash/ui/banner_mobile.png" : "/assets/splash/ui/banner.png";
   }
 
   function renderBotSplashStrength(rank = 1) {
     botSplashStrength.innerHTML = "";
     Array.from({ length: 5 }, (_, index) => {
       const icon = document.createElement("img");
-      icon.src = "/assets/splash/splash_strength_icon.png";
+      icon.src = "/assets/splash/ui/strength_icon.png";
       icon.alt = "";
       icon.className = index < rank ? "filled" : "";
       botSplashStrength.appendChild(icon);

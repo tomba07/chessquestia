@@ -81,7 +81,7 @@ export function createOpponentSpeechController({
   function showSpeech({
     name,
     text,
-    portrait = "/assets/bots/snib_talk.png",
+    portrait = "/assets/bots/snib/talk.png",
     duration = 5600,
     foreground = false,
     sticky = true,
@@ -193,7 +193,7 @@ export function createOpponentSpeechController({
     }
     showSpeech({
       name: opponent.name,
-      portrait: `/assets/bots/${opponent.talkPortrait || "snib_talk.png"}`,
+      portrait: `/assets/bots/${opponent.talkPortrait || "snib/talk.png"}`,
       text: lines[Math.floor(Math.random() * lines.length)],
     });
     resetThinkingCadence();

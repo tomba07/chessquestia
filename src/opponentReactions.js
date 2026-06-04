@@ -798,11 +798,11 @@ export function randomLine(lines = []) {
 }
 
 export function opponentAssetKey(opponent) {
-  return opponent?.talkPortrait?.replace(/_talk\.png$/, "") || "snib";
+  return opponent?.theme || opponent?.talkPortrait?.split("/")[0] || "snib";
 }
 
 export function opponentEmotionPortrait(opponent, emotion) {
-  return `/assets/bots/${opponentAssetKey(opponent)}_${emotion}.png`;
+  return `/assets/bots/${opponentAssetKey(opponent)}/${emotion}.png`;
 }
 
 export function opponentReactionLines(opponent, reaction) {

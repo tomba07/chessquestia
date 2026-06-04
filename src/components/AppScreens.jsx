@@ -79,7 +79,7 @@ function AuthPanel() {
           <span>Continue with Google</span>
         </button>
         <button id="auth-demo-btn" className="sm-btn auth-demo-btn" type="button">
-          <img src="/assets/bots/snib_talk.png" alt="" />
+          <img src="/assets/bots/snib/talk.png" alt="" />
           <span>Try demo against Snib</span>
         </button>
       </div>
@@ -394,7 +394,7 @@ function GameView() {
         </button>
       </div>
       <div id="opponent-speech" className="opponent-speech" hidden aria-live="polite">
-        <img id="opponent-speech-portrait" src="/assets/bots/snib_talk.png" alt="" />
+        <img id="opponent-speech-portrait" src="/assets/bots/snib/talk.png" alt="" />
         <div className="opponent-speech-bubble">
           <button id="opponent-speech-close" className="opponent-speech-close" type="button" aria-label="Close speech">×</button>
           <strong id="opponent-speech-name"></strong>
@@ -409,10 +409,10 @@ function GameView() {
 function BotSplash() {
   return (
     <div id="bot-splash" className="bot-splash" hidden aria-hidden="true">
-      <img id="bot-splash-art" className="bot-splash-art" src="/assets/splash/snib_splash.png" alt="" />
+      <img id="bot-splash-art" className="bot-splash-art" src="/assets/splash/desktop/snib_splash.png" alt="" />
       <div className="bot-splash-panel">
         <div className="bot-splash-copy" role="dialog" aria-modal="true" aria-labelledby="bot-splash-name">
-          <img id="bot-splash-banner" className="bot-splash-banner" src="/assets/splash/splash_banner.png" alt="" />
+          <img id="bot-splash-banner" className="bot-splash-banner" src="/assets/splash/ui/banner.png" alt="" />
           <div className="bot-splash-content">
             <h2 id="bot-splash-name">Snib the Candle Goblin</h2>
             <span className="bot-splash-divider" aria-hidden="true"></span>
