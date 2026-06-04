@@ -40,10 +40,12 @@ export default function App() {
   useEffect(() => {
     let disposed = false;
     let invitePollTimer = null;
+    let debugHookTimer = null;
     (async () => {
       if (disposed) return;
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
   const PROMOTION_TEST_FEN = "4k3/6P1/8/8/8/8/8/4K3 w - - 0 1";
+  const GRIBBLE_VICTORY_TEST_FEN = "7k/8/5KQ1/8/8/8/8/8 w - - 0 1";
   const CDN       = "/cm-chessboard/assets/";
 
   const strengthSlider = document.getElementById("strength-slider");
@@ -607,10 +609,27 @@ export default function App() {
     }
   }
 
-  function setDebugPosition(fen) {
+  function setDebugPosition(fen, options = {}) {
     if (coop?.phase !== "off") throw new Error("Leave co-op before using a local debug position.");
+    const opponentIndex = Number.isInteger(options.opponentIndex) ? options.opponentIndex : selectedOpponentIndex;
+    const opponent = SOLO_OPPONENTS[opponentIndex];
+    if (opponent) {
+      selectedOpponentIndex = opponentIndex;
+      selectedOpponentTheme = opponent.theme;
+      syncStrength(String(opponent.elo));
+      updateOpponentSelection(String(opponent.elo));
+    }
     chess.load(fen);
-    soloSession.startGame({ demo: true });
+    if (typeof soloSession.startGame === "function") {
+      soloSession.startGame({ demo: options.demo !== false });
+    } else {
+      soloSession.restoreSavedSession({
+        fen,
+        gameId: `debug-${Date.now()}`,
+        startedAt: Date.now(),
+        savedAt: Date.now(),
+      });
+    }
     debugMoveInput = true;
     botThinking = false;
     cpChips.innerHTML = "";
@@ -629,14 +648,34 @@ export default function App() {
   }
 
   function installDebugHooks() {
-    const debugAllowed = ["localhost", "127.0.0.1"].includes(location.hostname)
-      || new URLSearchParams(location.search).has("debug");
+    const debugAllowed = ["localhost", "127.0.0.1"].includes(location.hostname);
     if (!debugAllowed) return;
-    window.__chessquestiaDebug = {
+    const opponentIndexForDebug = (opponentKey) => {
+      const normalized = String(opponentKey || "").trim().toLowerCase();
+      const index = SOLO_OPPONENTS.findIndex(opponent => (
+        opponent.theme === normalized
+        || opponent.name.toLowerCase().includes(normalized)
+        || String(opponent.elo) === normalized
+      ));
+      return index >= 0 ? index : selectedOpponentIndex;
+    };
+    const helper = {
       setPosition: setDebugPosition,
       testPromotion: () => setDebugPosition(PROMOTION_TEST_FEN),
+      testVictory: (opponent = "gribble") => setDebugPosition(GRIBBLE_VICTORY_TEST_FEN, {
+        opponentIndex: opponentIndexForDebug(opponent),
+        demo: false,
+      }),
+      testGribbleVictory: () => setDebugPosition(GRIBBLE_VICTORY_TEST_FEN, { opponentIndex: 2, demo: false }),
     };
+    const exposeHelper = () => {
+      window.__chessquestiaDebug = helper;
+      globalThis.__chessquestiaDebug = helper;
+    };
+    exposeHelper();
+    if (!debugHookTimer) debugHookTimer = window.setInterval(exposeHelper, 1000);
   }
+  installDebugHooks();
 
   function checkGameOver() {
     if (chess.isCheckmate()) {
@@ -799,7 +838,6 @@ export default function App() {
     : searchParams.get("friend");
   const initialView = searchParams.get("view");
   const demoGame = searchParams.get("demo");
-  const debugTest = searchParams.get("debug");
 
   let social = null;
   const closeAddFriendDialog = (options) => social?.closeAddFriendDialog(options);
@@ -1053,7 +1091,6 @@ export default function App() {
   promotionChoiceEl.querySelectorAll("[data-promotion]").forEach((button) => {
     button.onclick = () => choosePromotion(button.dataset.promotion);
   });
-  installDebugHooks();
 
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
@@ -1258,9 +1295,7 @@ export default function App() {
     invitePollTimer = window.setInterval(loadInviteNotifications, 5000);
   }
 
-  if (debugTest === "promotion") {
-    setDebugPosition(PROMOTION_TEST_FEN);
-  } else if (urlRoom) {
+  if (urlRoom) {
     if (authInfo.authEnabled && !authInfo.user) {
       promptSignIn();
     } else {
@@ -1296,6 +1331,7 @@ export default function App() {
     return () => {
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
+      if (debugHookTimer) window.clearInterval(debugHookTimer);
       botTurns.dispose();
       coopConnection?.dispose();
       outcomeScreen.dispose();
