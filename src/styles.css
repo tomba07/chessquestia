@@ -1970,7 +1970,7 @@
       .opponent-card-copy {
         left: 14%;
         right: 14%;
-        bottom: 6.5%;
+        bottom: 4%;
         height: 20.5%;
       }
       .opponent-card-copy strong {
@@ -2701,6 +2701,7 @@
       height: 100%;
       position: absolute;
       inset: 0;
+      z-index: 0;
       object-fit: cover;
       object-position: center;
       transform: scale(1.02);
@@ -2713,6 +2714,7 @@
       content: "";
       position: absolute;
       inset: 0;
+      z-index: 1;
       background:
         linear-gradient(90deg, rgba(18, 13, 8, 0.12), transparent 42%),
         linear-gradient(0deg, rgba(20, 15, 10, 0.2), transparent 46%);
@@ -2720,6 +2722,7 @@
     }
     .bot-splash-panel {
       position: absolute;
+      z-index: 2;
       top: 50%;
       left: clamp(22px, 6vw, 92px);
       display: flex;
