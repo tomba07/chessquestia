@@ -1,5 +1,7 @@
+- leaderboards
+ - lowest victory time/moves
+- pawn promotion
 - victory screen
- - game stats
  - unlocks
   - new opponent...
   - badge...

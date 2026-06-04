@@ -43,6 +43,7 @@ export default function App() {
     (async () => {
       if (disposed) return;
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
+  const PROMOTION_TEST_FEN = "4k3/6P1/8/8/8/8/8/4K3 w - - 0 1";
   const CDN       = "/cm-chessboard/assets/";
 
   const strengthSlider = document.getElementById("strength-slider");
@@ -126,6 +127,7 @@ export default function App() {
   const botSplashStrength = document.getElementById("bot-splash-strength");
   const botSplashStart = document.getElementById("bot-splash-start");
   const cpChips   = document.getElementById("cp-chips");
+  const promotionChoiceEl = document.getElementById("promotion-choice");
   const boardDevicePanel = document.getElementById("board-device-panel");
   const boardConnectBtn = document.getElementById("board-connect-btn");
   const boardConnectLabel = document.getElementById("board-connect-label");
@@ -156,6 +158,8 @@ export default function App() {
   let pendingSoloStartDemo = false;
   let authInfo = defaultAuthInfo();
   let coopConnection = null;
+  let pendingPromotion = null;
+  let debugMoveInput = false;
 
   const opponentSelection = createOpponentSelectionController({
     elements: {
@@ -205,7 +209,7 @@ export default function App() {
   }
 
   function canAcceptPlayerMove() {
-    if (chess.isGameOver() || !maia.modelReady || botThinking) return false;
+    if (chess.isGameOver() || (!maia.modelReady && !debugMoveInput) || botThinking) return false;
     if (coop?.phase === "playing") return !coop.midTurn && coop.activeIdx === coop.myIdx;
     return soloSession.active && coop?.phase === "off" && chess.turn() === "w";
   }
@@ -256,6 +260,37 @@ export default function App() {
   const scheduleCoopBotMove = botTurns.scheduleCoopBotMove;
   const thinkingMoveDelay = botTurns.thinkingMoveDelay;
   const wait = botTurns.wait;
+
+  function promotionMoves(from, to) {
+    return chess.moves({ verbose: true })
+      .filter(move => move.from === from && move.to === to && move.promotion);
+  }
+
+  function hidePromotionChoice() {
+    pendingPromotion = null;
+    promotionChoiceEl.hidden = true;
+    promotionChoiceEl.classList.remove("visible");
+  }
+
+  function showPromotionChoice(from, to) {
+    const moves = promotionMoves(from, to);
+    if (!moves.length) return false;
+    pendingPromotion = { from, to };
+    const promotions = new Set(moves.map(move => move.promotion));
+    promotionChoiceEl.querySelectorAll("[data-promotion]").forEach((button) => {
+      button.disabled = !promotions.has(button.dataset.promotion);
+    });
+    promotionChoiceEl.hidden = false;
+    promotionChoiceEl.classList.add("visible");
+    return true;
+  }
+
+  function choosePromotion(promotion) {
+    const pending = pendingPromotion;
+    hidePromotionChoice();
+    if (!pending) return;
+    applyPlayerMove(pending.from, pending.to, promotion);
+  }
 
   function applyPlayerMove(from, to, promotion = "q") {
     if (!canAcceptPlayerMove()) return false;
@@ -430,6 +465,7 @@ export default function App() {
   function showLobby() {
     gameEl.style.display  = "none";
     hideOpponentSpeech();
+    hidePromotionChoice();
     lobbyEl.style.display = "";
     if (soloSession.active) clearSoloGame();
     if (authInfo.authEnabled && !authInfo.user) showAuthView();
@@ -468,7 +504,9 @@ export default function App() {
   function beginSoloGame({ showIntro = true, demo = false } = {}) {
     chess.reset();
     soloSession.startGame({ demo });
+    debugMoveInput = false;
     cpChips.innerHTML = "";
+    hidePromotionChoice();
     hideOutcomeBanner();
     hideModelLoading();
     if (demo) setDemoGameUrl();
@@ -548,6 +586,7 @@ export default function App() {
       selectedOpponentIndex = Number(state.opponentIndex || 0);
       selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
       cpChips.innerHTML = "";
+      hidePromotionChoice();
       showGame();
       board.setPosition(chess.fen(), false);
       clearLastMove();
@@ -566,6 +605,37 @@ export default function App() {
     } catch {
       clearSoloGame();
     }
+  }
+
+  function setDebugPosition(fen) {
+    if (coop?.phase !== "off") throw new Error("Leave co-op before using a local debug position.");
+    chess.load(fen);
+    soloSession.startGame({ demo: true });
+    debugMoveInput = true;
+    botThinking = false;
+    cpChips.innerHTML = "";
+    hidePromotionChoice();
+    hideOutcomeBanner();
+    hideModelLoading();
+    showGame();
+    board.setPosition(chess.fen(), false);
+    clearLastMove();
+    clearCheckMarker();
+    updateCheckMarker();
+    updateGameScore();
+    enableBoardMoveInput();
+    setStatus("Your turn");
+    return chess.fen();
+  }
+
+  function installDebugHooks() {
+    const debugAllowed = ["localhost", "127.0.0.1"].includes(location.hostname)
+      || new URLSearchParams(location.search).has("debug");
+    if (!debugAllowed) return;
+    window.__chessquestiaDebug = {
+      setPosition: setDebugPosition,
+      testPromotion: () => setDebugPosition(PROMOTION_TEST_FEN),
+    };
   }
 
   function checkGameOver() {
@@ -639,11 +709,13 @@ export default function App() {
   function inputHandler(event) {
     switch (event.type) {
       case INPUT_EVENT_TYPE.moveInputStarted:
+        if (pendingPromotion) return false;
         if (coop.phase === "playing")
           return !coop.midTurn && coop.activeIdx === coop.myIdx && maia.modelReady;
-        return chess.turn() === "w" && !botThinking && maia.modelReady && !chess.isGameOver();
+        return chess.turn() === "w" && !botThinking && (maia.modelReady || debugMoveInput) && !chess.isGameOver();
 
       case INPUT_EVENT_TYPE.validateMoveInput: {
+        if (showPromotionChoice(event.squareFrom, event.squareTo)) return false;
         return applyPlayerMove(event.squareFrom, event.squareTo, "q");
       }
     }
@@ -727,6 +799,7 @@ export default function App() {
     : searchParams.get("friend");
   const initialView = searchParams.get("view");
   const demoGame = searchParams.get("demo");
+  const debugTest = searchParams.get("debug");
 
   let social = null;
   const closeAddFriendDialog = (options) => social?.closeAddFriendDialog(options);
@@ -977,6 +1050,10 @@ export default function App() {
 
   chessnutBoard.bind();
   opponentSpeech.bindCloseButton();
+  promotionChoiceEl.querySelectorAll("[data-promotion]").forEach((button) => {
+    button.onclick = () => choosePromotion(button.dataset.promotion);
+  });
+  installDebugHooks();
 
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
@@ -1181,7 +1258,9 @@ export default function App() {
     invitePollTimer = window.setInterval(loadInviteNotifications, 5000);
   }
 
-  if (urlRoom) {
+  if (debugTest === "promotion") {
+    setDebugPosition(PROMOTION_TEST_FEN);
+  } else if (urlRoom) {
     if (authInfo.authEnabled && !authInfo.user) {
       promptSignIn();
     } else {
@@ -1222,6 +1301,8 @@ export default function App() {
       outcomeScreen.dispose();
       clearBotSplashAutoTimer();
       window.removeEventListener("orientationchange", requestPortraitOrientation);
+      if (window.__chessquestiaDebug?.setPosition === setDebugPosition)
+        delete window.__chessquestiaDebug;
       opponentSpeech.clearTimers();
       social?.stopPresenceHeartbeat();
       chessnutBoard.disconnect();

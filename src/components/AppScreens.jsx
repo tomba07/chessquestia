@@ -379,6 +379,20 @@ function GameView() {
         <div id="victory-board-pulse" className="victory-board-pulse" aria-hidden="true">
         </div>
       </div>
+      <div id="promotion-choice" className="promotion-choice" hidden aria-label="Choose promotion piece">
+        <button type="button" data-promotion="q" aria-label="Promote to queen">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><use href="/cm-chessboard/assets/pieces/staunty.svg#wq" /></svg>
+        </button>
+        <button type="button" data-promotion="r" aria-label="Promote to rook">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><use href="/cm-chessboard/assets/pieces/staunty.svg#wr" /></svg>
+        </button>
+        <button type="button" data-promotion="b" aria-label="Promote to bishop">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><use href="/cm-chessboard/assets/pieces/staunty.svg#wb" /></svg>
+        </button>
+        <button type="button" data-promotion="n" aria-label="Promote to knight">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><use href="/cm-chessboard/assets/pieces/staunty.svg#wn" /></svg>
+        </button>
+      </div>
       <div id="opponent-speech" className="opponent-speech" hidden aria-live="polite">
         <img id="opponent-speech-portrait" src="/assets/bots/snib_talk.png" alt="" />
         <div className="opponent-speech-bubble">
