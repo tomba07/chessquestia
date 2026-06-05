@@ -37,6 +37,7 @@ import { createOpponentSelectionController } from "./opponentSelectionController
 import { createOpponentSpeechController } from "./opponentSpeechController.js";
 import { createOutcomeScreen } from "./outcomeScreen.js";
 import { createPromotionController } from "./promotionController.js";
+import { createSoloGameController } from "./soloGameController.js";
 import { createSoloSessionController } from "./soloSessionController.js";
 
 export default function App() {
@@ -58,6 +59,7 @@ export default function App() {
   // ── Web Worker (Maia 3 ONNX inference) ───────────────────────────────────
 
   let coop = null;
+  let soloGame = null;
 
   const statusDot   = document.getElementById("status-dot");
   const statusLabel = document.getElementById("status-label");
@@ -65,19 +67,16 @@ export default function App() {
   const modelLoadingEl = document.getElementById("model-loading");
   const progressBar = document.getElementById("progress-bar");
   const progressFill = document.getElementById("progress-fill");
-  let pendingSoloStart = false;
 
   const maia = createMaiaWorker({
     elements: { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill },
     getCoop: () => coop,
     readSoloProgress,
-    onPendingSoloStart: () => pendingSoloStart,
+    onPendingSoloStart: () => soloGame?.hasPendingStart() || false,
     onReady: () => {
-      if (pendingSoloStart) {
-        const demoStart = pendingSoloStartDemo;
-        pendingSoloStart = false;
-        pendingSoloStartDemo = false;
-        startSoloGameWithSplash({ demo: demoStart });
+      if (soloGame?.hasPendingStart()) {
+        const demoStart = soloGame.consumePendingStart();
+        soloGame.startWithSplash({ demo: demoStart });
         return;
       }
       if (gameEl.style.display !== "none" && coop?.phase !== "playing") {
@@ -156,8 +155,6 @@ export default function App() {
   let opponentSelectionReadonly = false;
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
-  let soloStartInProgress = false;
-  let pendingSoloStartDemo = false;
   let authInfo = defaultAuthInfo();
   let coopConnection = null;
   let debugMoveInput = false;
@@ -274,7 +271,7 @@ export default function App() {
         showPlayerMoveReaction(move);
         disableBoardMoveInput();
       } else {
-        saveSoloGame();
+        soloGame.saveGame();
         if (!checkGameOver()) {
           showPlayerMoveReaction(move);
           disableBoardMoveInput();
@@ -443,7 +440,7 @@ export default function App() {
     hideOpponentSpeech();
     promotionChoice.hide();
     lobbyEl.style.display = "";
-    if (soloSession.active) clearSoloGame();
+    if (soloSession.active) soloGame.clearGame();
     if (authInfo.authEnabled && !authInfo.user) showAuthView();
     else showPlayView();
     if (authInfo.user && (location.search.includes("room=") || location.pathname !== "/"))
@@ -460,127 +457,6 @@ export default function App() {
       ? "Exit this game? You will leave the current room."
       : "Exit this game? Your current solo game will be discarded.";
     return window.confirm(message);
-  }
-
-  function saveSoloGame() {
-    soloSession.saveGame({
-      opponentTheme: selectedOpponentTheme,
-      opponentIndex: selectedOpponentIndex,
-    });
-  }
-
-  function clearSoloGame() {
-    soloSession.clearGame();
-  }
-
-  function recordSoloGameResult(result) {
-    soloSession.recordResult(result);
-  }
-
-  function beginSoloGame({ showIntro = true, demo = false } = {}) {
-    chess.reset();
-    soloSession.startGame({ demo });
-    debugMoveInput = false;
-    cpChips.innerHTML = "";
-    promotionChoice.hide();
-    hideOutcomeBanner();
-    hideModelLoading();
-    if (demo) setDemoGameUrl();
-    else setSoloGameUrl();
-    showGame();
-    board.setPosition(chess.fen());
-    clearLastMove();
-    clearCheckMarker();
-    chessnutBoard.resetPlacement();
-    updateGameScore();
-    enableBoardMoveInput();
-    botThinking = false;
-    resetThinkingReactionCadence();
-    setStatus("Your turn");
-    if (showIntro) showGameStartSpeech();
-    saveSoloGame();
-  }
-
-  async function startSoloGameWithSplash({ demo = false } = {}) {
-    if (soloStartInProgress) return;
-    soloStartInProgress = true;
-    try {
-      await showBotSplash(currentOpponent(), {
-        mode: "solo",
-        beforeFade: () => beginSoloGame({ showIntro: false, demo }),
-      });
-      showGameStartSpeech();
-    } finally {
-      soloStartInProgress = false;
-    }
-  }
-
-  function startSoloGame({ demo = false } = {}) {
-    if (!demo && soloStartBtn.disabled) return;
-    if (!maia.modelReady) {
-      pendingSoloStart = true;
-      pendingSoloStartDemo = demo;
-      showModelLoading("Preparing game...");
-      requestModelDownload();
-      return;
-    }
-
-    startSoloGameWithSplash({ demo });
-  }
-
-  function startSelectedGame() {
-    if (setupMode === "coop") {
-      startCoopWithSelectedBot();
-      return;
-    }
-    startSoloGame();
-  }
-
-  function selectDemoOpponent() {
-    const opponent = SOLO_OPPONENTS[0];
-    syncStrength(String(opponent.elo));
-    selectedOpponentIndex = 0;
-    selectedOpponentTheme = opponent.theme;
-    updateOpponentSelection(String(opponent.elo));
-  }
-
-  function startDemoGame() {
-    setupMode = "solo";
-    selectDemoOpponent();
-    setDemoGameUrl();
-    startSoloGame({ demo: true });
-  }
-
-  function restoreSoloGame() {
-    if (location.search.includes("room=")) return;
-    const state = soloSession.readSavedGame();
-    if (!state) return;
-    try {
-      chess.load(state.fen);
-      soloSession.restoreSavedSession(state);
-      if (state.strength) syncStrength(String(state.strength));
-      selectedOpponentIndex = Number(state.opponentIndex || 0);
-      selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
-      cpChips.innerHTML = "";
-      promotionChoice.hide();
-      showGame();
-      board.setPosition(chess.fen(), false);
-      clearLastMove();
-      updateCheckMarker();
-      updateGameScore();
-      botThinking = false;
-      if (checkGameOver()) return;
-      if (chess.turn() === "w") {
-        enableBoardMoveInput();
-        setStatus(maia.modelReady ? "Your turn" : "Preparing game...");
-      } else {
-        disableBoardMoveInput();
-        setStatus(maia.modelReady ? "Thinking…" : "Preparing game...", maia.modelReady ? "thinking" : "");
-        maybeRunSoloBotTurn();
-      }
-    } catch {
-      clearSoloGame();
-    }
   }
 
   function setDebugPosition(fen, options = {}) {
@@ -631,7 +507,7 @@ export default function App() {
   function checkGameOver() {
     if (chess.isCheckmate()) {
       const playerWon = chess.turn() === "b";
-      recordSoloGameResult(playerWon ? "victory" : "defeat");
+      soloGame.recordResult(playerWon ? "victory" : "defeat");
       const canUnlockProgress = soloSession.active || coop?.phase === "playing" || coop?.phase === "over";
       const nextOpponent = playerWon ? SOLO_OPPONENTS[selectedOpponentIndex + 1] : null;
       const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
@@ -648,7 +524,7 @@ export default function App() {
     if (chess.isDraw()) {
       const reason = chess.isStalemate() ? "Stalemate"
         : chess.isInsufficientMaterial() ? "Insufficient material" : "Draw";
-      recordSoloGameResult("draw");
+      soloGame.recordResult("draw");
       showVictoryBoardPulseAfterDelay(null, 120, "draw");
       showOutcomeBannerAfterDelay("draw", 1900);
       setStatus(reason, "over");
@@ -682,7 +558,7 @@ export default function App() {
     const move = commitBotMove(uci);
 
     botThinking = false;
-    saveSoloGame();
+    soloGame.saveGame();
     if (!checkGameOver()) {
       showBotMoveReaction(move);
       enableBoardMoveInput();
@@ -822,7 +698,7 @@ export default function App() {
     onAuthLoaded: syncSoloProgressFromAuth,
     closeAddFriendDialog,
     renderInviteNotification,
-    getPendingSoloStart: () => pendingSoloStart,
+    getPendingSoloStart: () => soloGame?.hasPendingStart() || false,
     hideModelLoading,
     setSetupMode: (mode) => { setupMode = mode; },
     setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
@@ -843,6 +719,55 @@ export default function App() {
     showPlayView,
     showSoloSetup,
   } = appShell;
+
+  soloGame = createSoloGameController({
+    chess,
+    currentOpponent,
+    elements: {
+      cpChips,
+      soloStartBtn,
+    },
+    getBoard: () => board,
+    getElo,
+    getModelReady: () => maia.modelReady,
+    getSelectedOpponentIndex: () => selectedOpponentIndex,
+    getSelectedOpponentTheme: () => selectedOpponentTheme,
+    getSetupMode: () => setupMode,
+    hideModelLoading,
+    hideOutcomeBanner,
+    maybeRunSoloBotTurn,
+    onStartCoopWithSelectedBot: () => startCoopWithSelectedBot(),
+    opponentThemeForStrength,
+    opponents: SOLO_OPPONENTS,
+    promotionChoice,
+    requestModelDownload,
+    resetBoardDevicePlacement: () => chessnutBoard.resetPlacement(),
+    resetThinkingReactionCadence,
+    setDebugMoveInput: (value) => { debugMoveInput = value; },
+    setDemoGameUrl,
+    setSelectedOpponentIndex: (value) => { selectedOpponentIndex = value; },
+    setSelectedOpponentTheme: (value) => { selectedOpponentTheme = value; },
+    setSetupMode: (mode) => { setupMode = mode; },
+    setSoloGameUrl,
+    setStatus,
+    setBotThinking: (value) => { botThinking = value; },
+    showBotSplash,
+    showGame,
+    showGameStartSpeech,
+    showModelLoading,
+    soloSession,
+    syncStrength,
+    updateOpponentSelection,
+    boardActions: {
+      checkGameOver,
+      clearCheckMarker,
+      clearLastMove,
+      disableMoveInput: disableBoardMoveInput,
+      enableMoveInput: enableBoardMoveInput,
+      updateCheckMarker,
+      updateGameScore,
+    },
+  });
 
   const coopInvites = createCoopInviteController({
     apiJson,
@@ -980,16 +905,15 @@ export default function App() {
   social.bindEvents();
 
   appShell.bindEvents({
-    onStartDemo: () => startDemoGame(),
+    onStartDemo: () => soloGame.startDemo(),
     onConnectCoop: () => connectCoop("create"),
   });
   opponentSelection.bindCards();
   applyOpponentLocks();
   clearOpponentSelection();
-  soloStartBtn.onclick = () => startSelectedGame();
+  soloStartBtn.onclick = () => soloGame.startSelected();
   soloBackBtn.onclick = () => {
-    pendingSoloStart = false;
-    pendingSoloStartDemo = false;
+    soloGame.clearPendingStart();
     if (setupMode === "coop" && coop.phase === "lobby") {
       opponentSelectionReadonly = false;
       lbSolo.classList.remove("readonly");
@@ -1047,7 +971,7 @@ export default function App() {
       syncStrength(String(opponent.elo));
       updateOpponentSelection(String(opponent.elo));
       soloStartBtn.disabled = false;
-      startSoloGame();
+      soloGame.start();
     },
   });
   bindBotSplashStartButton();
@@ -1238,10 +1162,10 @@ export default function App() {
   } else if (incomingFriendUsername) {
     await loadFriendInviteLanding();
   } else if (demoGame === "snib") {
-    startDemoGame();
+    soloGame.startDemo();
   } else if (urlGame === "solo") {
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
-    else restoreSoloGame();
+    else soloGame.restore();
   } else if (initialView === "profile") {
     if (authInfo.authEnabled && !authInfo.user) promptSignIn();
     else showProfileView();
@@ -1257,7 +1181,7 @@ export default function App() {
   } else if (authInfo.authEnabled && !authInfo.user) {
     showAuthView();
   } else {
-    restoreSoloGame();
+    soloGame.restore();
   }
     })().catch((err) => {
       console.error(err);
