@@ -1,13 +1,7 @@
 import { useEffect } from "react";
 import { INPUT_EVENT_TYPE } from "cm-chessboard";
 import { Chess } from "chess.js";
-import {
-  buildLegalMask,
-  decodeMoves,
-  loadMaiaMoveMaps,
-  prepareMaiaPosition,
-  sampleMove,
-} from "./maia.js";
+import { loadMaiaMoveMaps } from "./maia.js";
 import { createSocialController } from "./socialUi.js";
 import { SOLO_OPPONENTS } from "./soloOpponents.js";
 import {
@@ -15,8 +9,14 @@ import {
   createAppShellController,
   defaultAuthInfo,
 } from "./appShellController.js";
+import { createAppEventController } from "./appEventController.js";
 import { createAppRuntimeController } from "./appRuntimeController.js";
+import {
+  createAppStartupController,
+  readStartupRoute,
+} from "./appStartupController.js";
 import { createBoardController } from "./boardController.js";
+import { createBotMoveController } from "./botMoveController.js";
 import {
   BotSplash,
   FriendAddDialog,
@@ -24,7 +24,6 @@ import {
   Lobby,
 } from "./components/AppScreens.jsx";
 import { createBotSplash } from "./botSplash.js";
-import { createBotTurnController } from "./botTurnController.js";
 import { createChessnutController } from "./chessnutController.js";
 import { createCoopConnectionController } from "./coopConnectionController.js";
 import { createCoopGameViewController } from "./coopGameViewController.js";
@@ -64,6 +63,8 @@ export default function App() {
   let gameOver = null;
   let gameScreen = null;
   let coopMessages = null;
+  let appEvents = null;
+  let botMoves = null;
 
   const statusDot   = document.getElementById("status-dot");
   const statusLabel = document.getElementById("status-label");
@@ -154,7 +155,6 @@ export default function App() {
   const SOLO_PROGRESS_KEY = storageKey("solo-progress");
   const BOARD_DEVICE_VISIBLE_KEY = storageKey("board-device-visible");
   let board       = null;
-  let botThinking = false;
   let soloSession = null;
   let setupMode = "solo";
   let opponentSelectionReadonly = false;
@@ -212,7 +212,7 @@ export default function App() {
   }
 
   function canAcceptPlayerMove() {
-    if (chess.isGameOver() || (!maia.modelReady && !debugMoveInput) || botThinking) return false;
+    if (chess.isGameOver() || (!maia.modelReady && !debugMoveInput) || botMoves?.isThinking()) return false;
     if (coop?.phase === "playing") return !coop.midTurn && coop.activeIdx === coop.myIdx;
     return soloSession.active && coop?.phase === "off" && chess.turn() === "w";
   }
@@ -244,26 +244,6 @@ export default function App() {
     coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
   }
 
-  function isMyCoopBotTurn() {
-    return coop?.phase === "playing"
-      && coop.activeIdx === coop.myIdx
-      && coop.midTurn
-      && maia.modelReady
-      && !chess.isGameOver();
-  }
-
-  const botTurns = createBotTurnController({
-    botMoveDelayMs: BOT_MOVE_DELAY_MS,
-    isBotThinking: () => botThinking,
-    isMyCoopBotTurn,
-    onCoopBotMove: () => coopBotMove(),
-  });
-  const clearCoopBotTimer = botTurns.clearCoopBotTimer;
-  const nextBotMoveDelay = botTurns.nextBotMoveDelay;
-  const scheduleCoopBotMove = botTurns.scheduleCoopBotMove;
-  const thinkingMoveDelay = botTurns.thinkingMoveDelay;
-  const wait = botTurns.wait;
-
   function applyPlayerMove(from, to, promotion = "q") {
     if (!canAcceptPlayerMove()) return false;
     try {
@@ -280,7 +260,7 @@ export default function App() {
         if (!checkGameOver()) {
           showPlayerMoveReaction(move);
           disableBoardMoveInput();
-          setTimeout(botMove, nextBotMoveDelay());
+          setTimeout(() => botMoves.botMove(), botMoves.nextBotMoveDelay());
         }
       }
       return true;
@@ -382,6 +362,27 @@ export default function App() {
   const showOpponentThinkingReaction = opponentSpeech.showThinkingReaction;
   const showPlayerMoveReaction = opponentSpeech.showPlayerMoveReaction;
 
+  botMoves = createBotMoveController({
+    allMoves: allMovesMaia3,
+    allMovesReversed: allMovesMaia3Reversed,
+    botMoveDelayMs: BOT_MOVE_DELAY_MS,
+    checkGameOver,
+    chess,
+    commitBotMove,
+    enableBoardMoveInput,
+    getCoop: () => coop,
+    getElo,
+    getGameVisible: () => gameEl.style.display !== "none",
+    getMaiaReady: () => maia.modelReady,
+    getSoloActive: () => soloSession.active,
+    publishCoopMove,
+    runInference,
+    saveSoloGame: () => soloGame.saveGame(),
+    setStatus,
+    showBotMoveReaction,
+    showOpponentThinkingReaction,
+  });
+
   soloSession = createSoloSessionController({
     storageKeys: {
       soloGameKey: SOLO_GAME_KEY,
@@ -444,7 +445,7 @@ export default function App() {
       });
     }
     debugMoveInput = true;
-    botThinking = false;
+    botMoves.setThinking(false);
     cpChips.innerHTML = "";
     promotionChoice.hide();
     hideOutcomeBanner();
@@ -471,41 +472,8 @@ export default function App() {
     return gameOver.check();
   }
 
-  async function botMove() {
-    if (chess.isGameOver() || !maia.modelReady || botThinking) return;
-    botThinking = true;
-    setStatus("Thinking…", "thinking");
-    const showedThinkingReaction = showOpponentThinkingReaction();
-    if (showedThinkingReaction) {
-      await wait(thinkingMoveDelay());
-      if (chess.isGameOver() || !soloSession.active || coop?.phase !== "off" || gameEl.style.display === "none") {
-        botThinking = false;
-        return;
-      }
-    }
-
-    const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
-    const legalMask = buildLegalMask(workingFen, allMovesMaia3);
-
-    const { logitsMove } = await runInference(tokens, getElo());
-    const moveProbs = decodeMoves(logitsMove, legalMask, isBlack, allMovesMaia3Reversed);
-    const uci = sampleMove(moveProbs);
-
-    const move = commitBotMove(uci);
-
-    botThinking = false;
-    soloGame.saveGame();
-    if (!checkGameOver()) {
-      showBotMoveReaction(move);
-      enableBoardMoveInput();
-      setStatus("Your turn");
-    }
-  }
-
   function maybeRunSoloBotTurn() {
-    if (soloSession.active && coop?.phase === "off" && gameEl.style.display !== "none"
-      && chess.turn() === "b" && maia.modelReady && !botThinking && !chess.isGameOver())
-      setTimeout(botMove, nextBotMoveDelay());
+    botMoves?.maybeRunSoloBotTurn();
   }
 
   function inputHandler(event) {
@@ -514,7 +482,7 @@ export default function App() {
         if (promotionChoice.hasPending()) return false;
         if (coop.phase === "playing")
           return !coop.midTurn && coop.activeIdx === coop.myIdx && maia.modelReady;
-        return chess.turn() === "w" && !botThinking && (maia.modelReady || debugMoveInput) && !chess.isGameOver();
+        return chess.turn() === "w" && !botMoves?.isThinking() && (maia.modelReady || debugMoveInput) && !chess.isGameOver();
 
       case INPUT_EVENT_TYPE.validateMoveInput: {
         if (promotionChoice.show(event.squareFrom, event.squareTo)) return false;
@@ -579,13 +547,8 @@ export default function App() {
   const friendAddDialog = document.getElementById("friend-add-dialog");
   const friendAddClose = document.getElementById("friend-add-close");
   const friendInviteLanding = document.getElementById("friend-invite-landing");
-  const searchParams = new URLSearchParams(location.search);
-  const friendInvitePathMatch = location.pathname.match(/^\/plsbemyfriend\/([^/]+)$/);
-  const incomingFriendUsername = friendInvitePathMatch
-    ? decodeURIComponent(friendInvitePathMatch[1])
-    : searchParams.get("friend");
-  const initialView = searchParams.get("view");
-  const demoGame = searchParams.get("demo");
+  const startupRoute = readStartupRoute();
+  const { searchParams } = startupRoute;
 
   let social = null;
   const closeAddFriendDialog = (options) => social?.closeAddFriendDialog(options);
@@ -711,7 +674,7 @@ export default function App() {
     setSetupMode: (mode) => { setupMode = mode; },
     setSoloGameUrl,
     setStatus,
-    setBotThinking: (value) => { botThinking = value; },
+    setBotThinking: (value) => { botMoves.setThinking(value); },
     showBotSplash,
     showGame,
     showGameStartSpeech,
@@ -760,8 +723,6 @@ export default function App() {
   const renderCoopInviteFriends = coopInvites.renderInviteFriends;
   const sendCoopInvite = coopInvites.sendInvite;
 
-  const urlRoom = new URLSearchParams(location.search).get("room");
-  const urlGame = new URLSearchParams(location.search).get("game");
   const LAST_ROOM_KEY = storageKey("last-room");
   const LEGACY_LAST_ROOM_KEY = legacyStorageKey("last-room");
   const nameKey = (roomId) => storageKey(`room.${roomId}.name`);
@@ -898,84 +859,58 @@ export default function App() {
     setAuthUser: appShell.setAuthUser,
     getCoopPhase: () => coop?.phase || "off",
     hideModelLoading,
-    incomingFriendUsername,
+    incomingFriendUsername: startupRoute.incomingFriendUsername,
     promptSignIn,
     setNavActive,
     setViewUrl,
   });
   social.bindEvents();
 
-  appShell.bindEvents({
-    onStartDemo: () => soloGame.startDemo(),
-    onConnectCoop: () => connectCoop("create"),
-  });
-  opponentSelection.bindCards();
-  applyOpponentLocks();
-  clearOpponentSelection();
-  soloStartBtn.onclick = () => soloGame.startSelected();
-  soloBackBtn.onclick = () => {
-    soloGame.clearPendingStart();
-    if (setupMode === "coop" && coop.phase === "lobby") {
-      opponentSelectionReadonly = false;
-      lbSolo.classList.remove("readonly");
-      if (coop.myIdx === 0) coop.ws?.send(JSON.stringify({ type: "selecting-opponent", selecting: false }));
-      coopRoom.showRoomPanel();
-      renderRoomLobby(coop.players || [], coop.myIdx);
-      return;
-    }
-    showPlayView();
-  };
-
-  cpStartBtn.onclick = () => enterCoopBotSelection();
-  cpLeaveBtn.onclick = () => leaveCoop();
-
-  cpInviteList.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-coop-invite-user-id]");
-    if (!button) return;
-    sendCoopInvite(button.dataset.coopInviteUserId);
-  });
-
-  coopInviteJoin.onclick = () => {
-    const roomId = coopInviteJoin.dataset.roomId;
-    if (!roomId) return;
-    location.href = `/?room=${encodeURIComponent(roomId)}`;
-  };
-
-  coopInviteDismiss.onclick = () => {
-    const inviteId = coopInviteDismiss.dataset.inviteId;
-    if (!inviteId) return;
-    runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
-  };
-
-  chessnutBoard.bind();
-  opponentSpeech.bindCloseButton();
-  promotionChoice.bind();
-
-  backBtn.onclick = () => {
-    if (!confirmExitGame()) return;
-    if (coop.phase !== "off") leaveCoop();
-    else showLobby();
-  };
-  outcomeScreen.bindActions({
-    onContinue: () => {
-      hideOutcomeBanner();
-      if (coop.phase !== "off") leaveCoop();
-      else showLobby();
+  appEvents = createAppEventController({
+    apiJson,
+    appShell,
+    bindBotSplashStartButton,
+    chessnutBoard,
+    coopInviteList: cpInviteList,
+    coopInviteJoin,
+    coopInviteDismiss,
+    coopRoom,
+    getCoop: () => coop,
+    getSetupMode: () => setupMode,
+    hideOutcomeBanner,
+    leaveCoop,
+    opponentSelection,
+    outcomeScreen,
+    promotionChoice,
+    renderRoomLobby,
+    runFriendAction,
+    sendCoopInvite,
+    setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
+    setSelectedOpponent: (index, theme) => {
+      selectedOpponentIndex = index;
+      selectedOpponentTheme = theme;
     },
-    onChallenge: (opponentIndex) => {
-      const opponent = SOLO_OPPONENTS[opponentIndex];
-      if (!opponent) return;
-      hideOutcomeBanner();
-      setupMode = "solo";
-      selectedOpponentIndex = opponentIndex;
-      selectedOpponentTheme = opponent.theme;
-      syncStrength(String(opponent.elo));
-      updateOpponentSelection(String(opponent.elo));
-      soloStartBtn.disabled = false;
-      soloGame.start();
+    setSetupMode: (mode) => { setupMode = mode; },
+    showLobby,
+    showPlayView,
+    soloBackBtn,
+    soloGame,
+    soloStartBtn,
+    startCoopBotSelection: enterCoopBotSelection,
+    startCoopRoom: () => connectCoop("create"),
+    syncStrength,
+    updateOpponentSelection,
+    elements: {
+      backBtn,
+      confirmExitGame,
+      cpLeaveBtn,
+      cpStartBtn,
+      lbSolo,
+      opponentSpeech,
+      opponents: SOLO_OPPONENTS,
     },
   });
-  bindBotSplashStartButton();
+  appEvents.bind();
 
   // ── Coop mode ─────────────────────────────────────────────────────────────
 
@@ -1040,91 +975,38 @@ export default function App() {
   }
 
   function maybeRunCoopBotTurn() {
-    if (!isMyCoopBotTurn()) {
-      clearCoopBotTimer();
-      return;
-    }
-    scheduleCoopBotMove();
-  }
-
-  async function coopBotMove() {
-    if (!isMyCoopBotTurn() || botThinking) return;
-    const roomId = coop.roomId;
-    const fenBeforeThinking = chess.fen();
-    botThinking = true;
-    try {
-      setStatus("Thinking…", "thinking");
-      const showedThinkingReaction = showOpponentThinkingReaction();
-      if (showedThinkingReaction) {
-        await wait(thinkingMoveDelay());
-        if (!isMyCoopBotTurn() || coop.roomId !== roomId || chess.fen() !== fenBeforeThinking) return;
-      }
-      const { isBlack, workingFen, tokens } = prepareMaiaPosition(chess.fen());
-      const legalMask = buildLegalMask(workingFen, allMovesMaia3);
-
-      const { logitsMove } = await runInference(tokens, coop.strength);
-      if (!isMyCoopBotTurn() || coop.roomId !== roomId || chess.fen() !== fenBeforeThinking) return;
-
-      const moveProbs = decodeMoves(logitsMove, legalMask, isBlack, allMovesMaia3Reversed);
-      const uci = sampleMove(moveProbs);
-
-      const move = commitBotMove(uci);
-      if (!move) return;
-      publishCoopMove();
-      if (!checkGameOver()) showBotMoveReaction(move);
-    } finally {
-      botThinking = false;
-    }
+    botMoves?.maybeRunCoopBotTurn();
   }
 
   function leaveCoop() {
     coopConnection.leave();
   }
 
-  if (authInfo.user) {
-    startPresenceHeartbeat();
-    loadInviteNotifications();
-    invitePollTimer = window.setInterval(loadInviteNotifications, 5000);
-  }
-
-  if (urlRoom) {
-    if (authInfo.authEnabled && !authInfo.user) {
-      promptSignIn();
-    } else {
-      connectCoop("join", { roomId: urlRoom });
-    }
-  } else if (incomingFriendUsername) {
-    await loadFriendInviteLanding();
-  } else if (demoGame === "snib") {
-    soloGame.startDemo();
-  } else if (urlGame === "solo") {
-    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
-    else soloGame.restore();
-  } else if (initialView === "profile") {
-    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
-    else showProfileView();
-  } else if (initialView === "friends") {
-    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
-    else showFriendsView();
-  } else if (initialView === "solo") {
-    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
-    else showSoloSetup();
-  } else if (initialView === "coop") {
-    if (authInfo.authEnabled && !authInfo.user) promptSignIn();
-    else connectCoop("create");
-  } else if (authInfo.authEnabled && !authInfo.user) {
-    showAuthView();
-  } else {
-    soloGame.restore();
-  }
+  const startup = createAppStartupController({
+    connectCoop,
+    getAuthInfo: () => authInfo,
+    loadFriendInviteLanding,
+    loadInviteNotifications,
+    onInvitePollTimer: (timer) => { invitePollTimer = timer; },
+    promptSignIn,
+    route: startupRoute,
+    showAuthView,
+    showFriendsView,
+    showProfileView,
+    showSoloSetup,
+    soloGame,
+    startPresenceHeartbeat,
+  });
+  await startup.start();
     })().catch((err) => {
       console.error(err);
     });
     return () => {
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
-      botTurns.dispose();
+      botMoves?.dispose();
       coopConnection?.dispose();
+      appEvents?.dispose();
       outcomeScreen.dispose();
       promotionChoice.dispose();
       clearBotSplashAutoTimer();
