@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { Chessboard, COLOR, INPUT_EVENT_TYPE } from "cm-chessboard";
-import { Markers } from "cm-chessboard/src/extensions/markers/Markers.js";
+import { INPUT_EVENT_TYPE } from "cm-chessboard";
 import { Chess } from "chess.js";
 import {
   buildLegalMask,
@@ -30,7 +29,10 @@ import { createChessnutController } from "./chessnutController.js";
 import { createCoopConnectionController } from "./coopConnectionController.js";
 import { createCoopGameViewController } from "./coopGameViewController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
+import { createCoopMessageController } from "./coopMessageController.js";
 import { createCoopRoomController } from "./coopRoomController.js";
+import { createGameOverController } from "./gameOverController.js";
+import { createGameScreenController } from "./gameScreenController.js";
 import { createLocalDebugController } from "./localDebugController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSelectionController } from "./opponentSelectionController.js";
@@ -47,7 +49,6 @@ export default function App() {
     (async () => {
       if (disposed) return;
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
-  const CDN       = "/cm-chessboard/assets/";
 
   const strengthSlider = document.getElementById("strength-slider");
   const strengthVal    = document.getElementById("strength-val");
@@ -60,6 +61,9 @@ export default function App() {
 
   let coop = null;
   let soloGame = null;
+  let gameOver = null;
+  let gameScreen = null;
+  let coopMessages = null;
 
   const statusDot   = document.getElementById("status-dot");
   const statusLabel = document.getElementById("status-label");
@@ -103,6 +107,7 @@ export default function App() {
   const chess     = new Chess();
   const lobbyEl   = document.getElementById("lobby");
   const gameEl    = document.getElementById("game");
+  const boardEl   = document.getElementById("board");
   const statusEl  = document.getElementById("game-status");
   const gameScoreEl = document.getElementById("game-score");
   const outcomeOverlayEl = document.getElementById("game-outcome-overlay");
@@ -284,12 +289,6 @@ export default function App() {
     }
   }
 
-  function setGameOpponentTheme(value = getElo(), theme = selectedOpponentTheme) {
-    const legacyThemes = { imp: "snib", witch: "vexi" };
-    const nextTheme = theme || opponentThemeForStrength(value);
-    gameEl.dataset.opponent = legacyThemes[nextTheme] || nextTheme;
-  }
-
   const chessnutBoard = createChessnutController({
     elements: {
       panel: boardDevicePanel,
@@ -411,52 +410,16 @@ export default function App() {
     soloSession.syncProgressFromAuth();
   }
 
-  function unlockNextOpponent() {
-    return soloSession.unlockNextOpponent();
-  }
-
   function showGame() {
-    lobbyEl.style.display = "none";
-    setGameOpponentTheme();
-    updateGameScore();
-    gameEl.style.display  = "flex";
-    if (!board) {
-      board = new Chessboard(document.getElementById("board"), {
-        position: chess.fen(),
-        orientation: COLOR.white,
-        assetsUrl: CDN,
-        style: {
-          pieces: { file: CDN + "pieces/staunty.svg" },
-          animationDuration: 220,
-        },
-        extensions: [{ class: Markers }],
-      });
-    }
-    clearVictoryBoardPulse();
+    gameScreen.showGame();
   }
 
   function showLobby() {
-    gameEl.style.display  = "none";
-    hideOpponentSpeech();
-    promotionChoice.hide();
-    lobbyEl.style.display = "";
-    if (soloSession.active) soloGame.clearGame();
-    if (authInfo.authEnabled && !authInfo.user) showAuthView();
-    else showPlayView();
-    if (authInfo.user && (location.search.includes("room=") || location.pathname !== "/"))
-      history.replaceState(null, "", "/");
-  }
-
-  function shouldWarnBeforeExitingGame() {
-    return gameEl.style.display !== "none" && !chess.isGameOver();
+    gameScreen.showLobby();
   }
 
   function confirmExitGame() {
-    if (!shouldWarnBeforeExitingGame()) return true;
-    const message = coop?.phase !== "off"
-      ? "Exit this game? You will leave the current room."
-      : "Exit this game? Your current solo game will be discarded.";
-    return window.confirm(message);
+    return gameScreen.confirmExitGame();
   }
 
   function setDebugPosition(fen, options = {}) {
@@ -505,34 +468,7 @@ export default function App() {
   localDebug.bind();
 
   function checkGameOver() {
-    if (chess.isCheckmate()) {
-      const playerWon = chess.turn() === "b";
-      soloGame.recordResult(playerWon ? "victory" : "defeat");
-      const canUnlockProgress = soloSession.active || coop?.phase === "playing" || coop?.phase === "over";
-      const nextOpponent = playerWon ? SOLO_OPPONENTS[selectedOpponentIndex + 1] : null;
-      const unlockedNext = playerWon && canUnlockProgress && unlockNextOpponent();
-      const defeatedKingSquare = findKingSquare(playerWon ? "b" : "w");
-      showVictoryBoardPulseAfterDelay(defeatedKingSquare, 120, playerWon ? "victory" : "defeat");
-      showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 2200, {
-        unlockedOpponent: unlockedNext ? nextOpponent : null,
-      });
-      showEndgameOpponentReaction(playerWon, 2050);
-      setStatus(unlockedNext ? "New opponent unlocked." : "Checkmate", "over");
-      disableBoardMoveInput();
-      return true;
-    }
-    if (chess.isDraw()) {
-      const reason = chess.isStalemate() ? "Stalemate"
-        : chess.isInsufficientMaterial() ? "Insufficient material" : "Draw";
-      soloGame.recordResult("draw");
-      showVictoryBoardPulseAfterDelay(null, 120, "draw");
-      showOutcomeBannerAfterDelay("draw", 1900);
-      setStatus(reason, "over");
-      disableBoardMoveInput();
-      return true;
-    }
-    hideOutcomeBanner();
-    return false;
+    return gameOver.check();
   }
 
   async function botMove() {
@@ -720,6 +656,31 @@ export default function App() {
     showSoloSetup,
   } = appShell;
 
+  gameScreen = createGameScreenController({
+    clearSoloGame: () => soloGame.clearGame(),
+    clearVictoryBoardPulse,
+    elements: {
+      boardEl,
+      gameEl,
+      lobbyEl,
+    },
+    getAuthInfo: () => authInfo,
+    getBoard: () => board,
+    getChess: () => chess,
+    getCoopPhase: () => coop?.phase || "off",
+    getElo,
+    getSelectedOpponentTheme: () => selectedOpponentTheme,
+    getSoloActive: () => soloSession.active,
+    hideOpponentSpeech,
+    inputHandler,
+    opponentThemeForStrength,
+    promotionChoice,
+    setBoard: (nextBoard) => { board = nextBoard; },
+    showAuthView,
+    showPlayView,
+    updateGameScore,
+  });
+
   soloGame = createSoloGameController({
     chess,
     currentOpponent,
@@ -767,6 +728,22 @@ export default function App() {
       updateCheckMarker,
       updateGameScore,
     },
+  });
+
+  gameOver = createGameOverController({
+    chess,
+    disableBoardMoveInput,
+    findKingSquare,
+    getCanUnlockProgress: () => soloSession.active || coop?.phase === "playing" || coop?.phase === "over",
+    getSelectedOpponentIndex: () => selectedOpponentIndex,
+    hideOutcomeBanner,
+    opponents: SOLO_OPPONENTS,
+    recordResult: (result) => soloGame.recordResult(result),
+    setStatus,
+    showEndgameOpponentReaction,
+    showOutcomeBannerAfterDelay,
+    showVictoryBoardPulseAfterDelay,
+    unlockNextOpponent: () => soloSession.unlockNextOpponent(),
   });
 
   const coopInvites = createCoopInviteController({
@@ -858,6 +835,30 @@ export default function App() {
     updateGameScore,
     updateOpponentSelection,
     updatePlacementDiffs: () => chessnutBoard.updateDiffLeds(),
+  });
+
+  coopMessages = createCoopMessageController({
+    connectToAuth: () => {
+      location.href = authInfo.loginUrl || `/auth/google?next=${encodeURIComponent(currentNextPath())}`;
+    },
+    coopGameView,
+    coopInvites,
+    coopRoom,
+    getCoop: () => coop,
+    getCoopPlayerName: coopPlayerName,
+    getSetupMode: () => setupMode,
+    loadCoopInviteFriends,
+    loadInviteNotifications,
+    readSoloProgress,
+    rememberRoom,
+    setRoomUrl,
+    showModelLoading,
+    showPlayView,
+    syncStrength,
+    updateOpponentSelection,
+    elements: {
+      lbSolo,
+    },
   });
 
   await appShell.loadAuth();
@@ -1035,74 +1036,7 @@ export default function App() {
   }
 
   async function handleCoopMsg(msg) {
-    if (msg.type === "error") {
-      if (msg.code === "auth-required") {
-        location.href = authInfo.loginUrl || `/auth/google?next=${encodeURIComponent(currentNextPath())}`;
-        return;
-      }
-      if (msg.code === "waiting-for-maia") {
-        showModelLoading("Preparing game...");
-        alert(msg.message.replace("Waiting for Maia on:", "The game is still loading for:"));
-        return;
-      }
-      alert(msg.message);
-      showPlayView();
-      return;
-    }
-
-    if (msg.type === "created") {
-      coop.roomId = msg.roomId;
-      coop.playerId = msg.playerId;
-      coop.reconnectAttempts = 0;
-      coopInvites.clearSent();
-      rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
-      setRoomUrl(msg.roomId);
-      loadCoopInviteFriends();
-      coopRoom.showRoomPanel();
-      coop.phase = "lobby";
-      return;
-    }
-
-    if (msg.type === "joined") {
-      coop.roomId = msg.roomId;
-      coop.playerId = msg.playerId;
-      coop.reconnectAttempts = 0;
-      rememberRoom(msg.roomId, coopPlayerName(msg.roomId), msg.playerId);
-      setRoomUrl(msg.roomId);
-      loadCoopInviteFriends();
-      loadInviteNotifications();
-      return;
-    }
-
-    if (msg.type === "room-state") {
-      coop.roomId    = msg.roomId;
-      coop.playerId  = msg.playerId;
-      coop.players   = msg.players;
-      coop.activeIdx = msg.activeIdx;
-      coop.midTurn   = msg.midTurn;
-      coop.fen       = msg.fen;
-      coop.myIdx     = msg.myIdx;
-      coop.startedAt = Number(msg.startedAt || coop.startedAt || Date.now());
-      coop.moveCount = Number(msg.moveCount ?? coop.moveCount ?? 0);
-      coop.strength  = msg.strength;
-      coop.selectingOpponent = !!msg.selectingOpponent;
-      coop.maxUnlockedOpponentCount = Math.max(readSoloProgress(), Number(msg.maxUnlockedOpponentCount || 1));
-      coop.reconnectAttempts = 0;
-      if (msg.strength) {
-        syncStrength(String(msg.strength));
-        if (setupMode === "coop" && lbSolo.style.display !== "none")
-          updateOpponentSelection(String(msg.strength));
-      }
-
-      if (msg.phase === "lobby") {
-        coopGameView.applyLobbyState(msg);
-        return;
-      }
-
-      if (msg.phase === "playing" || msg.phase === "over") {
-        coopGameView.applyActiveState(msg);
-      }
-    }
+    await coopMessages.handleMessage(msg);
   }
 
   function maybeRunCoopBotTurn() {
