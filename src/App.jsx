@@ -34,6 +34,7 @@ import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSelectionController } from "./opponentSelectionController.js";
 import { createOpponentSpeechController } from "./opponentSpeechController.js";
 import { createOutcomeScreen } from "./outcomeScreen.js";
+import { createPromotionController } from "./promotionController.js";
 import { createSoloSessionController } from "./soloSessionController.js";
 
 export default function App() {
@@ -160,7 +161,6 @@ export default function App() {
   let pendingSoloStartDemo = false;
   let authInfo = defaultAuthInfo();
   let coopConnection = null;
-  let pendingPromotion = null;
   let debugMoveInput = false;
 
   const opponentSelection = createOpponentSelectionController({
@@ -263,37 +263,6 @@ export default function App() {
   const thinkingMoveDelay = botTurns.thinkingMoveDelay;
   const wait = botTurns.wait;
 
-  function promotionMoves(from, to) {
-    return chess.moves({ verbose: true })
-      .filter(move => move.from === from && move.to === to && move.promotion);
-  }
-
-  function hidePromotionChoice() {
-    pendingPromotion = null;
-    promotionChoiceEl.hidden = true;
-    promotionChoiceEl.classList.remove("visible");
-  }
-
-  function showPromotionChoice(from, to) {
-    const moves = promotionMoves(from, to);
-    if (!moves.length) return false;
-    pendingPromotion = { from, to };
-    const promotions = new Set(moves.map(move => move.promotion));
-    promotionChoiceEl.querySelectorAll("[data-promotion]").forEach((button) => {
-      button.disabled = !promotions.has(button.dataset.promotion);
-    });
-    promotionChoiceEl.hidden = false;
-    promotionChoiceEl.classList.add("visible");
-    return true;
-  }
-
-  function choosePromotion(promotion) {
-    const pending = pendingPromotion;
-    hidePromotionChoice();
-    if (!pending) return;
-    applyPlayerMove(pending.from, pending.to, promotion);
-  }
-
   function applyPlayerMove(from, to, promotion = "q") {
     if (!canAcceptPlayerMove()) return false;
     try {
@@ -339,6 +308,12 @@ export default function App() {
     getLegalMoves: () => chess.moves({ verbose: true }),
     canAcceptMove: canAcceptPlayerMove,
     applyMove: (from, to, promotion = "q") => applyPlayerMove(from, to, promotion),
+  });
+
+  const promotionChoice = createPromotionController({
+    element: promotionChoiceEl,
+    getLegalMoves: () => chess.moves({ verbose: true }),
+    onPromotionChosen: (from, to, promotion) => applyPlayerMove(from, to, promotion),
   });
 
   const outcomeScreen = createOutcomeScreen({
@@ -467,7 +442,7 @@ export default function App() {
   function showLobby() {
     gameEl.style.display  = "none";
     hideOpponentSpeech();
-    hidePromotionChoice();
+    promotionChoice.hide();
     lobbyEl.style.display = "";
     if (soloSession.active) clearSoloGame();
     if (authInfo.authEnabled && !authInfo.user) showAuthView();
@@ -508,7 +483,7 @@ export default function App() {
     soloSession.startGame({ demo });
     debugMoveInput = false;
     cpChips.innerHTML = "";
-    hidePromotionChoice();
+    promotionChoice.hide();
     hideOutcomeBanner();
     hideModelLoading();
     if (demo) setDemoGameUrl();
@@ -588,7 +563,7 @@ export default function App() {
       selectedOpponentIndex = Number(state.opponentIndex || 0);
       selectedOpponentTheme = state.opponentTheme || opponentThemeForStrength(state.strength || getElo());
       cpChips.innerHTML = "";
-      hidePromotionChoice();
+      promotionChoice.hide();
       showGame();
       board.setPosition(chess.fen(), false);
       clearLastMove();
@@ -633,7 +608,7 @@ export default function App() {
     debugMoveInput = true;
     botThinking = false;
     cpChips.innerHTML = "";
-    hidePromotionChoice();
+    promotionChoice.hide();
     hideOutcomeBanner();
     hideModelLoading();
     showGame();
@@ -748,13 +723,13 @@ export default function App() {
   function inputHandler(event) {
     switch (event.type) {
       case INPUT_EVENT_TYPE.moveInputStarted:
-        if (pendingPromotion) return false;
+        if (promotionChoice.hasPending()) return false;
         if (coop.phase === "playing")
           return !coop.midTurn && coop.activeIdx === coop.myIdx && maia.modelReady;
         return chess.turn() === "w" && !botThinking && (maia.modelReady || debugMoveInput) && !chess.isGameOver();
 
       case INPUT_EVENT_TYPE.validateMoveInput: {
-        if (showPromotionChoice(event.squareFrom, event.squareTo)) return false;
+        if (promotionChoice.show(event.squareFrom, event.squareTo)) return false;
         return applyPlayerMove(event.squareFrom, event.squareTo, "q");
       }
     }
@@ -1088,9 +1063,7 @@ export default function App() {
 
   chessnutBoard.bind();
   opponentSpeech.bindCloseButton();
-  promotionChoiceEl.querySelectorAll("[data-promotion]").forEach((button) => {
-    button.onclick = () => choosePromotion(button.dataset.promotion);
-  });
+  promotionChoice.bind();
 
   backBtn.onclick = () => {
     if (!confirmExitGame()) return;
@@ -1335,6 +1308,7 @@ export default function App() {
       botTurns.dispose();
       coopConnection?.dispose();
       outcomeScreen.dispose();
+      promotionChoice.dispose();
       clearBotSplashAutoTimer();
       window.removeEventListener("orientationchange", requestPortraitOrientation);
       if (window.__chessquestiaDebug?.setPosition === setDebugPosition)
