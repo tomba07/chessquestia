@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { INPUT_EVENT_TYPE } from "cm-chessboard";
 import { Chess } from "chess.js";
 import { loadMaiaMoveMaps } from "./maia.js";
 import { createSocialController } from "./socialUi.js";
@@ -15,6 +14,7 @@ import {
   createAppStartupController,
   readStartupRoute,
 } from "./appStartupController.js";
+import { getAppElements } from "./appElements.js";
 import { createBoardController } from "./boardController.js";
 import { createBotMoveController } from "./botMoveController.js";
 import {
@@ -25,6 +25,7 @@ import {
 } from "./components/AppScreens.jsx";
 import { createBotSplash } from "./botSplash.js";
 import { createChessnutController } from "./chessnutController.js";
+import { createCoopActionsController } from "./coopActionsController.js";
 import { createCoopConnectionController } from "./coopConnectionController.js";
 import { createCoopGameViewController } from "./coopGameViewController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
@@ -37,6 +38,7 @@ import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSelectionController } from "./opponentSelectionController.js";
 import { createOpponentSpeechController } from "./opponentSpeechController.js";
 import { createOutcomeScreen } from "./outcomeScreen.js";
+import { createPlayerMoveController } from "./playerMoveController.js";
 import { createPromotionController } from "./promotionController.js";
 import { createSoloGameController } from "./soloGameController.js";
 import { createSoloSessionController } from "./soloSessionController.js";
@@ -49,8 +51,11 @@ export default function App() {
       if (disposed) return;
   const BOT_MOVE_DELAY_MS = { min: 650, max: 1250 };
 
-  const strengthSlider = document.getElementById("strength-slider");
-  const strengthVal    = document.getElementById("strength-val");
+  const appElements = getAppElements();
+  const { strengthSlider, strengthVal } = appElements.strength;
+  const { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill } = appElements.maia;
+  const { lobbyEl, gameEl, boardEl, statusEl, gameScoreEl, outcomeOverlayEl, outcomeBannerEl, outcomeTitleEl, outcomeContinueBtn, outcomeResultsEl, outcomeMovesEl, outcomeTimeEl, outcomeUnlockEl, outcomeUnlockNameEl, outcomeUnlockTextEl, outcomeUnlockCardEl, outcomeChallengeBtn, victoryBoardPulseEl, victoryScreenFlashEl, gameBoardFrameEl, botSplashEl, botSplashArt, botSplashBanner, botSplashName, botSplashText, botSplashStrength, botSplashStart, cpChips, promotionChoiceEl, boardDevicePanel, boardConnectBtn, boardConnectLabel, boardDisconnectBtn, boardDeviceStatus, profileBoardToggle, opponentSpeechEl, opponentSpeechPortrait, opponentSpeechName, opponentSpeechText, opponentSpeechClose } = appElements.game;
+  const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, friendAddClose, friendAddDialog, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
 
   // ── Load move mappings ────────────────────────────────────────────────────
 
@@ -65,13 +70,8 @@ export default function App() {
   let coopMessages = null;
   let appEvents = null;
   let botMoves = null;
-
-  const statusDot   = document.getElementById("status-dot");
-  const statusLabel = document.getElementById("status-label");
-  const downloadBtn = document.getElementById("download-btn");
-  const modelLoadingEl = document.getElementById("model-loading");
-  const progressBar = document.getElementById("progress-bar");
-  const progressFill = document.getElementById("progress-fill");
+  let playerMoves = null;
+  let coopActions = null;
 
   const maia = createMaiaWorker({
     elements: { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill },
@@ -106,46 +106,6 @@ export default function App() {
   // ── Game state ────────────────────────────────────────────────────────────
 
   const chess     = new Chess();
-  const lobbyEl   = document.getElementById("lobby");
-  const gameEl    = document.getElementById("game");
-  const boardEl   = document.getElementById("board");
-  const statusEl  = document.getElementById("game-status");
-  const gameScoreEl = document.getElementById("game-score");
-  const outcomeOverlayEl = document.getElementById("game-outcome-overlay");
-  const outcomeBannerEl = document.getElementById("game-outcome-banner");
-  const outcomeTitleEl = document.getElementById("game-outcome-title");
-  const outcomeContinueBtn = document.getElementById("game-outcome-continue");
-  const outcomeResultsEl = document.getElementById("game-outcome-results");
-  const outcomeMovesEl = document.getElementById("game-outcome-moves");
-  const outcomeTimeEl = document.getElementById("game-outcome-time");
-  const outcomeUnlockEl = document.getElementById("game-outcome-unlock");
-  const outcomeUnlockNameEl = document.getElementById("game-outcome-unlock-name");
-  const outcomeUnlockTextEl = document.getElementById("game-outcome-unlock-text");
-  const outcomeUnlockCardEl = document.getElementById("game-outcome-unlock-card");
-  const outcomeChallengeBtn = document.getElementById("game-outcome-challenge");
-  const victoryBoardPulseEl = document.getElementById("victory-board-pulse");
-  const victoryScreenFlashEl = document.getElementById("victory-screen-flash");
-  const gameBoardFrameEl = document.querySelector(".game-board-frame");
-  const botSplashEl = document.getElementById("bot-splash");
-  const botSplashArt = document.getElementById("bot-splash-art");
-  const botSplashBanner = document.getElementById("bot-splash-banner");
-  const botSplashName = document.getElementById("bot-splash-name");
-  const botSplashText = document.getElementById("bot-splash-text");
-  const botSplashStrength = document.getElementById("bot-splash-strength");
-  const botSplashStart = document.getElementById("bot-splash-start");
-  const cpChips   = document.getElementById("cp-chips");
-  const promotionChoiceEl = document.getElementById("promotion-choice");
-  const boardDevicePanel = document.getElementById("board-device-panel");
-  const boardConnectBtn = document.getElementById("board-connect-btn");
-  const boardConnectLabel = document.getElementById("board-connect-label");
-  const boardDisconnectBtn = document.getElementById("board-disconnect-btn");
-  const boardDeviceStatus = document.getElementById("board-device-status");
-  const profileBoardToggle = document.getElementById("profile-board-toggle");
-  const opponentSpeechEl = document.getElementById("opponent-speech");
-  const opponentSpeechPortrait = document.getElementById("opponent-speech-portrait");
-  const opponentSpeechName = document.getElementById("opponent-speech-name");
-  const opponentSpeechText = document.getElementById("opponent-speech-text");
-  const opponentSpeechClose = document.getElementById("opponent-speech-close");
   const STORAGE_PREFIX = "chessquestia";
   const LEGACY_STORAGE_PREFIX = "local-chess";
   const storageKey = (suffix) => `${STORAGE_PREFIX}.${suffix}`;
@@ -212,9 +172,7 @@ export default function App() {
   }
 
   function canAcceptPlayerMove() {
-    if (chess.isGameOver() || (!maia.modelReady && !debugMoveInput) || botMoves?.isThinking()) return false;
-    if (coop?.phase === "playing") return !coop.midTurn && coop.activeIdx === coop.myIdx;
-    return soloSession.active && coop?.phase === "off" && chess.turn() === "w";
+    return playerMoves?.canAcceptMove() || false;
   }
 
   const boardController = createBoardController({
@@ -240,33 +198,11 @@ export default function App() {
   const updateGameScore = boardController.updateScore;
 
   function publishCoopMove() {
-    if (coop?.phase === "playing") coop.moveCount = Number(coop.moveCount || 0) + 1;
-    coop.ws?.send(JSON.stringify({ type: "move", fen: chess.fen(), gameOver: chess.isGameOver() }));
+    coopActions?.publishMove();
   }
 
   function applyPlayerMove(from, to, promotion = "q") {
-    if (!canAcceptPlayerMove()) return false;
-    try {
-      const move = chess.move({ from, to, promotion });
-      if (!move) return false;
-      syncBoardAfterMove(move);
-      if (coop?.phase === "playing") {
-        publishCoopMove();
-        if (checkGameOver()) return true;
-        showPlayerMoveReaction(move);
-        disableBoardMoveInput();
-      } else {
-        soloGame.saveGame();
-        if (!checkGameOver()) {
-          showPlayerMoveReaction(move);
-          disableBoardMoveInput();
-          setTimeout(() => botMoves.botMove(), botMoves.nextBotMoveDelay());
-        }
-      }
-      return true;
-    } catch {
-      return false;
-    }
+    return playerMoves?.applyMove(from, to, promotion) || false;
   }
 
   const chessnutBoard = createChessnutController({
@@ -361,6 +297,23 @@ export default function App() {
   const showGameStartSpeech = opponentSpeech.showGameStartSpeech;
   const showOpponentThinkingReaction = opponentSpeech.showThinkingReaction;
   const showPlayerMoveReaction = opponentSpeech.showPlayerMoveReaction;
+
+  playerMoves = createPlayerMoveController({
+    checkGameOver,
+    chess,
+    disableBoardMoveInput,
+    getBotThinking: () => botMoves?.isThinking() || false,
+    getCoop: () => coop,
+    getDebugMoveInput: () => debugMoveInput,
+    getMaiaReady: () => maia.modelReady,
+    getSoloActive: () => soloSession.active,
+    promotionChoice,
+    publishCoopMove,
+    saveSoloGame: () => soloGame.saveGame(),
+    scheduleSoloBotMove: () => setTimeout(() => botMoves.botMove(), botMoves.nextBotMoveDelay()),
+    showPlayerMoveReaction,
+    syncBoardAfterMove,
+  });
 
   botMoves = createBotMoveController({
     allMoves: allMovesMaia3,
@@ -477,76 +430,12 @@ export default function App() {
   }
 
   function inputHandler(event) {
-    switch (event.type) {
-      case INPUT_EVENT_TYPE.moveInputStarted:
-        if (promotionChoice.hasPending()) return false;
-        if (coop.phase === "playing")
-          return !coop.midTurn && coop.activeIdx === coop.myIdx && maia.modelReady;
-        return chess.turn() === "w" && !botMoves?.isThinking() && (maia.modelReady || debugMoveInput) && !chess.isGameOver();
-
-      case INPUT_EVENT_TYPE.validateMoveInput: {
-        if (promotionChoice.show(event.squareFrom, event.squareTo)) return false;
-        return applyPlayerMove(event.squareFrom, event.squareTo, "q");
-      }
-    }
+    return playerMoves?.inputHandler(event);
   }
 
   const appRuntime = createAppRuntimeController();
   appRuntime.bind();
 
-  // ── Lobby UI ──────────────────────────────────────────────────────────────
-
-  const lbMain       = document.getElementById("lb-main");
-  const lbAuth       = document.getElementById("lb-auth");
-  const lbSolo       = document.getElementById("lb-solo");
-  const lbRoom       = document.getElementById("lb-room");
-  const lbProfile    = document.getElementById("lb-profile");
-  const lbFriends    = document.getElementById("lb-friends");
-  const lbFriendInvite = document.getElementById("lb-friend-invite");
-  const cpPlayerList = document.getElementById("cp-player-list");
-  const cpStartBtn   = document.getElementById("cp-start");
-  const cpLeaveBtn   = document.getElementById("cp-leave");
-  const cpRoomMeta   = document.getElementById("cp-room-meta");
-  const cpInviteMessage = document.getElementById("cp-invite-message");
-  const cpInviteList = document.getElementById("cp-invite-list");
-  const backBtn      = document.getElementById("back-btn");
-  const authBar      = document.getElementById("auth-bar");
-  const authLabel    = document.getElementById("auth-label");
-  const authBtn      = document.getElementById("auth-btn");
-  const authPrimaryBtn = document.getElementById("auth-primary-btn");
-  const authDemoBtn = document.getElementById("auth-demo-btn");
-  const authDevLoginCard = document.getElementById("auth-dev-login-card");
-  const authDevLoginOptions = document.getElementById("auth-dev-login-options");
-  const profileAccountCard = document.getElementById("profile-account-card");
-  const profileAccountName = document.getElementById("profile-account-name");
-  const profileAuthBtn = document.getElementById("profile-auth-btn");
-  const devLoginCard = document.getElementById("dev-login-card");
-  const devLoginOptions = document.getElementById("dev-login-options");
-  const navPlay      = document.getElementById("nav-play");
-  const navProfile   = document.getElementById("nav-profile");
-  const navFriends   = document.getElementById("nav-friends");
-  const coopInviteNotice = document.getElementById("coop-invite-notice");
-  const coopInviteText = document.getElementById("coop-invite-text");
-  const coopInviteJoin = document.getElementById("coop-invite-join");
-  const coopInviteDismiss = document.getElementById("coop-invite-dismiss");
-  const welcomeName  = document.getElementById("welcome-name");
-  const botSelectTitle = document.getElementById("bot-select-title");
-  const soloStartBtn = document.getElementById("solo-start-btn");
-  const soloBackBtn  = document.getElementById("solo-back-btn");
-  const friendSearch = document.getElementById("friend-search");
-  const profileUsername = document.getElementById("profile-username");
-  const usernameSaveBtn = document.getElementById("username-save");
-  const usernameHelp = document.getElementById("username-help");
-  const friendMessage = document.getElementById("friend-message");
-  const friendRequestsEl = document.getElementById("friend-requests");
-  const friendResultsEl = document.getElementById("friend-results");
-  const friendListEl = document.getElementById("friend-list");
-  const friendInviteLink = document.getElementById("friend-invite-link");
-  const friendLinkCopy = document.getElementById("friend-link-copy");
-  const friendLinkShare = document.getElementById("friend-link-share");
-  const friendAddDialog = document.getElementById("friend-add-dialog");
-  const friendAddClose = document.getElementById("friend-add-close");
-  const friendInviteLanding = document.getElementById("friend-invite-landing");
   const startupRoute = readStartupRoute();
   const { searchParams } = startupRoute;
 
@@ -583,8 +472,8 @@ export default function App() {
       navFriends,
       navPlay,
       navProfile,
-      playCoopBtn: document.getElementById("play-coop-btn"),
-      playSoloBtn: document.getElementById("play-solo-btn"),
+      playCoopBtn,
+      playSoloBtn,
       profileAccountCard,
       profileAccountName,
       profileAuthBtn,
@@ -886,6 +775,7 @@ export default function App() {
     runFriendAction,
     sendCoopInvite,
     setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
+    setCoopSelectingOpponent: (selecting) => coopActions?.setSelectingOpponent(selecting),
     setSelectedOpponent: (index, theme) => {
       selectedOpponentIndex = index;
       selectedOpponentTheme = theme;
@@ -948,26 +838,30 @@ export default function App() {
     onReconnectingLobby: coopRoom.showReconnectingLobby,
   });
 
+  coopActions = createCoopActionsController({
+    getConnection: () => coopConnection,
+    getCoop: () => coop,
+    getElo,
+    getFen: () => chess.fen(),
+    getGameOver: () => chess.isGameOver(),
+    getMaiaReady: () => maia.modelReady,
+    getOpponentSelectionReadonly: () => opponentSelectionReadonly,
+    getSoloStartDisabled: () => soloStartBtn.disabled,
+    requestModelDownload,
+    showCoopBotSelection,
+    showModelLoading,
+  });
+
   function startCoopWithSelectedBot() {
-    if (opponentSelectionReadonly || soloStartBtn.disabled || coop.phase !== "lobby" || coop.myIdx !== 0) return;
-    if (!maia.modelReady) {
-      showModelLoading("Preparing game...");
-      requestModelDownload();
-      return;
-    }
-    coop.ws?.send(JSON.stringify({ type: "strength", strength: getElo() }));
-    coop.ws?.send(JSON.stringify({ type: "start" }));
+    coopActions?.startWithSelectedBot();
   }
 
   function enterCoopBotSelection() {
-    if (coop.phase !== "lobby") return;
-    const isHost = coop.myIdx === 0;
-    if (isHost) coop.ws?.send(JSON.stringify({ type: "selecting-opponent", selecting: true }));
-    showCoopBotSelection({ readonly: !isHost });
+    coopActions?.enterBotSelection();
   }
 
   function connectCoop(...args) {
-    coopConnection.connect(...args);
+    coopActions?.connect(...args);
   }
 
   async function handleCoopMsg(msg) {
@@ -979,7 +873,7 @@ export default function App() {
   }
 
   function leaveCoop() {
-    coopConnection.leave();
+    coopActions?.leave();
   }
 
   const startup = createAppStartupController({
