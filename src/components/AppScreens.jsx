@@ -26,7 +26,7 @@ function SideMenu() {
   return (
     <nav className="side-menu" aria-label="Main navigation">
       <div className="side-brand">Chessquestia</div>
-      <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/icons/solo_icon.png" alt="" />Home</button>
+      <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/icons/home-icon.png" alt="" />Home</button>
       <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/profile-icon.png" alt="" />Profile</button>
       <button id="nav-friends" className="side-link" type="button">
         <img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends
