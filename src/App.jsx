@@ -36,6 +36,7 @@ import { createCoopGameViewController } from "./coopGameViewController.js";
 import { createCoopInviteController } from "./coopInviteController.js";
 import { createCoopMessageController } from "./coopMessageController.js";
 import { createCoopRoomController } from "./coopRoomController.js";
+import { createInitialCoopState } from "./coopState.js";
 import { createGameOverController } from "./gameOverController.js";
 import { createGameScreenController } from "./gameScreenController.js";
 import { createLocalDebugController } from "./localDebugController.js";
@@ -771,21 +772,7 @@ export default function App() {
 
   // ── Coop mode ─────────────────────────────────────────────────────────────
 
-  coop = {
-    ws: null, roomId: null,
-    playerId: null,
-    myIdx: -1,
-    phase: "off",
-    players: [], activeIdx: 0, midTurn: false, fen: null,
-    startedAt: null,
-    moveCount: 0,
-    maxUnlockedOpponentCount: 1,
-    strength: 1500,
-    selectingOpponent: false,
-    leaving: false,
-    reconnectTimer: null,
-    reconnectAttempts: 0,
-  };
+  coop = createInitialCoopState();
 
   coopConnection = createCoopConnectionController({
     getCoop: () => coop,
