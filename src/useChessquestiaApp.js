@@ -24,11 +24,8 @@ import { createBoardController } from "./boardController.js";
 import { createBotMoveController } from "./botMoveController.js";
 import { createCoopActionsController } from "./coopActionsController.js";
 import { createCoopConnectionController } from "./coopConnectionController.js";
-import { createCoopGameViewController } from "./coopGameViewController.js";
-import { createCoopInviteController } from "./coopInviteController.js";
-import { createCoopMessageController } from "./coopMessageController.js";
-import { createCoopRoomController } from "./coopRoomController.js";
 import { createInitialCoopState } from "./coopState.js";
+import { createCoopUiControllers } from "./coopUiControllers.js";
 import { createGameOverController } from "./gameOverController.js";
 import { createGamePresentationControllers } from "./gamePresentationControllers.js";
 import { createGameScreenController } from "./gameScreenController.js";
@@ -507,106 +504,59 @@ export function useChessquestiaApp() {
     unlockNextOpponent: () => soloSession.unlockNextOpponent(),
   });
 
-  const coopInvites = createCoopInviteController({
+  const {
+    coopMessages: initializedCoopMessages,
+    coopRoom,
+    loadCoopInviteFriends,
+    renderRoomLobby,
+    sendCoopInvite,
+  } = createCoopUiControllers({
     apiJson,
     elements: {
-      inviteMessageEl: cpInviteMessage,
-      inviteListEl: cpInviteList,
-    },
-    getAuthInfo: () => authInfo,
-    getRoomId: () => coop?.roomId,
-    getJoinedUserIds: () => new Set((coop?.players || []).map(player => player.userId).filter(Boolean)),
-  });
-  const loadCoopInviteFriends = coopInvites.loadFriends;
-  const renderCoopInviteFriends = coopInvites.renderInviteFriends;
-  const sendCoopInvite = coopInvites.sendInvite;
-
-  const coopRoom = createCoopRoomController({
-    elements: {
-      cpPlayerList,
-      cpRoomMeta,
-      cpStartBtn,
-      lbFriendInvite,
-      lbFriends,
-      lbMain,
-      lbProfile,
-      lbRoom,
-      lbSolo,
+      ...appElements.lobby,
+      cpChips,
     },
     storage: COOP_ROOM_STORAGE,
     getAuthInfo: () => authInfo,
-    getCoop: () => coop,
-    hideModelLoading,
-    showModelLoading,
-    renderCoopInviteFriends,
-  });
-  const coopPlayerName = coopRoom.playerName;
-  const rememberRoom = coopRoom.rememberRoom;
-  const renderRoomLobby = coopRoom.renderLobby;
-  const setRoomUrl = coopRoom.setRoomUrl;
-  const storedPlayerId = coopRoom.storedPlayerId;
-
-  const coopGameView = createCoopGameViewController({
-    elements: {
-      cpChips,
-      lbSolo,
-      soloStartBtn,
-    },
     getBoard: () => board,
     getChess: () => chess,
     getCoop: () => coop,
     getCurrentOpponent: currentOpponent,
     getElo,
     getSetupMode: () => setupMode,
-    applyOpponentLocks,
-    applyRemoteFen,
-    checkGameOver,
-    clearLastMove,
-    disableBoardMoveInput,
-    enableBoardMoveInput,
-    hideOutcomeBanner,
-    loadCoopInviteFriends,
-    maybeAutoStartCoopSplash,
-    maybeRunCoopBotTurn,
-    renderRoomLobby,
-    setCoopTurnStatus,
-    setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
-    shouldAutoStartCoopSplash,
-    shouldLoadInviteFriends: () => coopInvites.shouldLoadFriends(),
-    showBotSplash,
-    showCoopBotSelection,
-    showGame,
-    showGameStartSpeech,
-    showRoomPanel: coopRoom.showRoomPanel,
-    updateCheckMarker,
-    updateGameScore,
-    updateOpponentSelection,
-    updatePlacementDiffs: () => chessnutBoard.updateDiffLeds(),
-  });
-
-  coopMessages = createCoopMessageController({
-    connectToAuth: () => {
-      location.href = authInfo.loginUrl || `/auth/google?next=${encodeURIComponent(currentNextPath())}`;
-    },
-    coopGameView,
-    coopInvites,
-    coopRoom,
-    getCoop: () => coop,
-    getCoopPlayerName: coopPlayerName,
-    getSetupMode: () => setupMode,
-    loadCoopInviteFriends,
-    loadInviteNotifications,
-    readSoloProgress,
-    rememberRoom,
-    setRoomUrl,
-    showModelLoading,
-    showPlayView,
-    syncStrength,
-    updateOpponentSelection,
-    elements: {
-      lbSolo,
+    actions: {
+      applyOpponentLocks,
+      applyRemoteFen,
+      checkGameOver,
+      clearLastMove,
+      connectToAuth: () => {
+        location.href = authInfo.loginUrl || `/auth/google?next=${encodeURIComponent(currentNextPath())}`;
+      },
+      disableBoardMoveInput,
+      enableBoardMoveInput,
+      hideModelLoading,
+      hideOutcomeBanner,
+      loadInviteNotifications,
+      maybeAutoStartCoopSplash,
+      maybeRunCoopBotTurn,
+      readSoloProgress,
+      setCoopTurnStatus,
+      setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
+      shouldAutoStartCoopSplash,
+      showBotSplash,
+      showCoopBotSelection,
+      showGame,
+      showGameStartSpeech,
+      showModelLoading,
+      showPlayView,
+      syncStrength,
+      updateCheckMarker,
+      updateGameScore,
+      updateOpponentSelection,
+      updatePlacementDiffs: () => chessnutBoard.updateDiffLeds(),
     },
   });
+  coopMessages = initializedCoopMessages;
 
   await appShell.loadAuth();
 
@@ -707,12 +657,12 @@ export function useChessquestiaApp() {
     getCoop: () => coop,
     getElo,
     getMaiaReady: () => maia.modelReady,
-    getPlayerName: coopPlayerName,
+    getPlayerName: coopRoom.playerName,
     getRoomFromUrl: () => new URLSearchParams(location.search).get("room"),
     readSoloProgress,
     setSetupMode: (mode) => { setupMode = mode; },
     showLobby,
-    storedPlayerId,
+    storedPlayerId: coopRoom.storedPlayerId,
     onMessage: handleCoopMsg,
     onPlayingReconnect: () => {
       disableBoardMoveInput();
