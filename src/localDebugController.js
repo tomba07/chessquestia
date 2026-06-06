@@ -2,9 +2,24 @@ const PROMOTION_TEST_FEN = "4k3/6P1/8/8/8/8/8/4K3 w - - 0 1";
 const GRIBBLE_VICTORY_TEST_FEN = "7k/8/5KQ1/8/8/8/8/8 w - - 0 1";
 
 export function createLocalDebugController({
+  boardActions,
+  chess,
+  clearChips,
+  getBoard,
+  getBotMoves,
+  getCoopPhase,
   getSelectedOpponentIndex,
+  hideModelLoading,
+  hideOutcomeBanner,
   opponents,
-  setDebugPosition,
+  promotionChoice,
+  setDebugMoveInput,
+  setSelectedOpponent,
+  setStatus,
+  showGame,
+  soloSession,
+  syncStrength,
+  updateOpponentSelection,
 }) {
   let debugHookTimer = null;
   let helper = null;
@@ -17,6 +32,45 @@ export function createLocalDebugController({
       || String(opponent.elo) === normalized
     ));
     return index >= 0 ? index : getSelectedOpponentIndex();
+  }
+
+  function setDebugPosition(fen, options = {}) {
+    if (getCoopPhase() !== "off") throw new Error("Leave co-op before using a local debug position.");
+    const opponentIndex = Number.isInteger(options.opponentIndex) ? options.opponentIndex : getSelectedOpponentIndex();
+    const opponent = opponents[opponentIndex];
+    if (opponent) {
+      setSelectedOpponent({ index: opponentIndex, theme: opponent.theme });
+      syncStrength(String(opponent.elo));
+      updateOpponentSelection(String(opponent.elo));
+    }
+
+    chess.load(fen);
+    if (typeof soloSession.startGame === "function") {
+      soloSession.startGame({ demo: options.demo !== false });
+    } else {
+      soloSession.restoreSavedSession({
+        fen,
+        gameId: `debug-${Date.now()}`,
+        startedAt: Date.now(),
+        savedAt: Date.now(),
+      });
+    }
+
+    setDebugMoveInput(true);
+    getBotMoves()?.setThinking(false);
+    clearChips();
+    promotionChoice.hide();
+    hideOutcomeBanner();
+    hideModelLoading();
+    showGame();
+    getBoard()?.setPosition(chess.fen(), false);
+    boardActions.clearLastMove();
+    boardActions.clearCheckMarker();
+    boardActions.updateCheckMarker();
+    boardActions.updateGameScore();
+    boardActions.enableMoveInput();
+    setStatus("Your turn");
+    return chess.fen();
   }
 
   function exposeHelper() {

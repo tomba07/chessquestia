@@ -369,48 +369,34 @@ export default function App() {
     return gameScreen.confirmExitGame();
   }
 
-  function setDebugPosition(fen, options = {}) {
-    if (coop?.phase !== "off") throw new Error("Leave co-op before using a local debug position.");
-    const opponentIndex = Number.isInteger(options.opponentIndex) ? options.opponentIndex : selectedOpponentIndex;
-    const opponent = SOLO_OPPONENTS[opponentIndex];
-    if (opponent) {
-      selectedOpponentIndex = opponentIndex;
-      selectedOpponentTheme = opponent.theme;
-      syncStrength(String(opponent.elo));
-      updateOpponentSelection(String(opponent.elo));
-    }
-    chess.load(fen);
-    if (typeof soloSession.startGame === "function") {
-      soloSession.startGame({ demo: options.demo !== false });
-    } else {
-      soloSession.restoreSavedSession({
-        fen,
-        gameId: `debug-${Date.now()}`,
-        startedAt: Date.now(),
-        savedAt: Date.now(),
-      });
-    }
-    debugMoveInput = true;
-    botMoves.setThinking(false);
-    cpChips.innerHTML = "";
-    promotionChoice.hide();
-    hideOutcomeBanner();
-    hideModelLoading();
-    showGame();
-    board.setPosition(chess.fen(), false);
-    clearLastMove();
-    clearCheckMarker();
-    updateCheckMarker();
-    updateGameScore();
-    enableBoardMoveInput();
-    setStatus("Your turn");
-    return chess.fen();
-  }
-
   const localDebug = createLocalDebugController({
+    boardActions: {
+      clearCheckMarker,
+      clearLastMove,
+      enableMoveInput: enableBoardMoveInput,
+      updateCheckMarker,
+      updateGameScore,
+    },
+    chess,
+    clearChips: () => { cpChips.innerHTML = ""; },
+    getBoard: () => board,
+    getBotMoves: () => botMoves,
+    getCoopPhase: () => coop?.phase || "off",
     getSelectedOpponentIndex: () => selectedOpponentIndex,
+    hideModelLoading,
+    hideOutcomeBanner,
     opponents: SOLO_OPPONENTS,
-    setDebugPosition,
+    promotionChoice,
+    setDebugMoveInput: (value) => { debugMoveInput = value; },
+    setSelectedOpponent: ({ index, theme }) => {
+      selectedOpponentIndex = index;
+      selectedOpponentTheme = theme;
+    },
+    setStatus,
+    showGame,
+    soloSession,
+    syncStrength,
+    updateOpponentSelection,
   });
   localDebug.bind();
 
