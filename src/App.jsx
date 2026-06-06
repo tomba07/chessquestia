@@ -39,6 +39,7 @@ import { createCoopRoomController } from "./coopRoomController.js";
 import { createInitialCoopState } from "./coopState.js";
 import { createGameOverController } from "./gameOverController.js";
 import { createGameScreenController } from "./gameScreenController.js";
+import { createGameStatusController } from "./gameStatusController.js";
 import { createLocalDebugController } from "./localDebugController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSelectionController } from "./opponentSelectionController.js";
@@ -78,6 +79,12 @@ export default function App() {
   let botMoves = null;
   let playerMoves = null;
   let coopActions = null;
+
+  const gameStatus = createGameStatusController({
+    element: statusEl,
+    getCoop: () => coop,
+    getMaiaReady: () => maia.modelReady,
+  });
 
   const maia = createMaiaWorker({
     elements: { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill },
@@ -152,22 +159,8 @@ export default function App() {
   const syncStrength = opponentSelection.syncStrength;
   const updateOpponentSelection = opponentSelection.updateSelection;
 
-  function setStatus(text, cls = "") {
-    statusEl.textContent = text;
-    statusEl.className   = cls;
-  }
-
-  function setCoopTurnStatus() {
-    if (!coop || coop.phase !== "playing") return;
-    if (coop.activeIdx === coop.myIdx && !coop.midTurn) {
-      setStatus(maia.modelReady ? "Your turn" : "Preparing game...", maia.modelReady ? "" : "thinking");
-      return;
-    }
-
-    const activePlayer = coop.players?.[coop.activeIdx];
-    const activeName = activePlayer?.name || "Player";
-    setStatus(coop.midTurn ? `${activeName}: bot thinking...` : `${activeName}'s turn`, coop.midTurn ? "thinking" : "");
-  }
+  const setStatus = gameStatus.set;
+  const setCoopTurnStatus = gameStatus.setCoopTurn;
 
   function canAcceptPlayerMove() {
     return playerMoves?.canAcceptMove() || false;
