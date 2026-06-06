@@ -365,7 +365,7 @@
       gap: clamp(30px, 5cqw, 76px);
     }
 
-    #lb-auth, #lb-solo, #lb-room, #lb-friends, #lb-profile, #lb-friend-invite {
+    #lb-auth, #lb-solo, #lb-room, #lb-friends, #lb-profile, #lb-leaderboard, #lb-friend-invite {
       top: 18cqh;
     }
 
@@ -759,6 +759,162 @@
     }
     #lb-friends .panel-kicker {
       display: none;
+    }
+
+    #lb-leaderboard.lobby-panel {
+      width: min(760px, calc(100% - 120px));
+      max-height: 76cqh;
+      top: 15cqh;
+      left: 50%;
+      right: auto;
+      bottom: auto;
+      transform: translateX(-50%);
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0 4px 18px;
+      gap: 18px;
+      color: var(--ink);
+      scrollbar-width: thin;
+    }
+    #lb-leaderboard .panel-head {
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--story-font);
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(255, 248, 226, 0.9);
+    }
+    #lb-leaderboard .panel-title {
+      font-size: 46px;
+      line-height: 1;
+      font-weight: 800;
+    }
+    #lb-leaderboard .panel-kicker {
+      color: #6a4a2c;
+      font-size: 19px;
+      font-weight: 700;
+    }
+    .leaderboard-opponents {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .leaderboard-opponent {
+      min-width: 0;
+      max-width: 140px;
+      flex: 1 1 110px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 6px 7px;
+      border: 1px solid rgba(109, 76, 39, 0.28);
+      border-radius: 6px;
+      background: rgba(255, 248, 226, 0.66);
+      color: #5b3b21;
+      font-family: var(--story-font);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .leaderboard-opponent img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      object-position: center bottom;
+      filter: drop-shadow(0 4px 4px rgba(41, 25, 12, 0.34));
+    }
+    .leaderboard-opponent.active {
+      border-color: #9d681f;
+      background: rgba(229, 207, 156, 0.82);
+      box-shadow: inset 0 0 0 2px rgba(157, 104, 31, 0.22);
+    }
+    .leaderboard-metric {
+      width: min(420px, 100%);
+      align-self: center;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 4px;
+      border: 1px solid rgba(109, 76, 39, 0.26);
+      border-radius: 6px;
+      background: rgba(89, 61, 31, 0.12);
+    }
+    .leaderboard-metric button {
+      min-height: 38px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: #6a4a2c;
+      font-family: var(--story-font);
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .leaderboard-metric button.active {
+      background: rgba(255, 248, 226, 0.88);
+      color: #9b5d16;
+      box-shadow: 0 2px 8px rgba(66, 43, 19, 0.14);
+    }
+    .leaderboard-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .leaderboard-row {
+      min-height: 52px;
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr) 68px minmax(92px, auto);
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      border: 1px solid rgba(109, 76, 39, 0.24);
+      border-radius: 6px;
+      background: rgba(255, 248, 226, 0.72);
+      box-shadow: 0 3px 10px rgba(61, 39, 17, 0.08);
+    }
+    .leaderboard-row.current-user {
+      border-color: rgba(157, 104, 31, 0.68);
+      background: rgba(239, 220, 173, 0.86);
+    }
+    .leaderboard-rank {
+      color: #9b5d16;
+      font-family: var(--story-font);
+      font-size: 25px;
+      text-align: center;
+    }
+    .leaderboard-player {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 17px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .leaderboard-mode {
+      color: rgba(76, 51, 30, 0.68);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .leaderboard-score {
+      color: #4d351f;
+      font-family: var(--story-font);
+      font-size: 20px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .leaderboard-empty {
+      padding: 34px 18px;
+      border: 1px solid rgba(109, 76, 39, 0.22);
+      border-radius: 6px;
+      background: rgba(255, 248, 226, 0.62);
+      color: rgba(76, 51, 30, 0.7);
+      font-weight: 700;
+      text-align: center;
     }
 
     #lb-room.lobby-panel {
@@ -1898,6 +2054,7 @@
       #lb-room.lobby-panel,
       #lb-friends.lobby-panel,
       #lb-profile.lobby-panel,
+      #lb-leaderboard.lobby-panel,
       #lb-friend-invite.lobby-panel {
         top: calc(66px + var(--mobile-safe-top));
         right: max(16px, env(safe-area-inset-right));
@@ -2100,6 +2257,51 @@
       }
       #lb-profile .panel-title {
         font-size: 36px;
+      }
+      #lb-leaderboard.lobby-panel {
+        width: auto;
+        top: calc(92px + var(--mobile-safe-top));
+        right: max(18px, env(safe-area-inset-right));
+        left: max(18px, env(safe-area-inset-left));
+        bottom: max(14px, var(--mobile-safe-bottom));
+        transform: none;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      #lb-leaderboard .panel-title {
+        font-size: 34px;
+      }
+      #lb-leaderboard .panel-kicker {
+        font-size: 16px;
+      }
+      .leaderboard-opponents {
+        gap: 5px;
+      }
+      .leaderboard-opponent {
+        padding: 5px 2px;
+        font-size: 11px;
+      }
+      .leaderboard-opponent img {
+        width: 46px;
+        height: 48px;
+      }
+      .leaderboard-row {
+        grid-template-columns: 28px minmax(0, 1fr) 52px;
+        gap: 7px;
+        padding: 8px 10px;
+      }
+      .leaderboard-mode {
+        display: none;
+      }
+      .leaderboard-score {
+        font-size: 16px;
+      }
+      .side-link {
+        font-size: 11px;
+      }
+      .nav-icon {
+        width: 14px;
+        height: 14px;
       }
       #lb-friend-invite.lobby-panel {
         width: auto;

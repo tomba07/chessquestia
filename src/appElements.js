@@ -63,6 +63,7 @@ export function getAppElements() {
       lbRoom: byId("lb-room"),
       lbProfile: byId("lb-profile"),
       lbFriends: byId("lb-friends"),
+      lbLeaderboard: byId("lb-leaderboard"),
       lbFriendInvite: byId("lb-friend-invite"),
       cpPlayerList: byId("cp-player-list"),
       cpStartBtn: byId("cp-start"),
@@ -86,6 +87,7 @@ export function getAppElements() {
       navPlay: byId("nav-play"),
       navProfile: byId("nav-profile"),
       navFriends: byId("nav-friends"),
+      navLeaderboard: byId("nav-leaderboard"),
       coopInviteNotice: byId("coop-invite-notice"),
       coopInviteText: byId("coop-invite-text"),
       coopInviteJoin: byId("coop-invite-join"),
@@ -110,6 +112,9 @@ export function getAppElements() {
       friendInviteLanding: byId("friend-invite-landing"),
       playCoopBtn: byId("play-coop-btn"),
       playSoloBtn: byId("play-solo-btn"),
+      leaderboardOpponents: byId("leaderboard-opponents"),
+      leaderboardMetric: byId("leaderboard-metric"),
+      leaderboardList: byId("leaderboard-list"),
     },
   };
 }

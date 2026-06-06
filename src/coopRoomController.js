@@ -13,6 +13,7 @@ export function createCoopRoomController({
     cpStartBtn,
     lbFriendInvite,
     lbFriends,
+    lbLeaderboard,
     lbMain,
     lbProfile,
     lbRoom,
@@ -32,6 +33,7 @@ export function createCoopRoomController({
     lbRoom.style.display = "flex";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+    lbLeaderboard.style.display = "none";
     lbFriendInvite.style.display = "none";
   }
 

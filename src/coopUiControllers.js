@@ -34,6 +34,7 @@ export function createCoopUiControllers({
       cpStartBtn: elements.cpStartBtn,
       lbFriendInvite: elements.lbFriendInvite,
       lbFriends: elements.lbFriends,
+      lbLeaderboard: elements.lbLeaderboard,
       lbMain: elements.lbMain,
       lbProfile: elements.lbProfile,
       lbRoom: elements.lbRoom,

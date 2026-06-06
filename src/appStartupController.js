@@ -23,6 +23,7 @@ export function createAppStartupController({
   route,
   showAuthView,
   showFriendsView,
+  showLeaderboardView,
   showProfileView,
   showSoloSetup,
   soloGame,
@@ -56,6 +57,8 @@ export function createAppStartupController({
       requireAuth(() => showProfileView());
     } else if (route.initialView === "friends") {
       requireAuth(() => showFriendsView());
+    } else if (route.initialView === "leaderboard") {
+      requireAuth(() => showLeaderboardView());
     } else if (route.initialView === "solo") {
       requireAuth(() => showSoloSetup());
     } else if (route.initialView === "coop") {

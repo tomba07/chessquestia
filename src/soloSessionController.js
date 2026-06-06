@@ -173,6 +173,7 @@ export function createSoloSessionController({
         opponentStrength: getElo(),
         opponentKey: opponent?.theme || null,
         movesCount: getHistoryLength(),
+        durationMs: gameStartedAt ? Math.max(0, Date.now() - gameStartedAt) : null,
         finalFen: getFen(),
       }),
     }).catch(() => {});

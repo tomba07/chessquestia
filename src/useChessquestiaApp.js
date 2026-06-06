@@ -33,6 +33,7 @@ import {
   createLobbyShellController,
   createSocialBridge,
 } from "./lobbyShellController.js";
+import { createLeaderboardController } from "./leaderboardController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSelectionController } from "./opponentSelectionController.js";
 import { createPlayerMoveController } from "./playerMoveController.js";
@@ -383,6 +384,17 @@ export function useChessquestiaApp() {
     showSoloSetup,
   } = appShell;
 
+  const leaderboard = createLeaderboardController({
+    apiJson,
+    elements: appElements.lobby,
+    getAuthInfo: () => authInfo,
+    getUnlockedOpponentCount: () => readSoloProgress(),
+    opponents: SOLO_OPPONENTS,
+    promptSignIn,
+    setNavActive,
+    setViewUrl,
+  });
+
   gameScreen = createGameScreenController({
     clearSoloGame: () => soloGame.clearGame(),
     clearVictoryBoardPulse,
@@ -550,6 +562,7 @@ export function useChessquestiaApp() {
       lbAuth,
       lbFriendInvite,
       lbFriends,
+      lbLeaderboard: appElements.lobby.lbLeaderboard,
       lbMain,
       lbProfile,
       lbRoom,
@@ -571,6 +584,7 @@ export function useChessquestiaApp() {
   });
   socialBridge.attach(social);
   social.bindEvents();
+  leaderboard.bind();
 
   appEvents = createAppEventController({
     apiJson,
@@ -678,6 +692,7 @@ export function useChessquestiaApp() {
     route: startupRoute,
     showAuthView,
     showFriendsView: socialBridge.showFriendsView,
+    showLeaderboardView: leaderboard.show,
     showProfileView: socialBridge.showProfileView,
     showSoloSetup,
     soloGame,
@@ -698,6 +713,7 @@ export function useChessquestiaApp() {
       clearBotSplashAutoTimer();
       appRuntime.dispose();
       localDebug.dispose();
+      leaderboard.dispose();
       opponentSpeech.clearTimers();
       socialBridge.stopPresenceHeartbeat();
       chessnutBoard.disconnect();

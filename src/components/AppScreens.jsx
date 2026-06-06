@@ -31,6 +31,9 @@ function SideMenu() {
       <button id="nav-friends" className="side-link" type="button">
         <img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends
       </button>
+      <button id="nav-leaderboard" className="side-link" type="button">
+        <img className="nav-icon" src="/assets/icons/leaderboard-icon.png" alt="" />Leaderboard
+      </button>
     </nav>
   );
 }
@@ -248,6 +251,28 @@ function ProfilePanel() {
   );
 }
 
+function LeaderboardPanel() {
+  return (
+    <div id="lb-leaderboard" className="lobby-section lobby-panel" style={{ display: "none" }}>
+      <div className="panel-head">
+        <div className="panel-title">Leaderboard</div>
+        <span className="home-divider" aria-hidden="true"></span>
+        <div className="panel-kicker" data-leaderboard-title>Snib the Candle Goblin</div>
+      </div>
+      <div id="leaderboard-opponents" className="leaderboard-opponents"></div>
+      <div id="leaderboard-metric" className="leaderboard-metric" aria-label="Leaderboard metric">
+        <button className="active" type="button" data-leaderboard-metric="fastest" aria-pressed="true">
+          Fastest
+        </button>
+        <button type="button" data-leaderboard-metric="fewestMoves" aria-pressed="false">
+          Fewest moves
+        </button>
+      </div>
+      <div id="leaderboard-list" className="leaderboard-list"></div>
+    </div>
+  );
+}
+
 function CoopRoomPanel() {
   return (
     <div id="lb-room" className="lobby-section lobby-panel" style={{ display: "none" }}>
@@ -309,6 +334,7 @@ function Lobby() {
       <SinglePlayerSetup />
       <ProfilePanel />
       <FriendsPanel />
+      <LeaderboardPanel />
       <FriendInvitePanel />
       <CoopRoomPanel />
       <ModelLoading />

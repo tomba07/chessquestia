@@ -54,12 +54,14 @@ export function createAppShellController({
     lbAuth,
     lbFriendInvite,
     lbFriends,
+    lbLeaderboard,
     lbMain,
     lbProfile,
     lbRoom,
     lbSolo,
     lobbyEl,
     navFriends,
+    navLeaderboard,
     navPlay,
     navProfile,
     playCoopBtn,
@@ -83,6 +85,7 @@ export function createAppShellController({
     navPlay.classList.toggle("active", target === "play");
     navProfile.classList.toggle("active", target === "profile");
     navFriends.classList.toggle("active", target === "friends");
+    navLeaderboard.classList.toggle("active", target === "leaderboard");
   }
 
   function setAuthLayout(active) {
@@ -117,6 +120,7 @@ export function createAppShellController({
     lbRoom.style.display = "none";
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
+    lbLeaderboard.style.display = "none";
     lbFriendInvite.style.display = "none";
   }
 

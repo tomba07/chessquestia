@@ -166,6 +166,7 @@ db.exec(`
     opponent_key TEXT,
     player_count INTEGER NOT NULL DEFAULT 1,
     moves_count INTEGER NOT NULL DEFAULT 0,
+    duration_ms INTEGER,
     final_fen TEXT,
     created_at INTEGER NOT NULL,
     finished_at INTEGER NOT NULL
@@ -216,6 +217,10 @@ if (!columnExists("room_players", "unlocked_count")) {
 if (!columnExists("rooms", "started_at")) {
   db.exec("ALTER TABLE rooms ADD COLUMN started_at INTEGER");
 }
+if (!columnExists("game_results", "duration_ms")) {
+  db.exec("ALTER TABLE game_results ADD COLUMN duration_ms INTEGER");
+}
+db.exec("CREATE INDEX IF NOT EXISTS idx_game_results_leaderboard ON game_results(opponent_key, result, duration_ms, moves_count)");
 
 function normalizeUsername(username) {
   return String(username || "")
@@ -600,6 +605,7 @@ function recordGameResult({
   opponentKey = null,
   playerCount = 1,
   movesCount = 0,
+  durationMs = null,
   finalFen = null,
   players = [],
   finishedAt = Date.now(),
@@ -614,8 +620,8 @@ function recordGameResult({
   inTransaction(() => {
     db.prepare(`
       INSERT INTO game_results
-        (id, dedupe_key, mode, result, room_id, opponent_strength, opponent_key, player_count, moves_count, final_fen, created_at, finished_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, dedupe_key, mode, result, room_id, opponent_strength, opponent_key, player_count, moves_count, duration_ms, final_fen, created_at, finished_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       dedupeKey,
@@ -626,6 +632,7 @@ function recordGameResult({
       opponentKey || opponentKeyForStrength(opponentStrength),
       Math.max(1, parseInt(playerCount, 10) || 1),
       Math.max(0, parseInt(movesCount, 10) || 0),
+      durationMs == null ? null : Math.max(0, parseInt(durationMs, 10) || 0),
       finalFen,
       Date.now(),
       finishedAt,
@@ -772,6 +779,7 @@ app.post("/api/game-results", (req, res) => {
     opponentKey: req.body?.opponentKey || req.body?.opponent_key || opponentKeyForStrength(opponentStrength),
     playerCount: 1,
     movesCount: parseInt(req.body?.movesCount || req.body?.moves_count, 10) || 0,
+    durationMs: parseInt(req.body?.durationMs || req.body?.duration_ms, 10) || null,
     finalFen: finalFen || null,
     players: [{ userId: user.id, name: user.username || user.name || "Player" }],
   });
@@ -800,6 +808,70 @@ app.get("/api/game-results/stats", (req, res) => {
   `).all();
 
   res.json({ mine, totals });
+});
+
+app.get("/api/leaderboards", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const opponentKey = String(req.query.opponent || "snib").trim().toLowerCase();
+  if (!["snib", "muckroot", "gribble", "vexi", "drogar"].includes(opponentKey)) {
+    res.status(400).json({ error: "Unknown opponent" });
+    return;
+  }
+
+  const leaderboardRows = (metric, metricFilter, windowOrder, resultOrder) => db.prepare(`
+    WITH personal_bests AS (
+      SELECT
+        grp.user_id,
+        COALESCE(NULLIF(u.username, ''), NULLIF(u.name, ''), grp.player_name) AS player_name,
+        gr.mode,
+        gr.moves_count,
+        gr.duration_ms,
+        gr.finished_at,
+        ROW_NUMBER() OVER (
+          PARTITION BY grp.user_id
+          ORDER BY ${windowOrder}, gr.finished_at ASC
+        ) AS personal_rank
+      FROM game_results gr
+      JOIN game_result_players grp ON grp.game_result_id = gr.id
+      LEFT JOIN users u ON u.id = grp.user_id
+      WHERE gr.result = 'victory'
+        AND gr.opponent_key = ?
+        AND grp.user_id IS NOT NULL
+        AND ${metricFilter}
+    )
+    SELECT user_id, player_name, mode, moves_count, duration_ms, finished_at
+    FROM personal_bests
+    WHERE personal_rank = 1
+    ORDER BY ${resultOrder}, finished_at ASC
+    LIMIT 10
+  `).all(opponentKey).map((row, index) => ({
+    rank: index + 1,
+    playerName: row.player_name,
+    mode: row.mode,
+    movesCount: row.moves_count,
+    durationMs: row.duration_ms,
+    finishedAt: row.finished_at,
+    isCurrentUser: row.user_id === user.id,
+    metric,
+  }));
+
+  res.json({
+    opponentKey,
+    fastest: leaderboardRows(
+      "fastest",
+      "gr.duration_ms IS NOT NULL AND gr.duration_ms > 0",
+      "gr.duration_ms ASC, gr.moves_count ASC",
+      "duration_ms ASC, moves_count ASC",
+    ),
+    fewestMoves: leaderboardRows(
+      "fewestMoves",
+      "gr.moves_count > 0",
+      "gr.moves_count ASC, COALESCE(gr.duration_ms, 9223372036854775807) ASC",
+      "moves_count ASC, COALESCE(duration_ms, 9223372036854775807) ASC",
+    ),
+  });
 });
 
 registerSocialRoutes(app, {
@@ -1471,6 +1543,7 @@ function attachWebSocketHandlers() {
               opponentKey: opponentKeyForStrength(room.strength),
               playerCount: room.order.length,
               movesCount: room.moveHistory.length,
+              durationMs: room.startedAt ? Math.max(0, Date.now() - room.startedAt) : null,
               finalFen: room.fen,
               players: room.order
                 .map(id => room.players.get(id))
