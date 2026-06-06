@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "tunnel": "node server.js --tunnel",
-    "download": "node download_assets.js"
+    "download": "node download_assets.js",
+    "deploy": "./deploy/update-vm.sh",
+    "deploy:check": "curl -fsS https://chessquestia.mteschke.com/health"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
