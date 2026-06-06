@@ -22,8 +22,6 @@ import {
 } from "./appStorage.js";
 import { createBoardController } from "./boardController.js";
 import { createBotMoveController } from "./botMoveController.js";
-import { createBotSplash } from "./botSplash.js";
-import { createChessnutController } from "./chessnutController.js";
 import { createCoopActionsController } from "./coopActionsController.js";
 import { createCoopConnectionController } from "./coopConnectionController.js";
 import { createCoopGameViewController } from "./coopGameViewController.js";
@@ -32,15 +30,13 @@ import { createCoopMessageController } from "./coopMessageController.js";
 import { createCoopRoomController } from "./coopRoomController.js";
 import { createInitialCoopState } from "./coopState.js";
 import { createGameOverController } from "./gameOverController.js";
+import { createGamePresentationControllers } from "./gamePresentationControllers.js";
 import { createGameScreenController } from "./gameScreenController.js";
 import { createGameStatusController } from "./gameStatusController.js";
 import { createLocalDebugController } from "./localDebugController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSelectionController } from "./opponentSelectionController.js";
-import { createOpponentSpeechController } from "./opponentSpeechController.js";
-import { createOutcomeScreen } from "./outcomeScreen.js";
 import { createPlayerMoveController } from "./playerMoveController.js";
-import { createPromotionController } from "./promotionController.js";
 import { createSoloGameController } from "./soloGameController.js";
 import { createSoloSessionController } from "./soloSessionController.js";
 
@@ -55,7 +51,7 @@ export function useChessquestiaApp() {
   const appElements = getAppElements();
   const { strengthSlider, strengthVal } = appElements.strength;
   const { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill } = appElements.maia;
-  const { lobbyEl, gameEl, boardEl, statusEl, gameScoreEl, outcomeOverlayEl, outcomeBannerEl, outcomeTitleEl, outcomeContinueBtn, outcomeResultsEl, outcomeMovesEl, outcomeTimeEl, outcomeUnlockEl, outcomeUnlockNameEl, outcomeUnlockTextEl, outcomeUnlockCardEl, outcomeChallengeBtn, victoryBoardPulseEl, victoryScreenFlashEl, gameBoardFrameEl, botSplashEl, botSplashArt, botSplashBanner, botSplashName, botSplashText, botSplashStrength, botSplashStart, cpChips, promotionChoiceEl, boardDevicePanel, boardConnectBtn, boardConnectLabel, boardDisconnectBtn, boardDeviceStatus, profileBoardToggle, opponentSpeechEl, opponentSpeechPortrait, opponentSpeechName, opponentSpeechText, opponentSpeechClose } = appElements.game;
+  const { lobbyEl, gameEl, boardEl, statusEl, gameScoreEl, gameBoardFrameEl, cpChips } = appElements.game;
   const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, friendAddClose, friendAddDialog, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
 
   // ── Load move mappings ────────────────────────────────────────────────────
@@ -190,55 +186,24 @@ export function useChessquestiaApp() {
     return playerMoves?.applyMove(from, to, promotion) || false;
   }
 
-  const chessnutBoard = createChessnutController({
-    elements: {
-      panel: boardDevicePanel,
-      connectBtn: boardConnectBtn,
-      connectLabel: boardConnectLabel,
-      disconnectBtn: boardDisconnectBtn,
-      statusEl: boardDeviceStatus,
-      profileToggle: profileBoardToggle,
-    },
-    storageKey: BOARD_DEVICE_VISIBLE_KEY,
-    getFen: () => chess.fen(),
-    getLegalMoves: () => chess.moves({ verbose: true }),
-    canAcceptMove: canAcceptPlayerMove,
-    applyMove: (from, to, promotion = "q") => applyPlayerMove(from, to, promotion),
-  });
-
-  const promotionChoice = createPromotionController({
-    element: promotionChoiceEl,
-    getLegalMoves: () => chess.moves({ verbose: true }),
-    onPromotionChosen: (from, to, promotion) => applyPlayerMove(from, to, promotion),
-  });
-
-  const outcomeScreen = createOutcomeScreen({
-    elements: {
-      overlayEl: outcomeOverlayEl,
-      bannerEl: outcomeBannerEl,
-      titleEl: outcomeTitleEl,
-      continueBtn: outcomeContinueBtn,
-      resultsEl: outcomeResultsEl,
-      movesEl: outcomeMovesEl,
-      timeEl: outcomeTimeEl,
-      unlockEl: outcomeUnlockEl,
-      unlockNameEl: outcomeUnlockNameEl,
-      unlockTextEl: outcomeUnlockTextEl,
-      unlockCardEl: outcomeUnlockCardEl,
-      challengeBtn: outcomeChallengeBtn,
-      boardPulseEl: victoryBoardPulseEl,
-      screenFlashEl: victoryScreenFlashEl,
-    },
+  const {
+    botSplash,
+    chessnutBoard,
+    opponentSpeech,
+    outcomeScreen,
+    promotionChoice,
+  } = createGamePresentationControllers({
+    applyPlayerMove,
+    canAcceptPlayerMove,
+    chess,
+    elements: appElements.game,
     getBoard: () => board,
-    getCoopPhase: () => coop?.phase || "off",
-    getGameStartedAt: () => coop?.phase !== "off" ? coop.startedAt : soloSession?.gameStartedAt,
-    getLastMoveSquares: () => {
-      const history = chess.history({ verbose: true });
-      const move = history[history.length - 1];
-      return move ? [move.from, move.to] : [];
-    },
-    getMoveCount: () => coop?.phase !== "off" ? coop.moveCount : chess.history().length,
+    getCoop: () => coop,
+    getCurrentOpponent: currentOpponent,
+    getSoloSession: () => soloSession,
+    isCurrentSideInCheck,
     opponents: SOLO_OPPONENTS,
+    boardDeviceStorageKey: BOARD_DEVICE_VISIBLE_KEY,
   });
   const clearVictoryBoardPulse = outcomeScreen.clearBoardPulse;
   const hideOutcomeBanner = outcomeScreen.hideBanner;
@@ -251,30 +216,7 @@ export function useChessquestiaApp() {
     maybeAutoStartCoopSplash,
     shouldAutoStartCoopSplash,
     showBotSplash,
-  } = createBotSplash({
-    elements: {
-      botSplashEl,
-      botSplashArt,
-      botSplashBanner,
-      botSplashName,
-      botSplashText,
-      botSplashStrength,
-      botSplashStart,
-    },
-    getCurrentOpponent: currentOpponent,
-  });
-
-  const opponentSpeech = createOpponentSpeechController({
-    elements: {
-      speechEl: opponentSpeechEl,
-      portraitEl: opponentSpeechPortrait,
-      nameEl: opponentSpeechName,
-      textEl: opponentSpeechText,
-      closeBtn: opponentSpeechClose,
-    },
-    getCurrentOpponent: currentOpponent,
-    isCurrentSideInCheck,
-  });
+  } = botSplash;
   const hideOpponentSpeech = opponentSpeech.hide;
   const resetThinkingReactionCadence = opponentSpeech.resetThinkingCadence;
   const showBotMoveReaction = opponentSpeech.showBotMoveReaction;
