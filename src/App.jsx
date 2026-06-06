@@ -15,6 +15,11 @@ import {
   readStartupRoute,
 } from "./appStartupController.js";
 import { getAppElements } from "./appElements.js";
+import {
+  BOARD_DEVICE_VISIBLE_KEY,
+  COOP_ROOM_STORAGE,
+  SOLO_STORAGE_KEYS,
+} from "./appStorage.js";
 import { createBoardController } from "./boardController.js";
 import { createBotMoveController } from "./botMoveController.js";
 import {
@@ -106,14 +111,6 @@ export default function App() {
   // ── Game state ────────────────────────────────────────────────────────────
 
   const chess     = new Chess();
-  const STORAGE_PREFIX = "chessquestia";
-  const LEGACY_STORAGE_PREFIX = "local-chess";
-  const storageKey = (suffix) => `${STORAGE_PREFIX}.${suffix}`;
-  const legacyStorageKey = (suffix) => `${LEGACY_STORAGE_PREFIX}.${suffix}`;
-  const SOLO_GAME_KEY = storageKey("solo-game");
-  const LEGACY_SOLO_GAME_KEY = legacyStorageKey("solo-game");
-  const SOLO_PROGRESS_KEY = storageKey("solo-progress");
-  const BOARD_DEVICE_VISIBLE_KEY = storageKey("board-device-visible");
   let board       = null;
   let soloSession = null;
   let setupMode = "solo";
@@ -337,11 +334,7 @@ export default function App() {
   });
 
   soloSession = createSoloSessionController({
-    storageKeys: {
-      soloGameKey: SOLO_GAME_KEY,
-      legacySoloGameKey: LEGACY_SOLO_GAME_KEY,
-      soloProgressKey: SOLO_PROGRESS_KEY,
-    },
+    storageKeys: SOLO_STORAGE_KEYS,
     opponentCount: SOLO_OPPONENTS.length,
     getAuthInfo: () => authInfo,
     getCoopPhase: () => coop?.phase || "off",
@@ -612,12 +605,6 @@ export default function App() {
   const renderCoopInviteFriends = coopInvites.renderInviteFriends;
   const sendCoopInvite = coopInvites.sendInvite;
 
-  const LAST_ROOM_KEY = storageKey("last-room");
-  const LEGACY_LAST_ROOM_KEY = legacyStorageKey("last-room");
-  const nameKey = (roomId) => storageKey(`room.${roomId}.name`);
-  const legacyNameKey = (roomId) => legacyStorageKey(`room.${roomId}.name`);
-  const playerKey = (roomId) => storageKey(`room.${roomId}.playerId`);
-
   const coopRoom = createCoopRoomController({
     elements: {
       cpPlayerList,
@@ -630,13 +617,7 @@ export default function App() {
       lbRoom,
       lbSolo,
     },
-    storage: {
-      lastRoomKey: LAST_ROOM_KEY,
-      legacyLastRoomKey: LEGACY_LAST_ROOM_KEY,
-      nameKey,
-      legacyNameKey,
-      playerKey,
-    },
+    storage: COOP_ROOM_STORAGE,
     getAuthInfo: () => authInfo,
     getCoop: () => coop,
     hideModelLoading,
