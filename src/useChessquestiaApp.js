@@ -5,7 +5,6 @@ import { createSocialController } from "./socialUi.js";
 import { SOLO_OPPONENTS } from "./soloOpponents.js";
 import {
   apiJson,
-  createAppShellController,
   defaultAuthInfo,
 } from "./appShellController.js";
 import { createAppEventController } from "./appEventController.js";
@@ -30,6 +29,10 @@ import { createGamePresentationControllers } from "./gamePresentationControllers
 import { createGameScreenController } from "./gameScreenController.js";
 import { createGameStatusController } from "./gameStatusController.js";
 import { createLocalDebugController } from "./localDebugController.js";
+import {
+  createLobbyShellController,
+  createSocialBridge,
+} from "./lobbyShellController.js";
 import { createMaiaWorker } from "./maiaWorker.js";
 import { createOpponentSelectionController } from "./opponentSelectionController.js";
 import { createPlayerMoveController } from "./playerMoveController.js";
@@ -343,61 +346,29 @@ export function useChessquestiaApp() {
   const startupRoute = readStartupRoute();
   const { searchParams } = startupRoute;
 
-  let social = null;
-  const closeAddFriendDialog = (options) => social?.closeAddFriendDialog(options);
-  const loadFriendInviteLanding = (...args) => social.loadFriendInviteLanding(...args);
-  const loadInviteNotifications = (...args) => social.loadInviteNotifications(...args);
-  const renderInviteNotification = (...args) => social?.renderInviteNotification(...args);
-  const runFriendAction = (...args) => social.runFriendAction(...args);
-  const showFriendsView = (...args) => social.showFriendsView(...args);
-  const showProfileView = (...args) => social.showProfileView(...args);
-  const startPresenceHeartbeat = (...args) => social.startPresenceHeartbeat(...args);
-
-  const appShell = createAppShellController({
+  const socialBridge = createSocialBridge();
+  const appShell = createLobbyShellController({
     elements: {
-      authBar,
-      authBtn,
-      authDemoBtn,
-      authDevLoginCard,
-      authDevLoginOptions,
-      authLabel,
-      authPrimaryBtn,
-      botSelectTitle,
-      devLoginCard,
-      devLoginOptions,
-      lbAuth,
-      lbFriendInvite,
-      lbFriends,
-      lbMain,
-      lbProfile,
-      lbRoom,
-      lbSolo,
+      ...appElements.lobby,
       lobbyEl,
-      navFriends,
-      navPlay,
-      navProfile,
-      playCoopBtn,
-      playSoloBtn,
-      profileAccountCard,
-      profileAccountName,
-      profileAuthBtn,
-      soloStartBtn,
-      welcomeName,
     },
     searchParams,
-    getAuthInfo: () => authInfo,
-    setAuthInfo: (nextAuthInfo) => { authInfo = nextAuthInfo; },
-    onAuthLoaded: syncSoloProgressFromAuth,
-    closeAddFriendDialog,
-    renderInviteNotification,
-    getPendingSoloStart: () => soloGame?.hasPendingStart() || false,
-    hideModelLoading,
-    setSetupMode: (mode) => { setupMode = mode; },
-    setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
-    applyOpponentLocks,
-    updateOpponentSelection,
-    clearOpponentSelection,
-    getElo,
+    socialBridge,
+    state: {
+      getAuthInfo: () => authInfo,
+      setAuthInfo: (nextAuthInfo) => { authInfo = nextAuthInfo; },
+      getPendingSoloStart: () => soloGame?.hasPendingStart() || false,
+      setSetupMode: (mode) => { setupMode = mode; },
+      setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
+      getElo,
+    },
+    actions: {
+      syncSoloProgressFromAuth,
+      hideModelLoading,
+      applyOpponentLocks,
+      updateOpponentSelection,
+      clearOpponentSelection,
+    },
   });
   const {
     currentNextPath,
@@ -534,7 +505,7 @@ export function useChessquestiaApp() {
       enableBoardMoveInput,
       hideModelLoading,
       hideOutcomeBanner,
-      loadInviteNotifications,
+      loadInviteNotifications: socialBridge.loadInviteNotifications,
       maybeAutoStartCoopSplash,
       maybeRunCoopBotTurn,
       readSoloProgress,
@@ -558,7 +529,7 @@ export function useChessquestiaApp() {
 
   await appShell.loadAuth();
 
-  social = createSocialController({
+  const social = createSocialController({
     apiJson,
     elements: {
       coopInviteDismiss,
@@ -598,6 +569,7 @@ export function useChessquestiaApp() {
     setNavActive,
     setViewUrl,
   });
+  socialBridge.attach(social);
   social.bindEvents();
 
   appEvents = createAppEventController({
@@ -617,7 +589,7 @@ export function useChessquestiaApp() {
     outcomeScreen,
     promotionChoice,
     renderRoomLobby,
-    runFriendAction,
+    runFriendAction: socialBridge.runFriendAction,
     sendCoopInvite,
     setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
     setCoopSelectingOpponent: (selecting) => coopTransport?.setSelectingOpponent(selecting),
@@ -699,17 +671,17 @@ export function useChessquestiaApp() {
   const startup = createAppStartupController({
     connectCoop,
     getAuthInfo: () => authInfo,
-    loadFriendInviteLanding,
-    loadInviteNotifications,
+    loadFriendInviteLanding: socialBridge.loadFriendInviteLanding,
+    loadInviteNotifications: socialBridge.loadInviteNotifications,
     onInvitePollTimer: (timer) => { invitePollTimer = timer; },
     promptSignIn,
     route: startupRoute,
     showAuthView,
-    showFriendsView,
-    showProfileView,
+    showFriendsView: socialBridge.showFriendsView,
+    showProfileView: socialBridge.showProfileView,
     showSoloSetup,
     soloGame,
-    startPresenceHeartbeat,
+    startPresenceHeartbeat: socialBridge.startPresenceHeartbeat,
   });
   await startup.start();
     })().catch((err) => {
@@ -727,7 +699,7 @@ export function useChessquestiaApp() {
       appRuntime.dispose();
       localDebug.dispose();
       opponentSpeech.clearTimers();
-      social?.stopPresenceHeartbeat();
+      socialBridge.stopPresenceHeartbeat();
       chessnutBoard.disconnect();
     };
   }, []);
