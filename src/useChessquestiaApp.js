@@ -22,9 +22,8 @@ import {
 } from "./appStorage.js";
 import { createBoardController } from "./boardController.js";
 import { createBotMoveController } from "./botMoveController.js";
-import { createCoopActionsController } from "./coopActionsController.js";
-import { createCoopConnectionController } from "./coopConnectionController.js";
 import { createInitialCoopState } from "./coopState.js";
+import { createCoopTransportController } from "./coopTransportController.js";
 import { createCoopUiControllers } from "./coopUiControllers.js";
 import { createGameOverController } from "./gameOverController.js";
 import { createGamePresentationControllers } from "./gamePresentationControllers.js";
@@ -65,7 +64,7 @@ export function useChessquestiaApp() {
   let appEvents = null;
   let botMoves = null;
   let playerMoves = null;
-  let coopActions = null;
+  let coopTransport = null;
 
   const gameStatus = createGameStatusController({
     element: statusEl,
@@ -113,7 +112,6 @@ export function useChessquestiaApp() {
   let selectedOpponentTheme = "snib";
   let selectedOpponentIndex = 0;
   let authInfo = defaultAuthInfo();
-  let coopConnection = null;
   let debugMoveInput = false;
 
   const opponentSelection = createOpponentSelectionController({
@@ -176,7 +174,7 @@ export function useChessquestiaApp() {
   const updateGameScore = boardController.updateScore;
 
   function publishCoopMove() {
-    coopActions?.publishMove();
+    coopTransport?.publishMove();
   }
 
   function applyPlayerMove(from, to, promotion = "q") {
@@ -622,7 +620,7 @@ export function useChessquestiaApp() {
     runFriendAction,
     sendCoopInvite,
     setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
-    setCoopSelectingOpponent: (selecting) => coopActions?.setSelectingOpponent(selecting),
+    setCoopSelectingOpponent: (selecting) => coopTransport?.setSelectingOpponent(selecting),
     setSelectedOpponent: (index, theme) => {
       selectedOpponentIndex = index;
       selectedOpponentTheme = theme;
@@ -653,17 +651,24 @@ export function useChessquestiaApp() {
 
   coop = createInitialCoopState();
 
-  coopConnection = createCoopConnectionController({
+  coopTransport = createCoopTransportController({
     getCoop: () => coop,
     getElo,
+    getFen: () => chess.fen(),
+    getGameOver: () => chess.isGameOver(),
     getMaiaReady: () => maia.modelReady,
+    getOpponentSelectionReadonly: () => opponentSelectionReadonly,
     getPlayerName: coopRoom.playerName,
     getRoomFromUrl: () => new URLSearchParams(location.search).get("room"),
+    getSoloStartDisabled: () => soloStartBtn.disabled,
     readSoloProgress,
+    requestModelDownload,
     setSetupMode: (mode) => { setupMode = mode; },
+    showCoopBotSelection,
     showLobby,
+    showModelLoading,
     storedPlayerId: coopRoom.storedPlayerId,
-    onMessage: handleCoopMsg,
+    onMessage: (msg) => coopMessages.handleMessage(msg),
     onPlayingReconnect: () => {
       disableBoardMoveInput();
       setStatus("Reconnecting…", "thinking");
@@ -671,34 +676,16 @@ export function useChessquestiaApp() {
     onReconnectingLobby: coopRoom.showReconnectingLobby,
   });
 
-  coopActions = createCoopActionsController({
-    getConnection: () => coopConnection,
-    getCoop: () => coop,
-    getElo,
-    getFen: () => chess.fen(),
-    getGameOver: () => chess.isGameOver(),
-    getMaiaReady: () => maia.modelReady,
-    getOpponentSelectionReadonly: () => opponentSelectionReadonly,
-    getSoloStartDisabled: () => soloStartBtn.disabled,
-    requestModelDownload,
-    showCoopBotSelection,
-    showModelLoading,
-  });
-
   function startCoopWithSelectedBot() {
-    coopActions?.startWithSelectedBot();
+    coopTransport?.startWithSelectedBot();
   }
 
   function enterCoopBotSelection() {
-    coopActions?.enterBotSelection();
+    coopTransport?.enterBotSelection();
   }
 
   function connectCoop(...args) {
-    coopActions?.connect(...args);
-  }
-
-  async function handleCoopMsg(msg) {
-    await coopMessages.handleMessage(msg);
+    coopTransport?.connect(...args);
   }
 
   function maybeRunCoopBotTurn() {
@@ -706,7 +693,7 @@ export function useChessquestiaApp() {
   }
 
   function leaveCoop() {
-    coopActions?.leave();
+    coopTransport?.leave();
   }
 
   const startup = createAppStartupController({
@@ -732,7 +719,7 @@ export function useChessquestiaApp() {
       disposed = true;
       if (invitePollTimer) window.clearInterval(invitePollTimer);
       botMoves?.dispose();
-      coopConnection?.dispose();
+      coopTransport?.dispose();
       appEvents?.dispose();
       outcomeScreen.dispose();
       promotionChoice.dispose();
