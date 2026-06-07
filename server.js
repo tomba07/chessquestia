@@ -15,7 +15,7 @@ const path     = require("path");
 const os       = require("os");
 const fs       = require("fs");
 const { WebSocketServer } = require("ws");
-const { createHash, randomBytes, randomUUID } = require("crypto");
+const { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } = require("crypto");
 const { DatabaseSync } = require("node:sqlite");
 const { Chess } = require("chess.js");
 const { registerSocialRoutes } = require("./server/domains/social");
@@ -47,7 +47,16 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 const googleAuthEnabled = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
 const isDev = process.env.NODE_ENV !== "production";
 const localAuthEnabled = process.env.LOCAL_AUTH === "1" || (isDev && process.env.LOCAL_AUTH !== "0");
-const authEnabled = googleAuthEnabled || localAuthEnabled;
+const schoolAuthEnabled = process.env.SCHOOL_AUTH !== "0";
+const authEnabled = googleAuthEnabled || localAuthEnabled || schoolAuthEnabled;
+const configuredAdminEmails = new Set([
+  "ditesch@gmail.com",
+  "mirko.teschke@gmail.com",
+  ...String(process.env.SCHOOL_ADMIN_EMAILS || "")
+    .split(",")
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean),
+]);
 const DEV_LOGIN_USERS = [
   { key: "mirko", username: "mirko", name: "Mirko", email: "mirko@chessquestia.local" },
   { key: "lena", username: "lena", name: "Lena", email: "lena@chessquestia.local" },
@@ -211,6 +220,16 @@ function columnExists(table, column) {
 if (!columnExists("users", "username")) {
   db.exec("ALTER TABLE users ADD COLUMN username TEXT");
 }
+if (!columnExists("users", "password_hash")) {
+  db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+}
+if (!columnExists("users", "is_admin")) {
+  db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+}
+if (!columnExists("users", "is_test_account")) {
+  db.exec("ALTER TABLE users ADD COLUMN is_test_account INTEGER NOT NULL DEFAULT 0");
+}
+db.exec("UPDATE users SET name = username, is_admin = 0 WHERE is_test_account = 1");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL");
 if (!columnExists("room_players", "unlocked_count")) {
   db.exec("ALTER TABLE room_players ADD COLUMN unlocked_count INTEGER NOT NULL DEFAULT 1");
@@ -351,6 +370,9 @@ function userFromRow(row) {
     emailVerified: !!row.email_verified,
     name: row.name,
     picture: row.picture,
+    passwordHash: row.password_hash,
+    isAdmin: !!row.is_admin,
+    isTestAccount: !!row.is_test_account,
     createdAt: row.created_at,
     lastLoginAt: row.last_login_at,
   };
@@ -470,7 +492,54 @@ function publicUser(user) {
     name: user.name,
     email: user.email,
     picture: user.picture,
+    isAdmin: isAdminUser(user),
+    isTestAccount: !!user.isTestAccount,
   };
+}
+
+function isAdminUser(user) {
+  if (!user) return false;
+  if (user.isTestAccount) return false;
+  if (user.isAdmin) return true;
+  if (user.id === "local:mirko") return true;
+  return configuredAdminEmails.has(String(user.email || "").trim().toLowerCase());
+}
+
+function requireAdminUser(req, res) {
+  const user = requireApiUser(req, res);
+  if (!user) return null;
+  if (!isAdminUser(user)) {
+    res.status(403).json({ error: "Administrator access required" });
+    return null;
+  }
+  return user;
+}
+
+function hashPassword(password) {
+  const salt = randomBytes(16);
+  const hash = scryptSync(String(password), salt, 64);
+  return `scrypt:${salt.toString("base64url")}:${hash.toString("base64url")}`;
+}
+
+function verifyPassword(password, encoded) {
+  const [scheme, saltText, hashText] = String(encoded || "").split(":");
+  if (scheme !== "scrypt" || !saltText || !hashText) return false;
+  try {
+    const expected = Buffer.from(hashText, "base64url");
+    const actual = scryptSync(String(password), Buffer.from(saltText, "base64url"), expected.length);
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+  } catch {
+    return false;
+  }
+}
+
+function validateManagedAccountInput(payload, { passwordRequired = false } = {}) {
+  const username = normalizeUsername(payload?.username);
+  const password = String(payload?.password || "");
+  if (username.length < 3) throw new Error("Username must be at least 3 characters.");
+  if (passwordRequired && !password)
+    throw new Error("Password is required.");
+  return { username, password };
 }
 
 function publicFriendUser(row) {
@@ -740,12 +809,19 @@ app.get("/api/me", (req, res) => {
   const user = currentUser(req);
   touchPresence(user?.id);
   const next = encodeURIComponent(req.query.next || req.originalUrl || "/");
+  const loginUrl = googleAuthEnabled
+    ? `/auth/google?next=${next}`
+    : localAuthEnabled
+      ? `/auth/local?next=${next}`
+      : `/?auth=login&next=${next}`;
   res.json({
     authEnabled,
     user: publicUser(user),
     soloProgress: user ? soloProgressForUserId(user.id) : { unlockedOpponentCount: 1 },
-    loginUrl: `${googleAuthEnabled ? "/auth/google" : "/auth/local"}?next=${next}`,
+    loginUrl,
+    googleAuthEnabled,
     localAuthEnabled,
+    schoolAuthEnabled,
     devLoginUsers: localAuthEnabled
       ? DEV_LOGIN_USERS.map(user => ({
           key: user.key,
@@ -756,6 +832,123 @@ app.get("/api/me", (req, res) => {
       : [],
     logoutUrl: `/auth/logout?next=${next}`,
   });
+});
+
+app.post("/api/auth/school-login", (req, res) => {
+  if (!schoolAuthEnabled) {
+    res.status(404).json({ error: "School sign-in is not enabled." });
+    return;
+  }
+  const username = normalizeUsername(req.body?.username);
+  const password = String(req.body?.password || "");
+  const row = db.prepare(`
+    SELECT * FROM users
+    WHERE username = ? AND password_hash IS NOT NULL
+  `).get(username);
+  if (!row || !verifyPassword(password, row.password_hash)) {
+    res.status(401).json({ error: "Invalid username or password." });
+    return;
+  }
+  db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(Date.now(), row.id);
+  const user = userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(row.id));
+  const sessionToken = createSession(user.id);
+  res.setHeader("Set-Cookie", cookieHeader(SESSION_COOKIE, sessionToken, {
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    secure: isSecureRequest(req),
+  }));
+  res.json({
+    user: publicUser(user),
+    next: safeNextPath(req.body?.next || "/"),
+  });
+});
+
+app.get("/api/admin/test-users", (req, res) => {
+  const admin = requireAdminUser(req, res);
+  if (!admin) return;
+  const users = db.prepare(`
+    SELECT * FROM users
+    WHERE is_test_account = 1
+    ORDER BY username COLLATE NOCASE
+  `).all().map(row => publicUser(userFromRow(row)));
+  res.json({ users });
+});
+
+app.post("/api/admin/test-users", (req, res) => {
+  const admin = requireAdminUser(req, res);
+  if (!admin) return;
+  try {
+    const account = validateManagedAccountInput(req.body, { passwordRequired: true });
+    const id = `school:${randomUUID()}`;
+    const now = Date.now();
+    db.prepare(`
+      INSERT INTO users
+        (id, provider, provider_sub, username, email, email_verified, name, picture,
+         password_hash, is_admin, is_test_account, created_at, last_login_at)
+      VALUES (?, 'school', ?, ?, '', 0, ?, '', ?, ?, 1, ?, ?)
+    `).run(
+      id,
+      id.slice("school:".length),
+      account.username,
+      account.username,
+      hashPassword(account.password),
+      0,
+      now,
+      now,
+    );
+    const user = userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(id));
+    res.status(201).json({ user: publicUser(user), message: `${account.username} created.` });
+  } catch (err) {
+    const duplicate = String(err.message || "").includes("UNIQUE constraint failed");
+    res.status(duplicate ? 409 : 400).json({
+      error: duplicate ? "That username is already in use." : err.message,
+    });
+  }
+});
+
+app.patch("/api/admin/test-users/:id", (req, res) => {
+  const admin = requireAdminUser(req, res);
+  if (!admin) return;
+  const id = String(req.params.id || "");
+  const existing = db.prepare("SELECT * FROM users WHERE id = ? AND is_test_account = 1").get(id);
+  if (!existing) {
+    res.status(404).json({ error: "Managed account not found." });
+    return;
+  }
+  try {
+    const account = validateManagedAccountInput({
+      username: req.body?.username ?? existing.username,
+      password: req.body?.password || "",
+    });
+    const passwordHash = account.password ? hashPassword(account.password) : existing.password_hash;
+    db.prepare(`
+      UPDATE users
+      SET username = ?, name = ?, password_hash = ?, is_admin = ?
+      WHERE id = ? AND is_test_account = 1
+    `).run(account.username, account.username, passwordHash, 0, id);
+    const user = userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(id));
+    res.json({ user: publicUser(user), message: `${account.username} updated.` });
+  } catch (err) {
+    const duplicate = String(err.message || "").includes("UNIQUE constraint failed");
+    res.status(duplicate ? 409 : 400).json({
+      error: duplicate ? "That username is already in use." : err.message,
+    });
+  }
+});
+
+app.delete("/api/admin/test-users/:id", (req, res) => {
+  const admin = requireAdminUser(req, res);
+  if (!admin) return;
+  const id = String(req.params.id || "");
+  if (id === admin.id) {
+    res.status(400).json({ error: "You cannot delete the account you are using." });
+    return;
+  }
+  const result = db.prepare("DELETE FROM users WHERE id = ? AND is_test_account = 1").run(id);
+  if (!result.changes) {
+    res.status(404).json({ error: "Managed account not found." });
+    return;
+  }
+  res.json({ message: "Account deleted." });
 });
 
 app.patch("/api/solo-progress", (req, res) => {

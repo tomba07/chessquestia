@@ -177,10 +177,15 @@ export function createSocialController({
     const canShowNotice = !!notification
       && getCoopPhase() === "off"
       && lbAuth.style.display === "none"
-      && lbFriends.style.display === "none"
+      && (lbFriends.style.display === "none" || notification.type === "game")
       && lbFriendInvite.style.display === "none"
       && lbRoom.style.display === "none";
     coopInviteNotice.style.display = canShowNotice ? "flex" : "none";
+    coopInviteNotice.classList.toggle("is-visible", canShowNotice);
+    lbFriends.classList.toggle(
+      "has-game-invite-notice",
+      canShowNotice && notification?.type === "game" && lbFriends.style.display !== "none",
+    );
     if (!notification) return;
 
     coopInviteJoin.dataset.notificationType = notification.type;

@@ -7,6 +7,7 @@ export function defaultAuthInfo() {
     soloProgress: { unlockedOpponentCount: 1 },
     loginUrl: "/auth/google",
     logoutUrl: "/auth/logout",
+    schoolAuthEnabled: false,
   };
 }
 
@@ -224,6 +225,7 @@ export function createAppShellController({
 
     authBar.style.display = "none";
     profileAccountCard.style.display = "flex";
+    authPrimaryBtn.style.display = authInfo.googleAuthEnabled ? "" : "none";
     renderDevLogin();
     if (authInfo.user) {
       const accountName = authInfo.user.name || authInfo.user.email || "Signed in";

@@ -89,6 +89,15 @@ function AuthPanel() {
           <span>Try demo against Snib</span>
         </button>
       </div>
+      <form id="school-login-form" className="school-login-card" hidden>
+        <strong>Chess club login</strong>
+        <div className="school-login-fields">
+          <input id="school-login-username" name="username" placeholder="Username" autoCapitalize="none" autoComplete="username" required />
+          <input id="school-login-password" name="password" type="password" placeholder="Password" autoComplete="current-password" required />
+        </div>
+        <div id="school-login-message" className="school-account-message" role="status" aria-live="polite"></div>
+        <button id="school-login-submit" className="sm-btn primary-mini" type="submit">Sign in</button>
+      </form>
       <div id="auth-dev-login-card" className="dev-login-card auth-dev-login-card" style={{ display: "none" }}>
         <span>Dev login</span>
         <div id="auth-dev-login-options" className="dev-login-options"></div>
@@ -247,6 +256,21 @@ function ProfilePanel() {
         </div>
         <button id="profile-auth-btn" className="sm-btn" type="button"></button>
       </div>
+      <section id="school-admin-card" className="school-admin-card" hidden>
+        <div className="school-admin-heading">
+          <div>
+            <strong>Chess club accounts</strong>
+            <span>Create and manage player logins.</span>
+          </div>
+        </div>
+        <form id="school-account-create" className="school-account-create">
+          <input id="school-account-username" placeholder="Account name" minLength="3" maxLength="20" autoCapitalize="none" autoComplete="off" required />
+          <input id="school-account-password" type="password" placeholder="Password" autoComplete="new-password" required />
+          <button id="school-account-create-submit" className="sm-btn primary-mini" type="submit">Create account</button>
+        </form>
+        <div id="school-account-message" className="school-account-message" role="status" aria-live="polite"></div>
+        <div id="school-account-list" className="school-account-list"></div>
+      </section>
       <div id="dev-login-card" className="dev-login-card" style={{ display: "none" }}>
         <span>Dev login</span>
         <div id="dev-login-options" className="dev-login-options"></div>

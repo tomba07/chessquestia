@@ -39,6 +39,7 @@ import { createOpponentSelectionController } from "./opponentSelectionController
 import { createPlayerMoveController } from "./playerMoveController.js";
 import { createSoloGameController } from "./soloGameController.js";
 import { createSoloSessionController } from "./soloSessionController.js";
+import { createSchoolAccountsController } from "./schoolAccountsController.js";
 
 export function useChessquestiaApp() {
   useEffect(() => {
@@ -540,6 +541,16 @@ export function useChessquestiaApp() {
   coopMessages = initializedCoopMessages;
 
   await appShell.loadAuth();
+
+  const schoolAccounts = createSchoolAccountsController({
+    apiJson,
+    elements: appElements.lobby,
+    getAuthInfo: () => authInfo,
+    currentNextPath,
+  });
+  schoolAccounts.bindEvents();
+  schoolAccounts.render();
+  schoolAccounts.loadAccounts();
 
   const social = createSocialController({
     apiJson,
