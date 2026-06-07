@@ -40,13 +40,18 @@ export function createLocalDebugController({
     const opponent = opponents[opponentIndex];
     if (opponent) {
       setSelectedOpponent({ index: opponentIndex, theme: opponent.theme });
-      syncStrength(String(opponent.elo));
-      updateOpponentSelection(String(opponent.elo));
+    }
+    const strength = Number.isFinite(Number(options.strength))
+      ? Number(options.strength)
+      : opponent?.elo;
+    if (strength) {
+      syncStrength(String(strength));
+      updateOpponentSelection(String(strength));
     }
 
     chess.load(fen);
     if (typeof soloSession.startGame === "function") {
-      soloSession.startGame({ demo: options.demo !== false });
+      soloSession.startGame({ demo: options.demo !== false, debug: true });
     } else {
       soloSession.restoreSavedSession({
         fen,

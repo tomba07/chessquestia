@@ -839,6 +839,9 @@ app.get("/api/leaderboards", (req, res) => {
       WHERE gr.result = 'victory'
         AND gr.opponent_key = ?
         AND grp.user_id IS NOT NULL
+        AND gr.moves_count >= 4
+        AND gr.dedupe_key NOT LIKE '%:debug-%'
+        AND gr.dedupe_key NOT LIKE '%:test-%'
         AND ${metricFilter}
     )
     SELECT user_id, player_name, mode, moves_count, duration_ms, finished_at

@@ -1,4 +1,5 @@
 - leaderboards
+ - info on victory screen
  - lowest victory time/moves
 - timer
 - highlights

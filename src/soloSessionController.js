@@ -20,6 +20,7 @@ export function createSoloSessionController({
   let active = false;
   let gameId = null;
   let demoActive = false;
+  let debugActive = false;
   let gameStartedAt = null;
   let unlockedOpponentCount = 1;
   let serverUnlockedOpponentCount = 1;
@@ -108,9 +109,10 @@ export function createSoloSessionController({
     return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
-  function startGame({ demo = false } = {}) {
+  function startGame({ demo = false, debug = false } = {}) {
     active = true;
     demoActive = demo;
+    debugActive = debug;
     gameId = createGameId();
     gameStartedAt = Date.now();
   }
@@ -118,6 +120,7 @@ export function createSoloSessionController({
   function restoreSavedSession(state) {
     active = true;
     demoActive = false;
+    debugActive = false;
     gameId = state.gameId || createGameId();
     gameStartedAt = Number(state.startedAt || state.savedAt || Date.now());
   }
@@ -151,13 +154,14 @@ export function createSoloSessionController({
     active = false;
     gameId = null;
     demoActive = false;
+    debugActive = false;
     gameStartedAt = null;
     localStorage.removeItem(soloGameKey);
     localStorage.removeItem(legacySoloGameKey);
   }
 
   function recordResult(result) {
-    if (!active || demoActive || getCoopPhase() !== "off") return;
+    if (!active || demoActive || debugActive || getCoopPhase() !== "off") return;
     gameId = gameId || createGameId();
     if (recordedGameIds.has(gameId)) return;
     recordedGameIds.add(gameId);

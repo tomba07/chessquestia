@@ -31,8 +31,10 @@ function SideMenu() {
       <button id="nav-friends" className="side-link" type="button">
         <img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends
       </button>
-      <button id="nav-leaderboard" className="side-link" type="button">
-        <img className="nav-icon" src="/assets/icons/leaderboard-icon.png" alt="" />Leaderboard
+      <button id="nav-leaderboard" className="side-link" type="button" aria-label="Leaderboard">
+        <img className="nav-icon" src="/assets/icons/leaderboard-icon.png" alt="" />
+        <span className="nav-label-desktop">Leaderboard</span>
+        <span className="nav-label-mobile" aria-hidden="true">Ranks</span>
       </button>
     </nav>
   );

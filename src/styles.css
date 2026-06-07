@@ -253,6 +253,9 @@
       object-fit: contain;
       opacity: 0.9;
     }
+    .nav-label-mobile {
+      display: none;
+    }
 
     .coop-invite-notice {
       position: absolute;
@@ -2011,6 +2014,12 @@
       .nav-icon {
         width: 16px;
         height: 16px;
+      }
+      .nav-label-desktop {
+        display: none;
+      }
+      .nav-label-mobile {
+        display: inline;
       }
       .coop-invite-notice {
         top: calc(60px + var(--mobile-safe-top));
