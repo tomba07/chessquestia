@@ -3,6 +3,7 @@ import {
   FriendAddDialog,
   GameView,
   Lobby,
+  NotificationNotice,
 } from "./components/AppScreens.jsx";
 import { useChessquestiaApp } from "./useChessquestiaApp.js";
 
@@ -14,6 +15,7 @@ export default function App() {
       <div className="app">
         <Lobby />
         <GameView />
+        <NotificationNotice />
         <BotSplash />
         <FriendAddDialog />
       </div>
@@ -23,4 +25,3 @@ export default function App() {
     </>
   );
 }
-

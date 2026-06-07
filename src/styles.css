@@ -256,10 +256,33 @@
     .nav-label-mobile {
       display: none;
     }
+    .notification-badge {
+      min-width: 18px;
+      height: 18px;
+      position: absolute;
+      top: 1px;
+      right: -4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgba(247, 239, 213, 0.94);
+      border-radius: 999px;
+      background: #a83f2f;
+      color: #fffaf0;
+      padding: 0 4px;
+      font-family: var(--ui-font);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: none;
+    }
+    .notification-badge[hidden] {
+      display: none;
+    }
 
     .coop-invite-notice {
-      position: absolute;
-      z-index: 5;
+      position: fixed;
+      z-index: 50;
       top: 7.5cqh;
       right: 8cqw;
       width: min(360px, 36cqw);
@@ -276,6 +299,11 @@
         inset 0 0 0 4px rgba(255, 248, 229, 0.28),
         0 16px 28px rgba(73, 48, 20, 0.14);
       color: var(--ink);
+      animation: notification-arrive 180ms ease-out;
+    }
+    @keyframes notification-arrive {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .coop-invite-notice > div:first-child {
       min-width: 0;
@@ -1584,6 +1612,11 @@
       box-shadow: 0 8px 18px rgba(73, 48, 20, 0.08);
     }
     .friend-message.visible { display: block; }
+    .friend-message.success {
+      color: #2f6746;
+      background: rgba(237, 249, 239, 0.9);
+      border-color: rgba(75, 139, 91, 0.34);
+    }
 
     .friend-section {
       width: 100%;
@@ -2020,6 +2053,15 @@
       }
       .nav-label-mobile {
         display: inline;
+      }
+      .notification-badge {
+        top: -3px;
+        right: -1px;
+        min-width: 15px;
+        height: 15px;
+        border-width: 1px;
+        padding: 0 3px;
+        font-size: 9px;
       }
       .coop-invite-notice {
         top: calc(60px + var(--mobile-safe-top));

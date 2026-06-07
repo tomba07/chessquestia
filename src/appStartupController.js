@@ -42,7 +42,7 @@ export function createAppStartupController({
     if (getAuthInfo().user) {
       startPresenceHeartbeat();
       loadInviteNotifications();
-      onInvitePollTimer(window.setInterval(loadInviteNotifications, 5000));
+      onInvitePollTimer(window.setInterval(loadInviteNotifications, 30000));
     }
 
     if (route.roomId) {

@@ -5,12 +5,68 @@ function registerSocialRoutes(app, {
   friendshipPair,
   inTransaction,
   normalizeUsername,
+  notifyUser,
   publicFriendUser,
   publicUser,
   requireApiUser,
   roomHasUser,
   presenceForUser,
 }) {
+  function incomingFriendRequests(userId) {
+    return db.prepare(`
+      SELECT fr.id, fr.created_at, u.id AS user_id, u.username, u.name, u.email, u.picture
+      FROM friend_requests fr
+      JOIN users u ON u.id = fr.requester_id
+      WHERE fr.addressee_id = ? AND fr.status = 'pending'
+      ORDER BY fr.created_at DESC
+    `).all(userId);
+  }
+
+  function outgoingFriendRequests(userId) {
+    return db.prepare(`
+      SELECT fr.id, fr.created_at, u.id AS user_id, u.username, u.name, u.email, u.picture
+      FROM friend_requests fr
+      JOIN users u ON u.id = fr.addressee_id
+      WHERE fr.requester_id = ? AND fr.status = 'pending'
+      ORDER BY fr.created_at DESC
+    `).all(userId);
+  }
+
+  function pendingGameInvites(userId) {
+    return db.prepare(`
+      SELECT
+        ri.id,
+        ri.room_id,
+        ri.created_at,
+        rooms.phase,
+        inviter.id AS inviter_id,
+        inviter.username AS inviter_username,
+        inviter.name AS inviter_name,
+        inviter.email AS inviter_email,
+        inviter.picture AS inviter_picture
+      FROM room_invites ri
+      JOIN rooms ON rooms.id = ri.room_id
+      JOIN users inviter ON inviter.id = ri.inviter_id
+      WHERE ri.invitee_id = ?
+        AND ri.status = 'pending'
+        AND rooms.phase = 'lobby'
+      ORDER BY ri.created_at DESC
+    `).all(userId).map(row => ({
+      id: row.id,
+      roomId: row.room_id,
+      createdAt: row.created_at,
+      phase: row.phase,
+      inviter: publicFriendUser({
+        id: row.inviter_id,
+        username: row.inviter_username,
+        name: row.inviter_name,
+        email: row.inviter_email,
+        picture: row.inviter_picture,
+        created_at: row.created_at,
+      }),
+    }));
+  }
+
   app.post("/api/presence", (req, res) => {
     const user = requireApiUser(req, res);
     if (!user) return;
@@ -84,6 +140,7 @@ function registerSocialRoutes(app, {
       `).run(Date.now(), user.id, target.id, target.id, user.id);
     });
 
+    notifyUser(target.id);
     res.json({
       message: alreadyFriends
         ? `You are already friends with ${target.username || target.name || "that player"}`
@@ -111,23 +168,22 @@ function registerSocialRoutes(app, {
     const user = requireApiUser(req, res);
     if (!user) return;
 
-    const incoming = db.prepare(`
-      SELECT fr.id, fr.created_at, u.id AS user_id, u.username, u.name, u.email, u.picture
-      FROM friend_requests fr
-      JOIN users u ON u.id = fr.requester_id
-      WHERE fr.addressee_id = ? AND fr.status = 'pending'
-      ORDER BY fr.created_at DESC
-    `).all(user.id);
+    res.json({
+      incoming: incomingFriendRequests(user.id),
+      outgoing: outgoingFriendRequests(user.id),
+    });
+  });
 
-    const outgoing = db.prepare(`
-      SELECT fr.id, fr.created_at, u.id AS user_id, u.username, u.name, u.email, u.picture
-      FROM friend_requests fr
-      JOIN users u ON u.id = fr.addressee_id
-      WHERE fr.requester_id = ? AND fr.status = 'pending'
-      ORDER BY fr.created_at DESC
-    `).all(user.id);
-
-    res.json({ incoming, outgoing });
+  app.get("/api/notifications", (req, res) => {
+    const user = requireApiUser(req, res);
+    if (!user) return;
+    const friendRequests = incomingFriendRequests(user.id);
+    const gameInvites = pendingGameInvites(user.id);
+    res.json({
+      count: friendRequests.length + gameInvites.length,
+      friendRequests,
+      gameInvites,
+    });
   });
 
   app.get("/api/friends/search", (req, res) => {
@@ -212,6 +268,7 @@ function registerSocialRoutes(app, {
       WHERE friend_requests.status != 'pending'
     `).run(user.id, targetUserId, Date.now());
 
+    notifyUser(targetUserId);
     res.json({ message: `Friend request sent to ${target.name || target.email}` });
   });
 
@@ -245,6 +302,7 @@ function registerSocialRoutes(app, {
       `).run(Date.now(), requestId);
     });
 
+    notifyUser(request.requester_id);
     res.json({ message: `You are now friends with ${request.name || request.email}` });
   });
 
@@ -268,6 +326,8 @@ function registerSocialRoutes(app, {
       return;
     }
 
+    const requester = db.prepare("SELECT requester_id FROM friend_requests WHERE id = ?").get(requestId);
+    notifyUser(requester?.requester_id);
     res.json({ message: "Friend request declined" });
   });
 
@@ -284,41 +344,7 @@ function registerSocialRoutes(app, {
   app.get("/api/coop/invites", (req, res) => {
     const user = requireApiUser(req, res);
     if (!user) return;
-
-    const invites = db.prepare(`
-      SELECT
-        ri.id,
-        ri.room_id,
-        ri.created_at,
-        rooms.phase,
-        inviter.id AS inviter_id,
-        inviter.username AS inviter_username,
-        inviter.name AS inviter_name,
-        inviter.email AS inviter_email,
-        inviter.picture AS inviter_picture
-      FROM room_invites ri
-      JOIN rooms ON rooms.id = ri.room_id
-      JOIN users inviter ON inviter.id = ri.inviter_id
-      WHERE ri.invitee_id = ?
-        AND ri.status = 'pending'
-        AND rooms.phase = 'lobby'
-      ORDER BY ri.created_at DESC
-    `).all(user.id).map(row => ({
-      id: row.id,
-      roomId: row.room_id,
-      createdAt: row.created_at,
-      phase: row.phase,
-      inviter: publicFriendUser({
-        id: row.inviter_id,
-        username: row.inviter_username,
-        name: row.inviter_name,
-        email: row.inviter_email,
-        picture: row.inviter_picture,
-        created_at: row.created_at,
-      }),
-    }));
-
-    res.json({ invites });
+    res.json({ invites: pendingGameInvites(user.id) });
   });
 
   app.post("/api/coop/invites", (req, res) => {
@@ -374,6 +400,7 @@ function registerSocialRoutes(app, {
         responded_at = NULL
     `).run(roomId, user.id, inviteeId, Date.now());
 
+    notifyUser(inviteeId);
     res.json({ message: `Invite sent to ${invitee.username || invitee.name || invitee.email}` });
   });
 
@@ -397,6 +424,8 @@ function registerSocialRoutes(app, {
       return;
     }
 
+    const invite = db.prepare("SELECT inviter_id FROM room_invites WHERE id = ?").get(inviteId);
+    notifyUser(invite?.inviter_id);
     res.json({ message: "Invite dismissed" });
   });
 }

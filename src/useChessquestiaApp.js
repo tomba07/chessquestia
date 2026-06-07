@@ -52,7 +52,7 @@ export function useChessquestiaApp() {
   const { strengthSlider, strengthVal } = appElements.strength;
   const { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill } = appElements.maia;
   const { lobbyEl, gameEl, boardEl, statusEl, gameScoreEl, gameBoardFrameEl, cpChips } = appElements.game;
-  const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, friendAddClose, friendAddDialog, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
+  const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteTitle, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, friendAddClose, friendAddDialog, friendAddMessage, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, notificationBadge, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
 
   // ── Load move mappings ────────────────────────────────────────────────────
 
@@ -547,9 +547,11 @@ export function useChessquestiaApp() {
       coopInviteDismiss,
       coopInviteJoin,
       coopInviteNotice,
+      coopInviteTitle,
       coopInviteText,
       friendAddClose,
       friendAddDialog,
+      friendAddMessage,
       friendInviteLanding,
       friendInviteLink,
       friendLinkCopy,
@@ -569,6 +571,7 @@ export function useChessquestiaApp() {
       lbSolo,
       navFriends,
       navProfile,
+      notificationBadge,
       profileUsername,
       usernameHelp,
       usernameSaveBtn,
@@ -587,13 +590,10 @@ export function useChessquestiaApp() {
   leaderboard.bind();
 
   appEvents = createAppEventController({
-    apiJson,
     appShell,
     bindBotSplashStartButton,
     chessnutBoard,
     coopInviteList: cpInviteList,
-    coopInviteJoin,
-    coopInviteDismiss,
     coopRoom,
     getCoop: () => coop,
     getSetupMode: () => setupMode,
@@ -603,7 +603,6 @@ export function useChessquestiaApp() {
     outcomeScreen,
     promotionChoice,
     renderRoomLobby,
-    runFriendAction: socialBridge.runFriendAction,
     sendCoopInvite,
     setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
     setCoopSelectingOpponent: (selecting) => coopTransport?.setSelectingOpponent(selecting),

@@ -27,6 +27,7 @@ const LEGACY_ROOMS_FILE = path.join(__dirname, ".local-chess-rooms.json");
 const AUTH_FILE = process.env.AUTH_FILE || path.join(DATA_DIR, ".chessquestia-auth.json");
 const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, "chessquestia.sqlite");
 const app  = express();
+const notificationSockets = new Map();
 app.set("trust proxy", true);
 app.use(express.json({ limit: "64kb" }));
 
@@ -596,6 +597,16 @@ function gameResultFromFen(fen) {
   return null;
 }
 
+function notifyUser(userId) {
+  if (!userId) return;
+  const sockets = notificationSockets.get(userId);
+  if (!sockets) return;
+  const message = JSON.stringify({ type: "notifications-changed" });
+  for (const socket of sockets) {
+    if (socket.readyState === 1) socket.send(message);
+  }
+}
+
 function recordGameResult({
   dedupeKey,
   mode,
@@ -884,6 +895,7 @@ registerSocialRoutes(app, {
   friendshipPair,
   inTransaction,
   normalizeUsername,
+  notifyUser,
   presenceForUser,
   publicFriendUser,
   publicUser,
@@ -1348,6 +1360,11 @@ function attachWebSocketHandlers() {
   wss.on("connection", (ws, req) => {
   const user = currentUser(req);
   touchPresence(user?.id);
+  if (user?.id) {
+    const sockets = notificationSockets.get(user.id) || new Set();
+    sockets.add(ws);
+    notificationSockets.set(user.id, sockets);
+  }
   let currentPlayerId = null;
   let currentRoomId = null;
 
@@ -1577,6 +1594,11 @@ function attachWebSocketHandlers() {
   });
 
   ws.on("close", () => {
+    if (user?.id) {
+      const sockets = notificationSockets.get(user.id);
+      sockets?.delete(ws);
+      if (!sockets?.size) notificationSockets.delete(user.id);
+    }
     if (!currentRoomId) return;
     const room = rooms.get(currentRoomId);
     if (!room) return;

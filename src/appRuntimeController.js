@@ -25,8 +25,10 @@ export function createAppRuntimeController({
     requestPortraitOrientation();
     window.addEventListener("orientationchange", requestPortraitOrientation);
 
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register(serviceWorkerPath).catch(() => {});
-    if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+    const isLocalDev = ["localhost", "127.0.0.1"].includes(location.hostname);
+    if ("serviceWorker" in navigator && !isLocalDev)
+      navigator.serviceWorker.register(serviceWorkerPath).catch(() => {});
+    if (isLocalDev) {
       devReloadSource = new EventSource(devReloadPath);
       devReloadSource.onmessage = (event) => {
         if (event.data === "reload") location.reload();

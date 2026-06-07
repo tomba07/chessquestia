@@ -65,9 +65,11 @@ export function createSocialController({
     coopInviteDismiss,
     coopInviteJoin,
     coopInviteNotice,
+    coopInviteTitle,
     coopInviteText,
     friendAddClose,
     friendAddDialog,
+    friendAddMessage,
     friendInviteLanding,
     friendInviteLink,
     friendLinkCopy,
@@ -87,6 +89,7 @@ export function createSocialController({
     lbSolo,
     navFriends,
     navProfile,
+    notificationBadge,
     profileUsername,
     usernameHelp,
     usernameSaveBtn,
@@ -103,6 +106,7 @@ export function createSocialController({
     invites: [],
     results: [],
     error: "",
+    message: "",
     busyKey: "",
     addDialogOpen: false,
   };
@@ -117,7 +121,10 @@ export function createSocialController({
   };
 
   let friendSearchTimer = null;
+  let notificationSocket = null;
+  let notificationReconnectTimer = null;
   let presenceTimer = null;
+  const dismissedNotificationKeys = new Set();
   const auth = () => getAuthInfo();
 
   function friendInviteUrl() {
@@ -135,28 +142,74 @@ export function createSocialController({
     friendLinkShare.disabled = !url;
   }
 
-  function activeInvite() {
-    return friendState.invites[0] || null;
+  function notificationKey(notification) {
+    return `${notification.type}:${notification.id}`;
+  }
+
+  function notifications() {
+    return [
+      ...friendState.invites.map(invite => ({
+        type: "game",
+        id: invite.id,
+        createdAt: invite.createdAt,
+        invite,
+      })),
+      ...friendState.incoming.map(request => ({
+        type: "friend",
+        id: request.id,
+        createdAt: request.created_at,
+        request,
+      })),
+    ].sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  }
+
+  function activeNotification() {
+    return notifications().find(notification => (
+      !dismissedNotificationKeys.has(notificationKey(notification))
+    )) || null;
   }
 
   function renderInviteNotification() {
-    const invite = activeInvite();
-    const canShowNotice = !!invite
+    const allNotifications = notifications();
+    const notification = activeNotification();
+    notificationBadge.textContent = String(allNotifications.length);
+    notificationBadge.hidden = allNotifications.length === 0;
+    const canShowNotice = !!notification
       && getCoopPhase() === "off"
+      && lbAuth.style.display === "none"
       && lbFriends.style.display === "none"
       && lbFriendInvite.style.display === "none"
       && lbRoom.style.display === "none";
     coopInviteNotice.style.display = canShowNotice ? "flex" : "none";
-    if (!invite) return;
-    coopInviteText.textContent = `${friendName(invite.inviter)} invited you to play.`;
-    coopInviteJoin.dataset.roomId = invite.roomId;
-    coopInviteDismiss.dataset.inviteId = String(invite.id);
+    if (!notification) return;
+
+    coopInviteJoin.dataset.notificationType = notification.type;
+    coopInviteDismiss.dataset.notificationType = notification.type;
+    coopInviteJoin.dataset.notificationId = String(notification.id);
+    coopInviteDismiss.dataset.notificationId = String(notification.id);
+    if (notification.type === "game") {
+      coopInviteTitle.textContent = "Game invite";
+      coopInviteText.textContent = `${friendName(notification.invite.inviter)} invited you to play.`;
+      coopInviteJoin.textContent = "Join";
+      coopInviteDismiss.textContent = "Dismiss";
+      coopInviteJoin.dataset.roomId = notification.invite.roomId;
+      coopInviteDismiss.dataset.inviteId = String(notification.id);
+    } else {
+      coopInviteTitle.textContent = "Friend request";
+      coopInviteText.textContent = `${friendName(notification.request)} wants to be friends.`;
+      coopInviteJoin.textContent = "Review";
+      coopInviteDismiss.textContent = "Later";
+      delete coopInviteJoin.dataset.roomId;
+      delete coopInviteDismiss.dataset.inviteId;
+    }
   }
 
   function renderFriends() {
     const authInfo = auth();
     friendMessage.textContent = friendState.error;
     friendMessage.className = `friend-message${friendState.error ? " visible" : ""}`;
+    friendAddMessage.textContent = friendState.message || friendState.error;
+    friendAddMessage.className = `friend-message${friendState.message ? " visible success" : friendState.error ? " visible" : ""}`;
     friendAddDialog.hidden = !friendState.addDialogOpen;
     renderInviteNotification();
 
@@ -228,9 +281,12 @@ export function createSocialController({
       const resultHtml = friendState.results.map(user => {
         let action = "";
         if (user.friendshipStatus === "friend") action = `<span class="friend-status-label">Friend</span>`;
-        else if (user.friendshipStatus === "outgoing_pending") action = `<span class="friend-status-label">Sent</span>`;
+        else if (user.friendshipStatus === "outgoing_pending") action = `<span class="friend-status-label">Pending</span>`;
         else if (user.friendshipStatus === "incoming_pending") action = `<span class="friend-status-label">Request received</span>`;
-        else action = `<button class="sm-btn primary-mini" type="button" data-friend-action="add" data-user-id="${escapeHtml(user.id)}" ${friendState.busyKey === `add:${user.id}` ? "disabled" : ""}>Add</button>`;
+        else {
+          const sending = friendState.busyKey === `add:${user.id}`;
+          action = `<button class="sm-btn primary-mini" type="button" data-friend-action="add" data-user-id="${escapeHtml(user.id)}" ${sending ? "disabled" : ""}>${sending ? "Sending..." : "Add"}</button>`;
+        }
         return friendRow(user, friendMeta(user), action);
       }).join("");
       friendResultsEl.innerHTML = `
@@ -318,14 +374,17 @@ export function createSocialController({
 
   async function loadInviteNotifications() {
     if (!auth().user) {
+      friendState.incoming = [];
       friendState.invites = [];
       renderInviteNotification();
       return;
     }
     try {
-      const payload = await apiJson("/api/coop/invites");
-      friendState.invites = payload.invites || [];
+      const payload = await apiJson("/api/notifications");
+      friendState.incoming = payload.friendRequests || [];
+      friendState.invites = payload.gameInvites || [];
     } catch {
+      friendState.incoming = [];
       friendState.invites = [];
     }
     renderInviteNotification();
@@ -353,12 +412,38 @@ export function createSocialController({
     sendPresence({ refreshFriends: true });
     presenceTimer = window.setInterval(() => sendPresence({ refreshFriends: true }), 20000);
     document.addEventListener("visibilitychange", handleVisibilityPresence);
+    startNotificationStream();
   }
 
   function stopPresenceHeartbeat() {
     if (presenceTimer) window.clearInterval(presenceTimer);
     presenceTimer = null;
     document.removeEventListener("visibilitychange", handleVisibilityPresence);
+    window.clearTimeout(notificationReconnectTimer);
+    notificationReconnectTimer = null;
+    notificationSocket?.close();
+    notificationSocket = null;
+  }
+
+  function startNotificationStream() {
+    if (!auth().user || notificationSocket?.readyState <= WebSocket.OPEN) return;
+    const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(`${wsProtocol}//${location.host}`);
+    notificationSocket = socket;
+    socket.onmessage = ({ data }) => {
+      try {
+        if (JSON.parse(data).type === "notifications-changed") loadInviteNotifications();
+      } catch {
+        // Ignore non-JSON messages from unrelated socket features.
+      }
+    };
+    socket.onclose = () => {
+      if (notificationSocket !== socket) return;
+      notificationSocket = null;
+      if (!auth().user) return;
+      notificationReconnectTimer = window.setTimeout(startNotificationStream, 3000);
+    };
+    socket.onerror = () => socket.close();
   }
 
   async function searchFriends() {
@@ -393,6 +478,7 @@ export function createSocialController({
     }
     friendState.addDialogOpen = true;
     friendState.error = "";
+    friendState.message = "";
     renderFriends();
     window.setTimeout(() => friendSearch.focus({ preventScroll: true }), 0);
   }
@@ -402,6 +488,7 @@ export function createSocialController({
     friendState.searchQuery = "";
     friendState.results = [];
     friendState.searching = false;
+    friendState.message = "";
     friendSearch.value = "";
     window.clearTimeout(friendSearchTimer);
     if (render) renderFriends();
@@ -410,6 +497,7 @@ export function createSocialController({
   async function runFriendAction(key, action) {
     friendState.busyKey = key;
     friendState.error = "";
+    friendState.message = "";
     renderFriends();
     try {
       await action();
@@ -421,6 +509,56 @@ export function createSocialController({
     } finally {
       friendState.busyKey = "";
       renderFriends();
+    }
+  }
+
+  async function sendFriendRequest(userId) {
+    friendState.busyKey = `add:${userId}`;
+    friendState.error = "";
+    friendState.message = "";
+    renderFriends();
+    try {
+      const payload = await apiJson("/api/friends/requests", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      });
+      const result = friendState.results.find(user => user.id === userId);
+      if (result) result.friendshipStatus = "outgoing_pending";
+      friendState.message = payload.message || "Friend request sent.";
+      renderFriends();
+      await loadFriends();
+      if (friendState.searchQuery.trim()) await searchFriends();
+    } catch (err) {
+      friendState.error = err.message;
+      renderFriends();
+    } finally {
+      friendState.busyKey = "";
+      renderFriends();
+    }
+  }
+
+  function handleFriendActionClick(event) {
+    const button = event.target.closest("[data-friend-action]");
+    if (!button) return;
+    const action = button.dataset.friendAction;
+    const userId = button.dataset.userId;
+    const requestId = button.dataset.requestId;
+    const inviteId = button.dataset.inviteId;
+    const roomId = button.dataset.roomId;
+    if (action === "add" && userId) {
+      sendFriendRequest(userId);
+    } else if (action === "accept" && requestId) {
+      runFriendAction(`accept:${requestId}`, () => apiJson(`/api/friends/requests/${requestId}/accept`, { method: "POST" }));
+    } else if (action === "decline" && requestId) {
+      runFriendAction(`decline:${requestId}`, () => apiJson(`/api/friends/requests/${requestId}/decline`, { method: "POST" }));
+    } else if (action === "remove" && userId) {
+      runFriendAction(`remove:${userId}`, () => apiJson(`/api/friends/${encodeURIComponent(userId)}`, { method: "DELETE" }));
+    } else if (action === "join-invite" && roomId) {
+      location.href = `/?room=${encodeURIComponent(roomId)}`;
+    } else if (action === "dismiss-invite" && inviteId) {
+      runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
+    } else if (action === "open-add") {
+      openAddFriendDialog();
     }
   }
 
@@ -619,13 +757,38 @@ export function createSocialController({
   function bindEvents() {
     navProfile.onclick = () => showProfileView();
     navFriends.onclick = () => showFriendsView();
+    coopInviteJoin.onclick = () => {
+      const type = coopInviteJoin.dataset.notificationType;
+      if (type === "game") {
+        const roomId = coopInviteJoin.dataset.roomId;
+        if (roomId) location.href = `/?room=${encodeURIComponent(roomId)}`;
+        return;
+      }
+      if (type === "friend") showFriendsView();
+    };
+    coopInviteDismiss.onclick = () => {
+      const type = coopInviteDismiss.dataset.notificationType;
+      const notificationId = coopInviteDismiss.dataset.notificationId;
+      if (!notificationId) return;
+      if (type === "game") {
+        runFriendAction(`dismiss-invite:${notificationId}`, async () => {
+          await apiJson(`/api/coop/invites/${notificationId}/dismiss`, { method: "POST" });
+          await loadInviteNotifications();
+        });
+        return;
+      }
+      dismissedNotificationKeys.add(`friend:${notificationId}`);
+      renderInviteNotification();
+    };
     friendAddClose.onclick = () => closeAddFriendDialog();
     friendAddDialog.addEventListener("click", (event) => {
       if (event.target === friendAddDialog) closeAddFriendDialog();
     });
+    friendAddDialog.addEventListener("click", handleFriendActionClick);
     friendSearch.addEventListener("input", () => {
       friendSearch.value = cleanUsername(friendSearch.value);
       friendState.searchQuery = friendSearch.value;
+      friendState.message = "";
       window.clearTimeout(friendSearchTimer);
       friendSearchTimer = window.setTimeout(searchFriends, 250);
       renderFriends();
@@ -660,33 +823,7 @@ export function createSocialController({
         friendLinkCopy.click();
       }
     };
-    lbFriends.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-friend-action]");
-      if (!button) return;
-      const action = button.dataset.friendAction;
-      const userId = button.dataset.userId;
-      const requestId = button.dataset.requestId;
-      const inviteId = button.dataset.inviteId;
-      const roomId = button.dataset.roomId;
-      if (action === "add" && userId) {
-        runFriendAction(`add:${userId}`, () => apiJson("/api/friends/requests", {
-          method: "POST",
-          body: JSON.stringify({ userId }),
-        }));
-      } else if (action === "accept" && requestId) {
-        runFriendAction(`accept:${requestId}`, () => apiJson(`/api/friends/requests/${requestId}/accept`, { method: "POST" }));
-      } else if (action === "decline" && requestId) {
-        runFriendAction(`decline:${requestId}`, () => apiJson(`/api/friends/requests/${requestId}/decline`, { method: "POST" }));
-      } else if (action === "remove" && userId) {
-        runFriendAction(`remove:${userId}`, () => apiJson(`/api/friends/${encodeURIComponent(userId)}`, { method: "DELETE" }));
-      } else if (action === "join-invite" && roomId) {
-        location.href = `/?room=${encodeURIComponent(roomId)}`;
-      } else if (action === "dismiss-invite" && inviteId) {
-        runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
-      } else if (action === "open-add") {
-        openAddFriendDialog();
-      }
-    });
+    lbFriends.addEventListener("click", handleFriendActionClick);
     friendInviteLanding.addEventListener("click", (event) => {
       const loginButton = event.target.closest("[data-friend-invite-login-url]");
       const authInfo = auth();

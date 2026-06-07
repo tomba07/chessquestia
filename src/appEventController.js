@@ -1,11 +1,8 @@
 export function createAppEventController({
-  apiJson,
   appShell,
   bindBotSplashStartButton,
   chessnutBoard,
   coopInviteList,
-  coopInviteJoin,
-  coopInviteDismiss,
   coopRoom,
   getCoop,
   getSetupMode,
@@ -15,7 +12,6 @@ export function createAppEventController({
   outcomeScreen,
   promotionChoice,
   renderRoomLobby,
-  runFriendAction,
   sendCoopInvite,
   setCoopSelectingOpponent,
   setOpponentSelectionReadonly,
@@ -66,18 +62,6 @@ export function createAppEventController({
     elements.cpLeaveBtn.onclick = () => leaveCoop();
     coopInviteList.addEventListener("click", handleCoopInviteListClick);
 
-    coopInviteJoin.onclick = () => {
-      const roomId = coopInviteJoin.dataset.roomId;
-      if (!roomId) return;
-      location.href = `/?room=${encodeURIComponent(roomId)}`;
-    };
-
-    coopInviteDismiss.onclick = () => {
-      const inviteId = coopInviteDismiss.dataset.inviteId;
-      if (!inviteId) return;
-      runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
-    };
-
     chessnutBoard.bind();
     elements.opponentSpeech.bindCloseButton();
     promotionChoice.bind();
@@ -115,8 +99,6 @@ export function createAppEventController({
     elements.cpStartBtn.onclick = null;
     elements.cpLeaveBtn.onclick = null;
     coopInviteList.removeEventListener("click", handleCoopInviteListClick);
-    coopInviteJoin.onclick = null;
-    coopInviteDismiss.onclick = null;
     elements.backBtn.onclick = null;
   }
 

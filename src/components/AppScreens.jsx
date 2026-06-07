@@ -30,6 +30,7 @@ function SideMenu() {
       <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/profile-icon.png" alt="" />Profile</button>
       <button id="nav-friends" className="side-link" type="button">
         <img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends
+        <span id="notification-badge" className="notification-badge" hidden>0</span>
       </button>
       <button id="nav-leaderboard" className="side-link" type="button" aria-label="Leaderboard">
         <img className="nav-icon" src="/assets/icons/leaderboard-icon.png" alt="" />
@@ -194,6 +195,7 @@ function FriendAddDialog() {
           <span>Search username</span>
           <input id="friend-search" placeholder="Search username" autoComplete="off" autoCapitalize="none" />
         </label>
+        <div id="friend-add-message" className="friend-message" role="status" aria-live="polite"></div>
         <div id="friend-results" className="friend-section friend-search-results"></div>
       </div>
     </div>
@@ -312,6 +314,21 @@ function ModelLoading() {
   );
 }
 
+export function NotificationNotice() {
+  return (
+    <div id="coop-invite-notice" className="coop-invite-notice notification-notice" style={{ display: "none" }} role="status" aria-live="polite">
+      <div>
+        <strong id="coop-invite-title">Notification</strong>
+        <span id="coop-invite-text"></span>
+      </div>
+      <div className="friend-actions">
+        <button id="coop-invite-join" className="sm-btn primary-mini" type="button">View</button>
+        <button id="coop-invite-dismiss" className="sm-btn" type="button">Later</button>
+      </div>
+    </div>
+  );
+}
+
 function Lobby() {
   return (
     <div id="lobby">
@@ -320,16 +337,6 @@ function Lobby() {
       <div id="auth-bar" className="auth-bar" style={{ display: "none" }}>
         <span id="auth-label"></span>
         <button id="auth-btn" className="sm-btn" type="button"></button>
-      </div>
-      <div id="coop-invite-notice" className="coop-invite-notice" style={{ display: "none" }}>
-        <div>
-          <strong id="coop-invite-title">Co-op invite</strong>
-          <span id="coop-invite-text"></span>
-        </div>
-        <div className="friend-actions">
-          <button id="coop-invite-join" className="sm-btn primary-mini" type="button">Join</button>
-          <button id="coop-invite-dismiss" className="sm-btn" type="button">Dismiss</button>
-        </div>
       </div>
       <AuthPanel />
       <PlayPanel />

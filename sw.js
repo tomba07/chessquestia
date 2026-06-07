@@ -1,4 +1,4 @@
-const CACHE = "chessquestia-v3";
+const CACHE = "chessquestia-v4";
 
 const SHELL = [
   "/",
@@ -48,6 +48,13 @@ function isApiLikeRequest(url) {
     || url.pathname.startsWith("/auth/")
     || url.pathname === "/dev-reload"
     || url.pathname === "/health";
+}
+
+function isDevelopmentRequest(url) {
+  return url.pathname.startsWith("/src/")
+    || url.pathname.startsWith("/node_modules/")
+    || url.pathname.startsWith("/@vite/")
+    || url.pathname.startsWith("/@react-refresh");
 }
 
 function isStaticRequest(url) {
@@ -114,7 +121,7 @@ self.addEventListener("fetch", (event) => {
   if (!["GET", "HEAD"].includes(request.method)) return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || isApiLikeRequest(url)) return;
+  if (url.origin !== self.location.origin || isApiLikeRequest(url) || isDevelopmentRequest(url)) return;
 
   if (request.mode === "navigate") {
     event.respondWith(navigationFallback(request));
