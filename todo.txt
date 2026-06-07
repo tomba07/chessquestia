@@ -1,6 +1,10 @@
+- coop: selected piece highlight
+- lobby/opponent selection wording
+- white/black side
+- current player indication
+- popups for friend/game invite
 - leaderboards
  - info on victory screen
- - lowest victory time/moves
 - timer
 - highlights
  - game changing moves
