@@ -627,6 +627,33 @@ function createFriendship(userId, friendId) {
   `).run(firstId, secondId, Date.now());
 }
 
+function createManagedFriendship(userId, friendId) {
+  if (!userId || !friendId || userId === friendId) return;
+  createFriendship(userId, friendId);
+  db.prepare(`
+    DELETE FROM friend_requests
+    WHERE (requester_id = ? AND addressee_id = ?)
+       OR (requester_id = ? AND addressee_id = ?)
+  `).run(userId, friendId, friendId, userId);
+}
+
+function syncManagedAccountFriendships(adminId) {
+  const managedUserIds = db.prepare(`
+    SELECT id FROM users
+    WHERE is_test_account = 1
+    ORDER BY id
+  `).all().map(row => row.id);
+
+  inTransaction(() => {
+    for (let index = 0; index < managedUserIds.length; index += 1) {
+      const userId = managedUserIds[index];
+      createManagedFriendship(adminId, userId);
+      for (let friendIndex = index + 1; friendIndex < managedUserIds.length; friendIndex += 1)
+        createManagedFriendship(userId, managedUserIds[friendIndex]);
+    }
+  });
+}
+
 function areFriends(userId, friendId) {
   const [firstId, secondId] = friendshipPair(userId, friendId);
   return !!db.prepare(`
@@ -865,6 +892,7 @@ app.post("/api/auth/school-login", (req, res) => {
 app.get("/api/admin/test-users", (req, res) => {
   const admin = requireAdminUser(req, res);
   if (!admin) return;
+  syncManagedAccountFriendships(admin.id);
   const users = db.prepare(`
     SELECT * FROM users
     WHERE is_test_account = 1
@@ -880,21 +908,24 @@ app.post("/api/admin/test-users", (req, res) => {
     const account = validateManagedAccountInput(req.body, { passwordRequired: true });
     const id = `school:${randomUUID()}`;
     const now = Date.now();
-    db.prepare(`
-      INSERT INTO users
-        (id, provider, provider_sub, username, email, email_verified, name, picture,
-         password_hash, is_admin, is_test_account, created_at, last_login_at)
-      VALUES (?, 'school', ?, ?, '', 0, ?, '', ?, ?, 1, ?, ?)
-    `).run(
-      id,
-      id.slice("school:".length),
-      account.username,
-      account.username,
-      hashPassword(account.password),
-      0,
-      now,
-      now,
-    );
+    inTransaction(() => {
+      db.prepare(`
+        INSERT INTO users
+          (id, provider, provider_sub, username, email, email_verified, name, picture,
+           password_hash, is_admin, is_test_account, created_at, last_login_at)
+        VALUES (?, 'school', ?, ?, '', 0, ?, '', ?, ?, 1, ?, ?)
+      `).run(
+        id,
+        id.slice("school:".length),
+        account.username,
+        account.username,
+        hashPassword(account.password),
+        0,
+        now,
+        now,
+      );
+    });
+    syncManagedAccountFriendships(admin.id);
     const user = userFromRow(db.prepare("SELECT * FROM users WHERE id = ?").get(id));
     res.status(201).json({ user: publicUser(user), message: `${account.username} created.` });
   } catch (err) {
