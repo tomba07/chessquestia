@@ -8,6 +8,7 @@ export function createPlayerMoveController({
   getCoop,
   getDebugMoveInput,
   getMaiaReady,
+  getPlayerColor,
   getSoloActive,
   promotionChoice,
   publishCoopMove,
@@ -20,7 +21,7 @@ export function createPlayerMoveController({
     if (chess.isGameOver() || (!getMaiaReady() && !getDebugMoveInput()) || getBotThinking()) return false;
     const coop = getCoop();
     if (coop?.phase === "playing") return !coop.midTurn && coop.activeIdx === coop.myIdx;
-    return getSoloActive() && coop?.phase === "off" && chess.turn() === "w";
+    return getSoloActive() && coop?.phase === "off" && chess.turn() === getPlayerColor();
   }
 
   function applyMove(from, to, promotion = "q") {
@@ -56,7 +57,10 @@ export function createPlayerMoveController({
         const coop = getCoop();
         if (coop?.phase === "playing")
           return !coop.midTurn && coop.activeIdx === coop.myIdx && getMaiaReady();
-        return chess.turn() === "w" && !getBotThinking() && (getMaiaReady() || getDebugMoveInput()) && !chess.isGameOver();
+        return chess.turn() === getPlayerColor()
+          && !getBotThinking()
+          && (getMaiaReady() || getDebugMoveInput())
+          && !chess.isGameOver();
       }
 
       case INPUT_EVENT_TYPE.validateMoveInput: {

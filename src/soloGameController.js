@@ -56,9 +56,16 @@ export function createSoloGameController({
     soloSession.recordResult(result);
   }
 
+  function randomPlayerColor() {
+    const randomValue = window.crypto?.getRandomValues
+      ? window.crypto.getRandomValues(new Uint8Array(1))[0]
+      : Math.floor(Math.random() * 256);
+    return randomValue % 2 === 0 ? "w" : "b";
+  }
+
   function begin({ showIntro = true, demo = false } = {}) {
     chess.reset();
-    soloSession.startGame({ demo });
+    soloSession.startGame({ demo, playerColor: randomPlayerColor() });
     setDebugMoveInput(false);
     clearCoopChips();
     promotionChoice.hide();
@@ -72,10 +79,12 @@ export function createSoloGameController({
     boardActions.clearCheckMarker();
     resetBoardDevicePlacement();
     boardActions.updateGameScore();
-    boardActions.enableMoveInput();
+    if (chess.turn() === soloSession.playerColor) boardActions.enableMoveInput();
+    else boardActions.disableMoveInput();
     setBotThinking(false);
     resetThinkingReactionCadence();
-    setStatus("Your turn");
+    setStatus(chess.turn() === soloSession.playerColor ? "Your turn" : "Thinking...",
+      chess.turn() === soloSession.playerColor ? "" : "thinking");
     if (showIntro) showGameStartSpeech();
     saveGame();
   }
@@ -89,6 +98,7 @@ export function createSoloGameController({
         beforeFade: () => begin({ showIntro: false, demo }),
       });
       showGameStartSpeech();
+      maybeRunSoloBotTurn();
     } finally {
       startInProgress = false;
     }
@@ -149,7 +159,7 @@ export function createSoloGameController({
       boardActions.updateGameScore();
       setBotThinking(false);
       if (boardActions.checkGameOver()) return;
-      if (chess.turn() === "w") {
+      if (chess.turn() === soloSession.playerColor) {
         boardActions.enableMoveInput();
         setStatus(getModelReady() ? "Your turn" : "Preparing game...");
       } else {

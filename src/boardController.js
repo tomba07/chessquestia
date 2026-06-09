@@ -8,6 +8,7 @@ export function createBoardController({
   elements,
   getBoard,
   getChess,
+  getScorePerspectiveColor,
   inputHandler,
   onDiffLeds,
 }) {
@@ -22,11 +23,12 @@ export function createBoardController({
   }
 
   function updateScore() {
-    const score = chess().board().flat().reduce((total, piece) => {
+    const whiteScore = chess().board().flat().reduce((total, piece) => {
       if (!piece) return total;
       const value = PIECE_VALUES[piece.type] || 0;
       return total + (piece.color === "w" ? value : -value);
     }, 0);
+    const score = getScorePerspectiveColor() === "b" ? -whiteScore : whiteScore;
     scoreEl.textContent = score === 0 ? "+0" : score > 0 ? `+${score}` : String(score);
     scoreEl.className = score > 0 ? "ahead" : score < 0 ? "behind" : "";
   }

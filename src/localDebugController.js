@@ -51,7 +51,11 @@ export function createLocalDebugController({
 
     chess.load(fen);
     if (typeof soloSession.startGame === "function") {
-      soloSession.startGame({ demo: options.demo !== false, debug: true });
+      soloSession.startGame({
+        demo: options.demo !== false,
+        debug: true,
+        playerColor: options.playerColor === "b" ? "b" : "w",
+      });
     } else {
       soloSession.restoreSavedSession({
         fen,
@@ -73,8 +77,14 @@ export function createLocalDebugController({
     boardActions.clearCheckMarker();
     boardActions.updateCheckMarker();
     boardActions.updateGameScore();
-    boardActions.enableMoveInput();
-    setStatus("Your turn");
+    if (chess.turn() === soloSession.playerColor) {
+      boardActions.enableMoveInput();
+      setStatus("Your turn");
+    } else {
+      boardActions.disableMoveInput();
+      setStatus("Thinking...", "thinking");
+      getBotMoves()?.maybeRunSoloBotTurn();
+    }
     return chess.fen();
   }
 

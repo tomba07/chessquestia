@@ -74,6 +74,7 @@ export function useChessquestiaApp() {
   const gameStatus = createGameStatusController({
     element: statusEl,
     getCoop: () => coop,
+    getCurrentOpponent: () => currentOpponent(),
     getMaiaReady: () => maia.modelReady,
   });
 
@@ -89,7 +90,8 @@ export function useChessquestiaApp() {
         return;
       }
       if (gameEl.style.display !== "none" && coop?.phase !== "playing") {
-        if (!chess.isGameOver() && chess.turn() === "w") setStatus("Your turn");
+        if (!chess.isGameOver() && chess.turn() === (soloSession?.playerColor || "w"))
+          setStatus("Your turn");
       }
       if (gameEl.style.display !== "none" && coop?.phase === "playing") {
         setCoopTurnStatus();
@@ -163,6 +165,9 @@ export function useChessquestiaApp() {
     },
     getBoard: () => board,
     getChess: () => chess,
+    getScorePerspectiveColor: () => (
+      soloSession?.active && coop?.phase === "off" ? soloSession.playerColor : "w"
+    ),
     inputHandler,
     onDiffLeds: () => chessnutBoard.updateDiffLeds(),
   });
@@ -233,6 +238,7 @@ export function useChessquestiaApp() {
     getCoop: () => coop,
     getDebugMoveInput: () => debugMoveInput,
     getMaiaReady: () => maia.modelReady,
+    getPlayerColor: () => soloSession.playerColor,
     getSoloActive: () => soloSession.active,
     promotionChoice,
     publishCoopMove,
@@ -254,6 +260,7 @@ export function useChessquestiaApp() {
     getElo,
     getGameVisible: () => gameEl.style.display !== "none",
     getMaiaReady: () => maia.modelReady,
+    getPlayerColor: () => soloSession.playerColor,
     getSoloActive: () => soloSession.active,
     publishCoopMove,
     runInference,
@@ -303,6 +310,7 @@ export function useChessquestiaApp() {
     boardActions: {
       clearCheckMarker,
       clearLastMove,
+      disableMoveInput: disableBoardMoveInput,
       enableMoveInput: enableBoardMoveInput,
       updateCheckMarker,
       updateGameScore,
@@ -409,6 +417,9 @@ export function useChessquestiaApp() {
     getChess: () => chess,
     getCoopPhase: () => coop?.phase || "off",
     getElo,
+    getPlayerColor: () => (
+      soloSession?.active && coop?.phase === "off" ? soloSession.playerColor : "w"
+    ),
     getSelectedOpponentTheme: () => selectedOpponentTheme,
     getSoloActive: () => soloSession.active,
     hideOpponentSpeech,
@@ -475,6 +486,9 @@ export function useChessquestiaApp() {
     disableBoardMoveInput,
     findKingSquare,
     getCanUnlockProgress: () => soloSession.active || coop?.phase === "playing" || coop?.phase === "over",
+    getPlayerColor: () => (
+      soloSession?.active && coop?.phase === "off" ? soloSession.playerColor : "w"
+    ),
     getSelectedOpponentIndex: () => selectedOpponentIndex,
     hideOutcomeBanner,
     opponents: SOLO_OPPONENTS,

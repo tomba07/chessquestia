@@ -12,6 +12,7 @@ export function createGameScreenController({
   getChess,
   getCoopPhase,
   getElo,
+  getPlayerColor,
   getSelectedOpponentTheme,
   getSoloActive,
   hideOpponentSpeech,
@@ -37,7 +38,7 @@ export function createGameScreenController({
     if (!getBoard()) {
       setBoard(new Chessboard(elements.boardEl, {
         position: getChess().fen(),
-        orientation: COLOR.white,
+        orientation: getPlayerColor() === "b" ? COLOR.black : COLOR.white,
         assetsUrl: CHESSBOARD_ASSETS_URL,
         style: {
           pieces: { file: `${CHESSBOARD_ASSETS_URL}pieces/staunty.svg` },
@@ -45,6 +46,10 @@ export function createGameScreenController({
         },
         extensions: [{ class: Markers }],
       }));
+    } else {
+      const orientation = getPlayerColor() === "b" ? COLOR.black : COLOR.white;
+      if (getBoard().getOrientation() !== orientation)
+        getBoard().setOrientation(orientation, false);
     }
     clearVictoryBoardPulse();
   }

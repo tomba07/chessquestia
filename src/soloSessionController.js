@@ -22,6 +22,7 @@ export function createSoloSessionController({
   let demoActive = false;
   let debugActive = false;
   let gameStartedAt = null;
+  let playerColor = "w";
   let unlockedOpponentCount = 1;
   let serverUnlockedOpponentCount = 1;
 
@@ -109,10 +110,11 @@ export function createSoloSessionController({
     return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
-  function startGame({ demo = false, debug = false } = {}) {
+  function startGame({ demo = false, debug = false, playerColor: nextPlayerColor = "w" } = {}) {
     active = true;
     demoActive = demo;
     debugActive = debug;
+    playerColor = nextPlayerColor === "b" ? "b" : "w";
     gameId = createGameId();
     gameStartedAt = Date.now();
   }
@@ -121,6 +123,7 @@ export function createSoloSessionController({
     active = true;
     demoActive = false;
     debugActive = false;
+    playerColor = state.playerColor === "b" ? "b" : "w";
     gameId = state.gameId || createGameId();
     gameStartedAt = Number(state.startedAt || state.savedAt || Date.now());
   }
@@ -133,6 +136,7 @@ export function createSoloSessionController({
       strength: getElo(),
       opponentTheme,
       opponentIndex,
+      playerColor,
       startedAt: gameStartedAt,
       savedAt: Date.now(),
     }));
@@ -156,6 +160,7 @@ export function createSoloSessionController({
     demoActive = false;
     debugActive = false;
     gameStartedAt = null;
+    playerColor = "w";
     localStorage.removeItem(soloGameKey);
     localStorage.removeItem(legacySoloGameKey);
   }
@@ -187,6 +192,7 @@ export function createSoloSessionController({
     clearGame,
     get active() { return active; },
     get gameStartedAt() { return gameStartedAt; },
+    get playerColor() { return playerColor; },
     readProgress,
     readSavedGame,
     recordResult,

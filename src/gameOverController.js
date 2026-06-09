@@ -3,6 +3,7 @@ export function createGameOverController({
   disableBoardMoveInput,
   findKingSquare,
   getCanUnlockProgress,
+  getPlayerColor,
   getSelectedOpponentIndex,
   hideOutcomeBanner,
   opponents,
@@ -15,11 +16,11 @@ export function createGameOverController({
 }) {
   function check() {
     if (chess.isCheckmate()) {
-      const playerWon = chess.turn() === "b";
+      const playerWon = chess.turn() !== getPlayerColor();
       recordResult(playerWon ? "victory" : "defeat");
       const nextOpponent = playerWon ? opponents[getSelectedOpponentIndex() + 1] : null;
       const unlockedNext = playerWon && getCanUnlockProgress() && unlockNextOpponent();
-      const defeatedKingSquare = findKingSquare(playerWon ? "b" : "w");
+      const defeatedKingSquare = findKingSquare(chess.turn());
 
       showVictoryBoardPulseAfterDelay(defeatedKingSquare, 120, playerWon ? "victory" : "defeat");
       showOutcomeBannerAfterDelay(playerWon ? "victory" : "defeat", 2200, {

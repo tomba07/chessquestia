@@ -1,6 +1,7 @@
 export function createGameStatusController({
   element,
   getCoop,
+  getCurrentOpponent,
   getMaiaReady,
 }) {
   function set(text, cls = "") {
@@ -17,9 +18,14 @@ export function createGameStatusController({
       return;
     }
 
+    if (coop.midTurn) {
+      const opponentName = getCurrentOpponent()?.name?.split(" ")[0] || "Opponent";
+      set(`${opponentName}'s turn`, "thinking");
+      return;
+    }
+
     const activePlayer = coop.players?.[coop.activeIdx];
-    const activeName = activePlayer?.name || "Player";
-    set(coop.midTurn ? `${activeName}: bot thinking...` : `${activeName}'s turn`, coop.midTurn ? "thinking" : "");
+    set(`${activePlayer?.name || "Player"}'s turn`);
   }
 
   return {

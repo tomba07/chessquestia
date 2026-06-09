@@ -72,7 +72,7 @@ export function createCoopGameViewController({
     if (midTurn) {
       const bot = document.createElement("span");
       bot.className = "chip active";
-      bot.textContent = "Maia";
+      bot.textContent = getCurrentOpponent()?.name?.split(" ")[0] || "Opponent";
       cpChips.appendChild(bot);
     }
   }
