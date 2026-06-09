@@ -1,6 +1,7 @@
 export const SOLO_OPPONENTS = [
   {
     name: "Snib the Candle Goblin",
+    shortName: "Snib",
     elo: 500,
     card: "snib_card.png",
     talkPortrait: "snib/talk.png",
@@ -31,6 +32,7 @@ export const SOLO_OPPONENTS = [
   },
   {
     name: "Muckroot the Bog Imp",
+    shortName: "Muckroot",
     elo: 700,
     card: "muckroot_card.png",
     talkPortrait: "muckroot/talk.png",
@@ -52,6 +54,7 @@ export const SOLO_OPPONENTS = [
   },
   {
     name: "Gribble Thornnose",
+    shortName: "Gribble",
     elo: 900,
     card: "gribble_card.png",
     talkPortrait: "gribble/talk.png",
@@ -73,6 +76,7 @@ export const SOLO_OPPONENTS = [
   },
   {
     name: "Vexi Blackcap",
+    shortName: "Vexi",
     elo: 1100,
     card: "vexi_card.png",
     talkPortrait: "vexi/talk.png",
@@ -94,6 +98,7 @@ export const SOLO_OPPONENTS = [
   },
   {
     name: "Drogar Gategrunt",
+    shortName: "Drogar",
     elo: 1300,
     card: "drogar_card.png",
     talkPortrait: "drogar/talk.png",

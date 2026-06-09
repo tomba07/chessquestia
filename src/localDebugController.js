@@ -11,6 +11,7 @@ export function createLocalDebugController({
   getSelectedOpponentIndex,
   hideModelLoading,
   hideOutcomeBanner,
+  isPlayerTurn,
   opponents,
   promotionChoice,
   setDebugMoveInput,
@@ -77,7 +78,7 @@ export function createLocalDebugController({
     boardActions.clearCheckMarker();
     boardActions.updateCheckMarker();
     boardActions.updateGameScore();
-    if (chess.turn() === soloSession.playerColor) {
+    if (isPlayerTurn()) {
       boardActions.enableMoveInput();
       setStatus("Your turn");
     } else {

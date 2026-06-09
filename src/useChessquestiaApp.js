@@ -25,6 +25,7 @@ import { createInitialCoopState } from "./coopState.js";
 import { createCoopTransportController } from "./coopTransportController.js";
 import { createCoopUiControllers } from "./coopUiControllers.js";
 import { createGameOverController } from "./gameOverController.js";
+import { createGamePerspectiveController } from "./gamePerspectiveController.js";
 import { createGamePresentationControllers } from "./gamePresentationControllers.js";
 import { createGameScreenController } from "./gameScreenController.js";
 import { createGameStatusController } from "./gameStatusController.js";
@@ -71,6 +72,12 @@ export function useChessquestiaApp() {
   let playerMoves = null;
   let coopTransport = null;
 
+  const gamePerspective = createGamePerspectiveController({
+    getChess: () => chess,
+    getCoop: () => coop,
+    getSoloSession: () => soloSession,
+  });
+
   const gameStatus = createGameStatusController({
     element: statusEl,
     getCoop: () => coop,
@@ -90,7 +97,7 @@ export function useChessquestiaApp() {
         return;
       }
       if (gameEl.style.display !== "none" && coop?.phase !== "playing") {
-        if (!chess.isGameOver() && chess.turn() === (soloSession?.playerColor || "w"))
+        if (!chess.isGameOver() && gamePerspective.isPlayerTurn())
           setStatus("Your turn");
       }
       if (gameEl.style.display !== "none" && coop?.phase === "playing") {
@@ -165,9 +172,7 @@ export function useChessquestiaApp() {
     },
     getBoard: () => board,
     getChess: () => chess,
-    getScorePerspectiveColor: () => (
-      soloSession?.active && coop?.phase === "off" ? soloSession.playerColor : "w"
-    ),
+    getScorePerspectiveColor: gamePerspective.playerColor,
     inputHandler,
     onDiffLeds: () => chessnutBoard.updateDiffLeds(),
   });
@@ -238,8 +243,8 @@ export function useChessquestiaApp() {
     getCoop: () => coop,
     getDebugMoveInput: () => debugMoveInput,
     getMaiaReady: () => maia.modelReady,
-    getPlayerColor: () => soloSession.playerColor,
     getSoloActive: () => soloSession.active,
+    isPlayerTurn: gamePerspective.isPlayerTurn,
     promotionChoice,
     publishCoopMove,
     saveSoloGame: () => soloGame.saveGame(),
@@ -260,8 +265,8 @@ export function useChessquestiaApp() {
     getElo,
     getGameVisible: () => gameEl.style.display !== "none",
     getMaiaReady: () => maia.modelReady,
-    getPlayerColor: () => soloSession.playerColor,
     getSoloActive: () => soloSession.active,
+    isPlayerTurn: gamePerspective.isPlayerTurn,
     publishCoopMove,
     runInference,
     saveSoloGame: () => soloGame.saveGame(),
@@ -323,6 +328,7 @@ export function useChessquestiaApp() {
     getSelectedOpponentIndex: () => selectedOpponentIndex,
     hideModelLoading,
     hideOutcomeBanner,
+    isPlayerTurn: gamePerspective.isPlayerTurn,
     opponents: SOLO_OPPONENTS,
     promotionChoice,
     setDebugMoveInput: (value) => { debugMoveInput = value; },
@@ -417,9 +423,7 @@ export function useChessquestiaApp() {
     getChess: () => chess,
     getCoopPhase: () => coop?.phase || "off",
     getElo,
-    getPlayerColor: () => (
-      soloSession?.active && coop?.phase === "off" ? soloSession.playerColor : "w"
-    ),
+    getPlayerColor: gamePerspective.playerColor,
     getSelectedOpponentTheme: () => selectedOpponentTheme,
     getSoloActive: () => soloSession.active,
     hideOpponentSpeech,
@@ -447,6 +451,7 @@ export function useChessquestiaApp() {
     getSetupMode: () => setupMode,
     hideModelLoading,
     hideOutcomeBanner,
+    isPlayerTurn: gamePerspective.isPlayerTurn,
     maybeRunSoloBotTurn,
     onStartCoopWithSelectedBot: () => startCoopWithSelectedBot(),
     opponentThemeForStrength,
@@ -486,9 +491,7 @@ export function useChessquestiaApp() {
     disableBoardMoveInput,
     findKingSquare,
     getCanUnlockProgress: () => soloSession.active || coop?.phase === "playing" || coop?.phase === "over",
-    getPlayerColor: () => (
-      soloSession?.active && coop?.phase === "off" ? soloSession.playerColor : "w"
-    ),
+    getPlayerColor: gamePerspective.playerColor,
     getSelectedOpponentIndex: () => selectedOpponentIndex,
     hideOutcomeBanner,
     opponents: SOLO_OPPONENTS,

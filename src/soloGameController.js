@@ -10,6 +10,7 @@ export function createSoloGameController({
   getSetupMode,
   hideModelLoading,
   hideOutcomeBanner,
+  isPlayerTurn,
   maybeRunSoloBotTurn,
   onStartCoopWithSelectedBot,
   opponentThemeForStrength,
@@ -79,12 +80,12 @@ export function createSoloGameController({
     boardActions.clearCheckMarker();
     resetBoardDevicePlacement();
     boardActions.updateGameScore();
-    if (chess.turn() === soloSession.playerColor) boardActions.enableMoveInput();
+    const playerTurn = isPlayerTurn();
+    if (playerTurn) boardActions.enableMoveInput();
     else boardActions.disableMoveInput();
     setBotThinking(false);
     resetThinkingReactionCadence();
-    setStatus(chess.turn() === soloSession.playerColor ? "Your turn" : "Thinking...",
-      chess.turn() === soloSession.playerColor ? "" : "thinking");
+    setStatus(playerTurn ? "Your turn" : "Thinking...", playerTurn ? "" : "thinking");
     if (showIntro) showGameStartSpeech();
     saveGame();
   }
@@ -159,7 +160,7 @@ export function createSoloGameController({
       boardActions.updateGameScore();
       setBotThinking(false);
       if (boardActions.checkGameOver()) return;
-      if (chess.turn() === soloSession.playerColor) {
+      if (isPlayerTurn()) {
         boardActions.enableMoveInput();
         setStatus(getModelReady() ? "Your turn" : "Preparing game...");
       } else {

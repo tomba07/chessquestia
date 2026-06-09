@@ -18,8 +18,8 @@ export function createBotMoveController({
   getElo,
   getGameVisible,
   getMaiaReady,
-  getPlayerColor,
   getSoloActive,
+  isPlayerTurn,
   publishCoopMove,
   runInference,
   saveSoloGame,
@@ -80,7 +80,7 @@ export function createBotMoveController({
   function maybeRunSoloBotTurn() {
     const coop = getCoop();
     if (getSoloActive() && coop?.phase === "off" && getGameVisible()
-      && chess.turn() !== getPlayerColor() && getMaiaReady() && !botThinking && !chess.isGameOver())
+      && !isPlayerTurn() && getMaiaReady() && !botThinking && !chess.isGameOver())
       setTimeout(botMove, botTurns.nextBotMoveDelay());
   }
 

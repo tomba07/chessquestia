@@ -19,7 +19,7 @@ export function createGameStatusController({
     }
 
     if (coop.midTurn) {
-      const opponentName = getCurrentOpponent()?.name?.split(" ")[0] || "Opponent";
+      const opponentName = getCurrentOpponent()?.shortName || "Opponent";
       set(`${opponentName}'s turn`, "thinking");
       return;
     }

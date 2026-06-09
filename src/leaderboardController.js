@@ -71,7 +71,7 @@ export function createLeaderboardController({
         aria-pressed="${opponent.theme === opponentKey}"
       >
         <img src="/assets/bots/${opponent.talkPortrait}" alt="" />
-        <span>${opponent.name.split(" ")[0]}</span>
+        <span>${opponent.shortName || opponent.name}</span>
       </button>
     `).join("");
   }
