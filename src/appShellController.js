@@ -49,6 +49,7 @@ export function createAppShellController({
     authDevLoginOptions,
     authLabel,
     authPrimaryBtn,
+    botSelectHint,
     botSelectTitle,
     devLoginCard,
     devLoginOptions,
@@ -147,7 +148,12 @@ export function createAppShellController({
     applyOpponentLocks();
     if (readonly) updateOpponentSelection(getElo());
     else clearOpponentSelection();
-    botSelectTitle.textContent = readonly ? "Opponent selected" : "Choose your opponent";
+    botSelectTitle.textContent = readonly ? "Opponent selection" : "Choose your opponent";
+    const hint = readonly
+      ? "The host is choosing. Your view updates automatically."
+      : mode === "coop" ? "Your choice applies to the whole team." : "";
+    botSelectHint.textContent = hint;
+    botSelectHint.hidden = !hint;
     soloStartBtn.querySelector("span").textContent = readonly
       ? "Waiting for host"
       : mode === "coop" ? "Start" : "Continue";

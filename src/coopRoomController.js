@@ -102,15 +102,19 @@ export function createCoopRoomController({
     const connectedPlayers = players.filter(player => player.connected);
     const hasCoopPartner = connectedPlayers.length >= 2;
     const canOpenSelection = ready && hasCoopPartner && (host || coop.selectingOpponent);
-    cpRoomMeta.textContent = `${players.length} player${players.length === 1 ? "" : "s"}`;
+    const playerCount = `${players.length} player${players.length === 1 ? "" : "s"}`;
+    const hostName = players[0]?.name || "Host";
+    cpRoomMeta.textContent = host ? `${playerCount} · You are host` : `${playerCount} · Host: ${hostName}`;
     cpStartBtn.style.display = "inline";
     cpStartBtn.disabled = !canOpenSelection;
     cpStartBtn.textContent = host
-      ? ready && hasCoopPartner ? "Continue" : "Waiting..."
-      : coop.selectingOpponent ? "View opponent" : "Waiting for host";
+      ? ready && hasCoopPartner ? "Choose opponent" : "Waiting for players"
+      : coop.selectingOpponent ? "See host's selection" : "Host will choose opponent";
     cpStartBtn.title = !hasCoopPartner
       ? "Invite at least one friend before choosing an opponent."
-      : ready ? host || coop.selectingOpponent ? "" : "The host chooses the opponent." : "The game is loading on all players' devices.";
+      : ready
+        ? host || coop.selectingOpponent ? "" : "The host will choose the opponent."
+        : "The game is still preparing on one or more devices.";
     if (ready || !host) hideModelLoading();
     else showModelLoading("Preparing game...");
     renderCoopInviteFriends();

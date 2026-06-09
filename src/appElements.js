@@ -108,6 +108,7 @@ export function getAppElements() {
       coopInviteDismiss: byId("coop-invite-dismiss"),
       welcomeName: byId("welcome-name"),
       botSelectTitle: byId("bot-select-title"),
+      botSelectHint: byId("bot-select-hint"),
       soloStartBtn: byId("solo-start-btn"),
       soloBackBtn: byId("solo-back-btn"),
       friendSearch: byId("friend-search"),

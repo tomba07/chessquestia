@@ -130,6 +130,7 @@ function SinglePlayerSetup() {
       <div className="bot-select-head">
         <h2 id="bot-select-title">Choose your opponent</h2>
         <span className="home-divider" aria-hidden="true"></span>
+        <p id="bot-select-hint" className="bot-select-hint" hidden></p>
       </div>
       <input type="hidden" id="strength-slider" defaultValue="1500" />
       <span id="strength-val" className="sr-only">1500</span>

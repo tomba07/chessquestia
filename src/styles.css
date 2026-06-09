@@ -479,6 +479,18 @@
       font-weight: 800;
       letter-spacing: 0;
     }
+    .bot-select-hint {
+      max-width: 520px;
+      margin: 0;
+      color: var(--text-dim);
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .bot-select-hint[hidden] {
+      display: none;
+    }
 
     .opponent-grid {
       width: 100%;
@@ -2316,6 +2328,11 @@
       }
       .bot-select-head h2 {
         font-size: 30px;
+      }
+      .bot-select-hint {
+        max-width: 310px;
+        padding-inline: 12px;
+        font-size: 14px;
       }
       .opponent-grid {
         grid-template-columns: 1fr;
