@@ -1834,6 +1834,7 @@
     .friend-avatar {
       width: 36px;
       height: 36px;
+      position: relative;
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -1846,6 +1847,8 @@
       font-weight: 700;
     }
     .friend-avatar img {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;

@@ -16,10 +16,28 @@ export function friendMeta(person) {
   return person?.name || person?.email || "Chessquestia player";
 }
 
+function friendPictureUrl(picture) {
+  if (!picture) return "";
+  try {
+    const url = new URL(picture, location.origin);
+    if (url.protocol === "https:" && (
+      url.hostname === "googleusercontent.com"
+      || url.hostname.endsWith(".googleusercontent.com")
+    )) {
+      return `/api/avatar?url=${encodeURIComponent(url.href)}`;
+    }
+  } catch {
+    return "";
+  }
+  return picture;
+}
+
 export function friendAvatar(person) {
   const name = friendName(person);
-  if (person?.picture) return `<img src="${escapeHtml(person.picture)}" alt="">`;
-  return `<span>${escapeHtml(name.charAt(0).toUpperCase() || "P")}</span>`;
+  const initial = `<span>${escapeHtml(name.charAt(0).toUpperCase() || "P")}</span>`;
+  const picture = friendPictureUrl(person?.picture);
+  if (!picture) return initial;
+  return `${initial}<img src="${escapeHtml(picture)}" alt="" onerror="this.remove()">`;
 }
 
 export function friendPresenceHtml(person) {
@@ -250,15 +268,6 @@ export function createSocialController({
       ? `Other players can find you as ${authInfo.user.username}.`
       : "Choose a username so other players can find you.";
 
-    const inviteHtml = friendState.invites.map(invite => friendRow(
-      invite.inviter,
-      `Invited you to room ${invite.roomId}`,
-      `<div class="friend-actions">
-        <button class="sm-btn primary-mini" type="button" data-friend-action="join-invite" data-room-id="${escapeHtml(invite.roomId)}">Join</button>
-        <button class="sm-btn" type="button" data-friend-action="dismiss-invite" data-invite-id="${invite.id}" ${friendState.busyKey === `dismiss-invite:${invite.id}` ? "disabled" : ""}>Dismiss</button>
-      </div>`
-    )).join("");
-
     const incomingHtml = friendState.incoming.map(request => friendRow(
       { name: request.name, email: request.email, picture: request.picture },
       "Wants to be friends",
@@ -272,15 +281,10 @@ export function createSocialController({
       "Request sent",
       `<span class="friend-status-label">Pending</span>`
     )).join("");
-    const inviteSection = inviteHtml
-      ? `<div class="friend-section-title">Game invites</div>${inviteHtml}`
-      : "";
     const requestSection = incomingHtml || outgoingHtml
       ? `<div class="friend-section-title">Requests</div>${incomingHtml}${outgoingHtml}`
       : "";
-    friendRequestsEl.innerHTML = inviteSection || requestSection
-      ? `${inviteSection}${requestSection}`
-      : "";
+    friendRequestsEl.innerHTML = requestSection;
 
     if (friendState.searchQuery.trim()) {
       const resultHtml = friendState.results.map(user => {

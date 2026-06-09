@@ -99,6 +99,9 @@ export function createCoopConnectionController({
     const room = coop();
     clearReconnectTimer();
     room.leaving = true;
+    if (room.ws?.readyState === WebSocket.OPEN) {
+      room.ws.send(JSON.stringify({ type: "leave" }));
+    }
     room.ws?.close();
     room.ws = null;
     room.phase = "off";

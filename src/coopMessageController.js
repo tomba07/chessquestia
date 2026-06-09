@@ -35,6 +35,15 @@ export function createCoopMessageController({
       return;
     }
 
+    if (msg.type === "room-closed") {
+      coop.phase = "off";
+      coop.ws?.close();
+      coop.ws = null;
+      loadInviteNotifications();
+      showPlayView();
+      return;
+    }
+
     if (msg.type === "created") {
       coop.roomId = msg.roomId;
       coop.playerId = msg.playerId;

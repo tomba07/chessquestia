@@ -703,6 +703,31 @@ function notifyUser(userId) {
   }
 }
 
+function cancelPendingRoomInvites(roomId) {
+  const invitees = db.prepare(`
+    SELECT DISTINCT invitee_id
+    FROM room_invites
+    WHERE room_id = ? AND status = 'pending'
+  `).all(roomId).map(row => row.invitee_id);
+  if (!invitees.length) return;
+  db.prepare(`
+    UPDATE room_invites
+    SET status = 'cancelled', responded_at = ?
+    WHERE room_id = ? AND status = 'pending'
+  `).run(Date.now(), roomId);
+  for (const inviteeId of invitees) notifyUser(inviteeId);
+}
+
+function closeLobbyRoom(room, message = "The room was closed.") {
+  if (!room) return;
+  cancelPendingRoomInvites(room.id);
+  broadcast(room, () => ({ type: "room-closed", message }));
+  rooms.delete(room.id);
+  inTransaction(() => {
+    db.prepare("DELETE FROM rooms WHERE id = ?").run(room.id);
+  });
+}
+
 function recordGameResult({
   dedupeKey,
   mode,
@@ -1278,6 +1303,41 @@ const DIST_DIR = path.join(__dirname, "dist");
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
+app.get("/api/avatar", async (req, res) => {
+  try {
+    const url = new URL(String(req.query.url || ""));
+    const allowedHost = url.hostname === "googleusercontent.com"
+      || url.hostname.endsWith(".googleusercontent.com");
+    if (url.protocol !== "https:" || !allowedHost) {
+      res.status(400).send("Invalid avatar URL");
+      return;
+    }
+
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Chessquestia/1.0" },
+      signal: AbortSignal.timeout(5000),
+    });
+    const finalUrl = new URL(response.url);
+    const allowedFinalHost = finalUrl.hostname === "googleusercontent.com"
+      || finalUrl.hostname.endsWith(".googleusercontent.com");
+    const contentType = response.headers.get("content-type") || "";
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (!response.ok || !allowedFinalHost || !contentType.startsWith("image/") || contentLength > 5_000_000) {
+      res.status(404).send("Avatar unavailable");
+      return;
+    }
+
+    const image = Buffer.from(await response.arrayBuffer());
+    if (image.length > 5_000_000) {
+      res.status(404).send("Avatar unavailable");
+      return;
+    }
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.type(contentType).send(image);
+  } catch {
+    res.status(404).send("Avatar unavailable");
+  }
+});
 app.use("/data", express.static(path.join(ROOT_DIR, "data")));
 app.use("/maia3", express.static(path.join(ROOT_DIR, "maia3")));
 app.use("/ort", express.static(path.join(ROOT_DIR, "ort")));
@@ -1756,6 +1816,30 @@ function attachWebSocketHandlers() {
         room.updatedAt = Date.now();
         persistRooms();
         broadcastRoom(room);
+        break;
+      }
+
+      case "leave": {
+        const room = rooms.get(currentRoomId);
+        if (!room) return;
+        if (room.phase === "lobby" && room.hostPlayerId === currentPlayerId) {
+          closeLobbyRoom(room, "The room host left.");
+          currentRoomId = null;
+          currentPlayerId = null;
+          return;
+        }
+        const player = room.players.get(currentPlayerId);
+        if (player) {
+          player.connected = false;
+          player.maiaReady = false;
+          player.ws = null;
+          player.lastSeen = Date.now();
+          room.updatedAt = Date.now();
+          persistRooms();
+          broadcastRoom(room);
+        }
+        currentRoomId = null;
+        currentPlayerId = null;
         break;
       }
 
