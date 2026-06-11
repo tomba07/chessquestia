@@ -1,3 +1,4 @@
+import { createFriendInviteLandingController } from "./friendInviteLandingController.js";
 import { createSocialRealtimeController } from "./socialRealtimeController.js";
 
 export function escapeHtml(value) {
@@ -129,15 +130,6 @@ export function createSocialController({
     message: "",
     busyKey: "",
     addDialogOpen: false,
-  };
-
-  const friendInviteLandingState = {
-    loading: false,
-    user: null,
-    error: "",
-    message: "",
-    accepting: false,
-    showLogin: false,
   };
 
   let friendSearchTimer = null;
@@ -433,6 +425,40 @@ export function createSocialController({
   const startPresenceHeartbeat = socialRealtime.startPresenceHeartbeat;
   const stopPresenceHeartbeat = socialRealtime.stopPresenceHeartbeat;
 
+  const friendInviteLandingController = createFriendInviteLandingController({
+    apiJson,
+    closeAddFriendDialog,
+    elements: {
+      friendInviteLanding,
+      lbAuth,
+      lbFriendInvite,
+      lbFriends,
+      lbLeaderboard,
+      lbMain,
+      lbProfile,
+      lbRoom,
+      lbSolo,
+    },
+    escapeHtml,
+    friendAvatar,
+    friendName,
+    getAuthInfo,
+    hideModelLoading,
+    incomingFriendUsername,
+    onAccepted: async (message) => {
+      friendState.error = message;
+      await loadFriends();
+      showFriendsView({ reload: false });
+      friendState.error = message;
+      renderFriends();
+    },
+    renderInviteNotification,
+    setNavActive,
+    showFriendsView,
+  });
+  const loadFriendInviteLanding = friendInviteLandingController.load;
+  const showFriendInviteView = friendInviteLandingController.show;
+
   function handleFriendActionClick(event) {
     const button = event.target.closest("[data-friend-action]");
     if (!button) return;
@@ -455,155 +481,6 @@ export function createSocialController({
       runFriendAction(`dismiss-invite:${inviteId}`, () => apiJson(`/api/coop/invites/${inviteId}/dismiss`, { method: "POST" }));
     } else if (action === "open-add") {
       openAddFriendDialog();
-    }
-  }
-
-  function renderFriendInviteLanding() {
-    const authInfo = auth();
-    const state = friendInviteLandingState;
-    const invitedUser = state.user;
-    const invitedName = invitedUser ? friendName(invitedUser) : incomingFriendUsername;
-    const signedInAsTarget = !!(authInfo.user && invitedUser && authInfo.user.id === invitedUser.id);
-    const devUsers = authInfo.devLoginUsers || [];
-
-    if (state.loading) {
-      friendInviteLanding.innerHTML = `<div class="empty-state friend-empty">Loading invite...</div>`;
-      return;
-    }
-
-    if (state.error && !invitedUser) {
-      friendInviteLanding.innerHTML = `
-        <div class="friend-invite-preview">
-          <div class="friend-invite-avatar"><span>?</span></div>
-          <span>Invite unavailable</span>
-          <h2>Friend link</h2>
-          <p>${escapeHtml(state.error)}</p>
-        </div>
-        <div class="friend-invite-actions">
-          <button class="sm-btn primary-mini" type="button" data-friend-invite-action="friends">Go to friends</button>
-        </div>
-      `;
-      return;
-    }
-
-    if (!invitedUser) {
-      friendInviteLanding.innerHTML = "";
-      return;
-    }
-
-    const authActions = authInfo.authEnabled && !authInfo.user
-      ? state.showLogin
-        ? authInfo.localAuthEnabled && devUsers.length
-          ? `
-            <div class="friend-invite-dev-login">
-              <span>Choose a player to accept as</span>
-              <div class="dev-login-options">
-                ${devUsers.map(user => `
-                  <button class="sm-btn primary-mini" type="button" data-friend-invite-login-url="${escapeHtml(user.loginUrl)}">
-                    ${escapeHtml(user.name)}
-                  </button>
-                `).join("")}
-              </div>
-            </div>
-          `
-          : `
-            <button class="sm-btn primary-mini friend-invite-primary" type="button" data-friend-invite-action="signin">
-              Sign in to accept
-            </button>
-          `
-        : `
-          <button class="sm-btn primary-mini friend-invite-primary" type="button" data-friend-invite-action="continue">
-            Continue
-          </button>
-        `
-      : `
-        <button class="sm-btn primary-mini friend-invite-primary" type="button" data-friend-invite-action="accept" ${state.accepting || signedInAsTarget ? "disabled" : ""}>
-          ${signedInAsTarget ? "This is your link" : state.accepting ? "Adding..." : "Accept friend request"}
-        </button>
-      `;
-
-    friendInviteLanding.innerHTML = `
-      <div class="friend-invite-preview">
-        <div class="friend-invite-avatar">${friendAvatar(invitedUser)}</div>
-        <span>Friend invite</span>
-        <h2>${escapeHtml(invitedName)}</h2>
-        <p>Add each other as friends on Chessquestia.</p>
-      </div>
-      ${state.message ? `<div class="friend-message visible">${escapeHtml(state.message)}</div>` : ""}
-      ${state.error ? `<div class="friend-message visible">${escapeHtml(state.error)}</div>` : ""}
-      <div class="friend-invite-actions">
-        ${authActions}
-        <button class="sm-btn" type="button" data-friend-invite-action="friends">Friends</button>
-      </div>
-    `;
-  }
-
-  function showFriendInviteView() {
-    setNavActive("friends");
-    closeAddFriendDialog({ render: false });
-    hideModelLoading();
-    if (lbAuth) lbAuth.style.display = "none";
-    lbMain.style.display = "none";
-    lbSolo.style.display = "none";
-    lbRoom.style.display = "none";
-    lbProfile.style.display = "none";
-    lbFriends.style.display = "none";
-    lbLeaderboard.style.display = "none";
-    lbFriendInvite.style.display = "flex";
-    renderFriendInviteLanding();
-    renderInviteNotification();
-  }
-
-  async function loadFriendInviteLanding() {
-    if (!incomingFriendUsername) return;
-    friendInviteLandingState.loading = true;
-    friendInviteLandingState.error = "";
-    friendInviteLandingState.message = "";
-    friendInviteLandingState.user = null;
-    friendInviteLandingState.accepting = false;
-    friendInviteLandingState.showLogin = false;
-    showFriendInviteView();
-    try {
-      const payload = await apiJson(`/api/friends/user/${encodeURIComponent(incomingFriendUsername)}`);
-      friendInviteLandingState.user = payload.user || null;
-    } catch (err) {
-      friendInviteLandingState.error = err.message;
-    } finally {
-      friendInviteLandingState.loading = false;
-      renderFriendInviteLanding();
-    }
-  }
-
-  async function acceptFriendInvite() {
-    const authInfo = auth();
-    if (!incomingFriendUsername) return;
-    if (authInfo.authEnabled && !authInfo.user) {
-      friendInviteLandingState.showLogin = true;
-      renderFriendInviteLanding();
-      return;
-    }
-
-    friendInviteLandingState.accepting = true;
-    friendInviteLandingState.error = "";
-    friendInviteLandingState.message = "";
-    renderFriendInviteLanding();
-    try {
-      const payload = await apiJson(`/api/friends/user/${encodeURIComponent(incomingFriendUsername)}`, {
-        method: "POST",
-      });
-      friendInviteLandingState.message = payload.message || `You are now friends with ${incomingFriendUsername}.`;
-      history.replaceState(null, "", "/?view=friends");
-      friendState.error = friendInviteLandingState.message;
-      await loadFriends();
-      showFriendsView({ reload: false });
-      friendState.error = friendInviteLandingState.message;
-      renderFriends();
-    } catch (err) {
-      friendInviteLandingState.error = err.message;
-      renderFriendInviteLanding();
-    } finally {
-      friendInviteLandingState.accepting = false;
-      renderFriendInviteLanding();
     }
   }
 
@@ -698,33 +575,7 @@ export function createSocialController({
       }
     };
     lbFriends.addEventListener("click", handleFriendActionClick);
-    friendInviteLanding.addEventListener("click", (event) => {
-      const loginButton = event.target.closest("[data-friend-invite-login-url]");
-      const authInfo = auth();
-      if (loginButton) {
-        location.href = loginButton.dataset.friendInviteLoginUrl;
-        return;
-      }
-
-      const button = event.target.closest("[data-friend-invite-action]");
-      if (!button) return;
-      const action = button.dataset.friendInviteAction;
-      if (action === "continue") {
-        if (authInfo.localAuthEnabled && (authInfo.devLoginUsers || []).length) {
-          friendInviteLandingState.showLogin = true;
-          renderFriendInviteLanding();
-        } else {
-          location.href = authInfo.loginUrl;
-        }
-      } else if (action === "signin") {
-        location.href = authInfo.loginUrl;
-      } else if (action === "accept") {
-        acceptFriendInvite();
-      } else if (action === "friends") {
-        history.replaceState(null, "", "/?view=friends");
-        showFriendsView();
-      }
-    });
+    friendInviteLandingController.bindEvents();
   }
 
   return {
