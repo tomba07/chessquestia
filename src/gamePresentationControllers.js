@@ -51,7 +51,6 @@ export function createGamePresentationControllers({
       unlockEl: elements.outcomeUnlockEl,
       unlockNameEl: elements.outcomeUnlockNameEl,
       unlockTextEl: elements.outcomeUnlockTextEl,
-      unlockCardEl: elements.outcomeUnlockCardEl,
       challengeBtn: elements.outcomeChallengeBtn,
       boardPulseEl: elements.victoryBoardPulseEl,
       screenFlashEl: elements.victoryScreenFlashEl,

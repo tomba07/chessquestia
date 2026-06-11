@@ -39,7 +39,6 @@ export function createOutcomeScreen({
     unlockEl,
     unlockNameEl,
     unlockTextEl,
-    unlockCardEl,
     challengeBtn,
     boardPulseEl,
     screenFlashEl,
@@ -71,8 +70,6 @@ export function createOutcomeScreen({
     unlockEl.hidden = false;
     unlockNameEl.textContent = opponent.name;
     unlockTextEl.textContent = opponent.splashText || opponent.role || "";
-    unlockCardEl.src = `/assets/cards/${opponent.card}`;
-    unlockCardEl.alt = opponent.name;
     challengeBtn.hidden = getCoopPhase() !== "off";
     challengeBtn.dataset.opponentIndex = String(opponents.indexOf(opponent));
   }

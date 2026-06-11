@@ -402,15 +402,13 @@ function GameView() {
             <span id="game-outcome-title" className="game-outcome-title"></span>
           </div>
           <section id="game-outcome-results" className="game-outcome-results" hidden>
-            <div className="outcome-section-label">Match Results</div>
+            <h2 className="outcome-results-title">Match Results</h2>
             <div className="outcome-result-row">
-              <img src="/assets/icons/boot-icon.png" alt="" />
               <span>Moves</span>
               <strong id="game-outcome-moves">0</strong>
             </div>
             <div className="outcome-result-divider"></div>
             <div className="outcome-result-row">
-              <img src="/assets/icons/hourglass-icon.png" alt="" />
               <span>Time</span>
               <strong id="game-outcome-time">0:00</strong>
             </div>
@@ -420,12 +418,10 @@ function GameView() {
               <div className="outcome-section-label outcome-unlock-label">New enemy unlocked!</div>
               <strong id="game-outcome-unlock-name"></strong>
               <p id="game-outcome-unlock-text"></p>
-              <button id="game-outcome-challenge" className="bot-continue-btn outcome-challenge-btn" type="button">
-                <img src="/assets/buttons/button_simple.png" alt="" />
-                <span>Challenge Now</span>
+              <button id="game-outcome-challenge" className="outcome-challenge-btn" type="button">
+                Challenge Now
               </button>
             </div>
-            <img id="game-outcome-unlock-card" className="game-outcome-unlock-card" src="/assets/cards/snib_card.png" alt="" />
           </section>
           <button id="game-outcome-continue" className="bot-continue-btn game-outcome-continue" type="button">
             <img src="/assets/buttons/button_simple.png" alt="" />

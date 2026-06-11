@@ -30,7 +30,6 @@ export function getAppElements() {
       outcomeUnlockEl: byId("game-outcome-unlock"),
       outcomeUnlockNameEl: byId("game-outcome-unlock-name"),
       outcomeUnlockTextEl: byId("game-outcome-unlock-text"),
-      outcomeUnlockCardEl: byId("game-outcome-unlock-card"),
       outcomeChallengeBtn: byId("game-outcome-challenge"),
       victoryBoardPulseEl: byId("victory-board-pulse"),
       victoryScreenFlashEl: byId("victory-screen-flash"),
