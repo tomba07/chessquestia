@@ -405,12 +405,17 @@ function GameView() {
             <h2 className="outcome-results-title">Match Results</h2>
             <div className="outcome-result-row">
               <span>Moves</span>
-              <strong id="game-outcome-moves">0</strong>
+              <div className="outcome-result-value">
+                <img src="/assets/icons/boot-icon.png" alt="" />
+                <strong id="game-outcome-moves">0</strong>
+              </div>
             </div>
-            <div className="outcome-result-divider"></div>
             <div className="outcome-result-row">
               <span>Time</span>
-              <strong id="game-outcome-time">0:00</strong>
+              <div className="outcome-result-value">
+                <img src="/assets/icons/hourglass-icon.png" alt="" />
+                <strong id="game-outcome-time">0:00</strong>
+              </div>
             </div>
           </section>
           <section id="game-outcome-unlock" className="game-outcome-unlock" hidden>

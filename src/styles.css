@@ -3002,22 +3002,11 @@
     }
     .game-outcome-results {
       width: min(500px, 100%);
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      padding: 30px 48px 28px;
-      border: 1px solid rgba(112, 77, 38, 0.38);
-      border-radius: 10px;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.42), transparent 46%),
-        linear-gradient(145deg, #fff4d5 0%, #f4dfae 58%, #ead09a 100%);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
       color: #5a412a;
-      box-shadow:
-        inset 0 0 34px rgba(132, 87, 38, 0.12),
-        0 16px 24px rgba(34, 24, 14, 0.2);
     }
-    .game-outcome-results::after,
     .game-outcome-unlock::after {
       content: "";
       position: absolute;
@@ -3032,15 +3021,18 @@
       display: none;
     }
     .outcome-results-title {
-      margin: 0 0 14px;
-      color: #5a412a;
+      grid-column: 1 / -1;
+      margin: 0 0 4px;
+      color: #f9edcf;
       font-family: var(--story-font);
-      font-size: clamp(29px, 4.2vw, 35px);
+      font-size: clamp(25px, 3.8vw, 32px);
       font-weight: 900;
       line-height: 1;
       letter-spacing: 0;
       text-align: center;
-      text-shadow: 0 2px 0 rgba(255, 248, 224, 0.72);
+      text-shadow:
+        0 2px 0 rgba(75, 48, 24, 0.82),
+        0 5px 14px rgba(29, 19, 10, 0.42);
     }
     .outcome-section-label {
       min-width: min(270px, 70%);
@@ -3092,30 +3084,59 @@
       transform: skewY(8deg);
     }
     .outcome-result-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      min-width: 0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 24px;
-      padding: 20px 12px;
+      gap: 12px;
+      padding: 18px 22px 20px;
+      border: 1px solid rgba(112, 77, 38, 0.52);
+      border-radius: 5px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.38), transparent 52%),
+        linear-gradient(145deg, #fff2cc, #efd39a);
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 247, 220, 0.28),
+        inset 0 0 22px rgba(127, 82, 33, 0.12),
+        0 12px 20px rgba(31, 21, 12, 0.2);
       font-family: var(--story-font);
       line-height: 1;
       letter-spacing: 0;
     }
+    .outcome-result-row::after {
+      content: "";
+      width: calc(100% - 28px);
+      height: 1px;
+      position: absolute;
+      top: 54px;
+      left: 14px;
+      background: linear-gradient(90deg, transparent, rgba(121, 83, 45, 0.46), transparent);
+    }
     .outcome-result-row span {
       color: rgba(90, 65, 42, 0.82);
-      font-size: clamp(20px, 3.2vw, 26px);
-      font-weight: 700;
+      font-size: clamp(19px, 2.8vw, 24px);
+      font-weight: 800;
+    }
+    .outcome-result-value {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .outcome-result-value img {
+      width: 34px;
+      height: 38px;
+      object-fit: contain;
+      opacity: 0.84;
+      filter: sepia(0.32) saturate(0.82);
     }
     .outcome-result-row strong {
-      min-width: 74px;
       color: #4e351f;
-      font-size: clamp(25px, 3.8vw, 32px);
+      font-size: clamp(26px, 3.8vw, 32px);
       font-weight: 900;
-      text-align: right;
-    }
-    .outcome-result-divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(121, 83, 45, 0.36), transparent);
+      white-space: nowrap;
     }
     .game-outcome-unlock {
       width: min(520px, 100%);
@@ -3747,11 +3768,11 @@
       }
       .game-outcome-results {
         width: min(370px, 100%);
-        padding: 28px 28px 20px;
+        gap: 10px;
       }
       .outcome-results-title {
-        margin-bottom: 8px;
-        font-size: 26px;
+        margin-bottom: 4px;
+        font-size: 24px;
       }
       .outcome-section-label {
         min-height: 42px;
@@ -3766,16 +3787,25 @@
         top: 7px;
       }
       .outcome-result-row {
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 16px;
-        padding: 17px 8px;
+        gap: 10px;
+        padding: 15px 12px 16px;
+      }
+      .outcome-result-row::after {
+        top: 47px;
       }
       .outcome-result-row span {
-        font-size: 19px;
+        font-size: 18px;
+      }
+      .outcome-result-value {
+        min-height: 36px;
+        gap: 9px;
+      }
+      .outcome-result-value img {
+        width: 27px;
+        height: 31px;
       }
       .outcome-result-row strong {
-        min-width: 54px;
-        font-size: 24px;
+        font-size: 23px;
       }
       .game-outcome-unlock {
         width: min(370px, 100%);
