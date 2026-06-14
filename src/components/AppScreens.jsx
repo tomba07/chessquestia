@@ -402,7 +402,6 @@ function GameView() {
             <span id="game-outcome-title" className="game-outcome-title"></span>
           </div>
           <section id="game-outcome-results" className="game-outcome-results" hidden>
-            <h2 className="outcome-results-title">Match Results</h2>
             <div className="outcome-result-row">
               <span>Moves</span>
               <div className="outcome-result-value">

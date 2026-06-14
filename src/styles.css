@@ -3020,20 +3020,6 @@
     .outcome-challenge-btn[hidden] {
       display: none;
     }
-    .outcome-results-title {
-      grid-column: 1 / -1;
-      margin: 0 0 4px;
-      color: #f9edcf;
-      font-family: var(--story-font);
-      font-size: clamp(25px, 3.8vw, 32px);
-      font-weight: 900;
-      line-height: 1;
-      letter-spacing: 0;
-      text-align: center;
-      text-shadow:
-        0 2px 0 rgba(75, 48, 24, 0.82),
-        0 5px 14px rgba(29, 19, 10, 0.42);
-    }
     .outcome-section-label {
       min-width: min(270px, 70%);
       min-height: 52px;
@@ -3775,10 +3761,6 @@
       .game-outcome-results {
         width: min(370px, 100%);
         gap: 11px;
-      }
-      .outcome-results-title {
-        margin-bottom: 4px;
-        font-size: 24px;
       }
       .outcome-section-label {
         min-height: 42px;

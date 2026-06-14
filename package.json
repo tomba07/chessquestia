@@ -6,6 +6,10 @@
     "start": "node server.js",
     "dev": "node server.js",
     "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:predeploy": "npm run build && npm test",
+    "predeploy": "npm run test:predeploy",
     "preview": "vite preview",
     "tunnel": "node server.js --tunnel",
     "download": "node download_assets.js",
@@ -22,5 +26,9 @@
     "react-dom": "^19.2.6",
     "vite": "^8.0.13",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.8"
   }
 }

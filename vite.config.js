@@ -10,6 +10,16 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
   },
+  test: {
+    environment: "jsdom",
+    environmentOptions: {
+      jsdom: {
+        url: "http://localhost:5678/",
+      },
+    },
+    setupFiles: ["./tests/setup.js"],
+    restoreMocks: true,
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
