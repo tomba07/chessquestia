@@ -789,6 +789,118 @@ function recordGameResult({
   return id;
 }
 
+function leaderboardRankForUser({ userId, opponentKey, metric }) {
+  const isFastest = metric === "fastest";
+  const metricFilter = isFastest
+    ? "gr.duration_ms IS NOT NULL AND gr.duration_ms > 0"
+    : "gr.moves_count > 0";
+  const windowOrder = isFastest
+    ? "gr.duration_ms ASC, gr.moves_count ASC"
+    : "gr.moves_count ASC, COALESCE(gr.duration_ms, 9223372036854775807) ASC";
+  const resultOrder = isFastest
+    ? "duration_ms ASC, moves_count ASC"
+    : "moves_count ASC, COALESCE(duration_ms, 9223372036854775807) ASC";
+  const rows = db.prepare(`
+    WITH personal_bests AS (
+      SELECT
+        grp.user_id,
+        gr.mode,
+        gr.moves_count,
+        gr.duration_ms,
+        gr.finished_at,
+        ROW_NUMBER() OVER (
+          PARTITION BY grp.user_id
+          ORDER BY ${windowOrder}, gr.finished_at ASC
+        ) AS personal_rank
+      FROM game_results gr
+      JOIN game_result_players grp ON grp.game_result_id = gr.id
+      WHERE gr.result = 'victory'
+        AND gr.opponent_key = ?
+        AND grp.user_id IS NOT NULL
+        AND gr.moves_count >= 4
+        AND gr.dedupe_key NOT LIKE '%:debug-%'
+        AND gr.dedupe_key NOT LIKE '%:test-%'
+        AND ${metricFilter}
+    )
+    SELECT user_id, mode, moves_count, duration_ms, finished_at
+    FROM personal_bests
+    WHERE personal_rank = 1
+    ORDER BY ${resultOrder}, finished_at ASC
+  `).all(opponentKey);
+  const index = rows.findIndex(row => row.user_id === userId);
+  if (index < 0) return null;
+  return {
+    rank: index + 1,
+    mode: rows[index].mode,
+    movesCount: rows[index].moves_count,
+    durationMs: rows[index].duration_ms,
+  };
+}
+
+function gameResultHighscoreSummary(gameResultId, userId) {
+  if (!gameResultId || !userId) return null;
+  const row = db.prepare(`
+    SELECT gr.id, gr.opponent_key, gr.result, gr.moves_count, gr.duration_ms, gr.dedupe_key
+    FROM game_results gr
+    JOIN game_result_players grp ON grp.game_result_id = gr.id
+    WHERE gr.id = ? AND grp.user_id = ?
+  `).get(gameResultId, userId);
+  if (
+    !row
+    || row.result !== "victory"
+    || !row.opponent_key
+    || row.moves_count < 4
+    || String(row.dedupe_key || "").includes(":debug-")
+    || String(row.dedupe_key || "").includes(":test-")
+  ) {
+    return null;
+  }
+
+  const previousFastest = row.duration_ms > 0 ? db.prepare(`
+    SELECT MIN(gr.duration_ms) AS value
+    FROM game_results gr
+    JOIN game_result_players grp ON grp.game_result_id = gr.id
+    WHERE grp.user_id = ?
+      AND gr.id != ?
+      AND gr.result = 'victory'
+      AND gr.opponent_key = ?
+      AND gr.duration_ms IS NOT NULL
+      AND gr.duration_ms > 0
+      AND gr.moves_count >= 4
+      AND gr.dedupe_key NOT LIKE '%:debug-%'
+      AND gr.dedupe_key NOT LIKE '%:test-%'
+  `).get(userId, row.id, row.opponent_key)?.value : null;
+  const previousFewestMoves = row.moves_count > 0 ? db.prepare(`
+    SELECT MIN(gr.moves_count) AS value
+    FROM game_results gr
+    JOIN game_result_players grp ON grp.game_result_id = gr.id
+    WHERE grp.user_id = ?
+      AND gr.id != ?
+      AND gr.result = 'victory'
+      AND gr.opponent_key = ?
+      AND gr.moves_count > 0
+      AND gr.moves_count >= 4
+      AND gr.dedupe_key NOT LIKE '%:debug-%'
+      AND gr.dedupe_key NOT LIKE '%:test-%'
+  `).get(userId, row.id, row.opponent_key)?.value : null;
+
+  return {
+    opponentKey: row.opponent_key,
+    fastest: row.duration_ms > 0 ? {
+      valueMs: row.duration_ms,
+      previousValueMs: previousFastest ?? null,
+      isPersonalBest: previousFastest == null || row.duration_ms < previousFastest,
+      rank: leaderboardRankForUser({ userId, opponentKey: row.opponent_key, metric: "fastest" })?.rank || null,
+    } : null,
+    fewestMoves: row.moves_count > 0 ? {
+      value: row.moves_count,
+      previousValue: previousFewestMoves ?? null,
+      isPersonalBest: previousFewestMoves == null || row.moves_count < previousFewestMoves,
+      rank: leaderboardRankForUser({ userId, opponentKey: row.opponent_key, metric: "fewestMoves" })?.rank || null,
+    } : null,
+  };
+}
+
 function upsertGoogleUser(profile) {
   const userId = `google:${profile.sub}`;
   const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
@@ -1044,7 +1156,11 @@ app.post("/api/game-results", (req, res) => {
     players: [{ userId: user.id, name: user.username || user.name || "Player" }],
   });
 
-  res.json({ id, result: normalizedResult });
+  res.json({
+    id,
+    result: normalizedResult,
+    highscore: gameResultHighscoreSummary(id, user.id),
+  });
 });
 
 app.get("/api/game-results/stats", (req, res) => {

@@ -54,7 +54,7 @@ export function createSoloGameController({
   }
 
   function recordResult(result) {
-    soloSession.recordResult(result);
+    return soloSession.recordResult(result);
   }
 
   function randomPlayerColor() {

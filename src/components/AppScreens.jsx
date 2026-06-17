@@ -417,6 +417,10 @@ function GameView() {
               </div>
             </div>
           </section>
+          <section id="game-outcome-highscore" className="game-outcome-highscore" hidden>
+            <strong id="game-outcome-highscore-title"></strong>
+            <span id="game-outcome-highscore-text"></span>
+          </section>
           <section id="game-outcome-unlock" className="game-outcome-unlock" hidden>
             <div className="outcome-unlock-copy">
               <div className="outcome-section-label outcome-unlock-label">New enemy unlocked!</div>

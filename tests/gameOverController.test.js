@@ -47,14 +47,17 @@ function createController({
 describe("game over decisions", () => {
   it("records victory, unlocks the next opponent, and schedules the victory UI", () => {
     const { calls, controller, opponents } = createController({ checkmate: true });
+    const highscorePromise = Promise.resolve({ highscore: { fastest: { rank: 1 } } });
+    calls.record.mockReturnValue(highscorePromise);
 
     expect(controller.check()).toBe(true);
     expect(calls.record).toHaveBeenCalledWith("victory");
     expect(calls.unlock).toHaveBeenCalledTimes(1);
     expect(calls.pulse).toHaveBeenCalledWith("e8", 120, "victory");
-    expect(calls.show).toHaveBeenCalledWith("victory", 2200, {
+    expect(calls.show).toHaveBeenCalledWith("victory", 2200, expect.objectContaining({
+      highscorePromise,
       unlockedOpponent: opponents[1],
-    });
+    }));
     expect(calls.status).toHaveBeenCalledWith("New opponent unlocked.", "over");
     expect(calls.disable).toHaveBeenCalledTimes(1);
   });
@@ -71,6 +74,7 @@ describe("game over decisions", () => {
     expect(calls.unlock).not.toHaveBeenCalled();
     expect(calls.pulse).toHaveBeenCalledWith("e8", 120, "defeat");
     expect(calls.show).toHaveBeenCalledWith("defeat", 2200, {
+      highscorePromise: null,
       unlockedOpponent: null,
     });
   });

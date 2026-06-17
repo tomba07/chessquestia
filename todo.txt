@@ -1,7 +1,6 @@
-- coop: selected piece highlight
-- lobby/opponent selection wording
-- white/black side
+- improve victory screen
 - current player indication
+- coop: selected piece highlight
 - leaderboards
  - info on victory screen
 - timer

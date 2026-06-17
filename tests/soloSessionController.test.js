@@ -76,16 +76,20 @@ describe("solo session progression", () => {
 });
 
 describe("solo result recording", () => {
-  it("records one result per game with moves, duration, and opponent data", () => {
+  it("records one result per game with moves, duration, opponent data, and server payload", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-14T12:00:00Z"));
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    const responsePayload = { id: "result-1", highscore: { fastest: { rank: 1 } } };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => responsePayload,
+    });
     vi.stubGlobal("fetch", fetchMock);
     const { controller } = createController();
     controller.startGame({ playerColor: "b" });
     vi.setSystemTime(new Date("2026-06-14T12:01:05Z"));
 
-    controller.recordResult("victory");
+    const payload = await controller.recordResult("victory");
     controller.recordResult("victory");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -99,6 +103,7 @@ describe("solo result recording", () => {
       durationMs: 65000,
       finalFen: "test-fen",
     });
+    expect(payload).toBe(responsePayload);
   });
 
   it.each([

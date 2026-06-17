@@ -166,12 +166,12 @@ export function createSoloSessionController({
   }
 
   function recordResult(result) {
-    if (!active || demoActive || debugActive || getCoopPhase() !== "off") return;
+    if (!active || demoActive || debugActive || getCoopPhase() !== "off") return null;
     gameId = gameId || createGameId();
-    if (recordedGameIds.has(gameId)) return;
+    if (recordedGameIds.has(gameId)) return null;
     recordedGameIds.add(gameId);
     const opponent = getCurrentOpponent();
-    fetch("/api/game-results", {
+    return fetch("/api/game-results", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       keepalive: true,
@@ -185,7 +185,9 @@ export function createSoloSessionController({
         durationMs: gameStartedAt ? Math.max(0, Date.now() - gameStartedAt) : null,
         finalFen: getFen(),
       }),
-    }).catch(() => {});
+    })
+      .then(response => response.ok ? response.json() : null)
+      .catch(() => null);
   }
 
   return {
