@@ -1,5 +1,6 @@
 import {
   BotSplash,
+  DevTestingButton,
   FriendAddDialog,
   GameView,
   Lobby,
@@ -16,6 +17,7 @@ export default function App() {
         <Lobby />
         <GameView />
         <NotificationNotice />
+        <DevTestingButton />
         <BotSplash />
         <FriendAddDialog />
       </div>

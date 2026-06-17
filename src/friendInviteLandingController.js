@@ -19,6 +19,7 @@ export function createFriendInviteLandingController({
     lbFriendInvite,
     lbFriends,
     lbLeaderboard,
+    lbDevTesting,
     lbMain,
     lbProfile,
     lbRoom,
@@ -124,6 +125,7 @@ export function createFriendInviteLandingController({
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
     lbLeaderboard.style.display = "none";
+    lbDevTesting.style.display = "none";
     lbFriendInvite.style.display = "flex";
     render();
     renderInviteNotification();

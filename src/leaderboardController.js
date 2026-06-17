@@ -29,6 +29,7 @@ export function createLeaderboardController({
     lbFriendInvite,
     lbFriends,
     lbLeaderboard,
+    lbDevTesting,
     lbMain,
     lbProfile,
     lbRoom,
@@ -131,7 +132,7 @@ export function createLeaderboardController({
   }
 
   function hideOtherSections() {
-    [lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo]
+    [lbAuth, lbFriendInvite, lbFriends, lbLeaderboard, lbDevTesting, lbMain, lbProfile, lbRoom, lbSolo]
       .filter(Boolean)
       .forEach(section => { section.style.display = "none"; });
   }

@@ -272,10 +272,26 @@ function ProfilePanel() {
         <div id="school-account-message" className="school-account-message" role="status" aria-live="polite"></div>
         <div id="school-account-list" className="school-account-list"></div>
       </section>
+      <div id="dev-login-card" className="dev-login-card" style={{ display: "none" }}>
+        <span>Dev login</span>
+        <div id="dev-login-options" className="dev-login-options"></div>
+      </div>
+    </div>
+  );
+}
+
+function DevTestingPanel() {
+  return (
+    <div id="lb-dev-testing" className="lobby-section lobby-panel dev-testing-panel" style={{ display: "none" }}>
+      <div className="panel-head">
+        <div className="panel-title">Dev testing</div>
+        <span className="home-divider" aria-hidden="true"></span>
+        <div className="panel-kicker">Scenarios</div>
+      </div>
       <section id="dev-testing-card" className="dev-testing-card" hidden>
         <div className="dev-testing-heading">
-          <strong>Dev testing</strong>
-          <span>Trigger focused UI scenarios.</span>
+          <strong>Focused checks</strong>
+          <span>Trigger UI states without playing through them.</span>
         </div>
         <div className="dev-testing-actions">
           <button id="dev-test-victory-highscore" className="sm-btn primary-mini" type="button">
@@ -284,10 +300,6 @@ function ProfilePanel() {
         </div>
         <div id="dev-testing-message" className="school-account-message" role="status" aria-live="polite"></div>
       </section>
-      <div id="dev-login-card" className="dev-login-card" style={{ display: "none" }}>
-        <span>Dev login</span>
-        <div id="dev-login-options" className="dev-login-options"></div>
-      </div>
     </div>
   );
 }
@@ -381,6 +393,7 @@ function Lobby() {
       <ProfilePanel />
       <FriendsPanel />
       <LeaderboardPanel />
+      <DevTestingPanel />
       <FriendInvitePanel />
       <CoopRoomPanel />
       <ModelLoading />
@@ -480,6 +493,14 @@ function GameView() {
   );
 }
 
+function DevTestingButton() {
+  return (
+    <button id="dev-testing-fab" className="dev-testing-fab" type="button" hidden>
+      Dev
+    </button>
+  );
+}
+
 function BotSplash() {
   return (
     <div id="bot-splash" className="bot-splash" hidden aria-hidden="true">
@@ -507,6 +528,8 @@ function BotSplash() {
 export {
   AuthPanel,
   BotSplash,
+  DevTestingButton,
+  DevTestingPanel,
   FriendAddDialog,
   FriendInvitePanel,
   FriendsPanel,

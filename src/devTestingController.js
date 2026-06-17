@@ -1,13 +1,40 @@
 export function createDevTestingController({
   elements,
   getAuthInfo,
+  actions = {},
   scenarios,
 }) {
   const {
+    devTestingFab,
+    devTestingPanel,
     devTestingCard,
     devTestingMessage,
     devTestVictoryHighscore,
+    gameEl,
+    lbAuth,
+    lbFriendInvite,
+    lbFriends,
+    lbLeaderboard,
+    lbMain,
+    lbProfile,
+    lbRoom,
+    lbSolo,
+    lobbyEl,
   } = elements;
+
+  const {
+    hideModelLoading = () => {},
+    hideOutcomeBanner = () => {},
+    hideOpponentSpeech = () => {},
+    setNavActive = () => {},
+    setViewUrl = () => {},
+    showFallback = () => {},
+  } = actions;
+
+  function canUse() {
+    const authInfo = getAuthInfo();
+    return !!authInfo.user?.isAdmin && !!authInfo.devTestingEnabled;
+  }
 
   function renderMessage(message, { success = false } = {}) {
     if (!devTestingMessage) return;
@@ -16,11 +43,42 @@ export function createDevTestingController({
   }
 
   function render() {
-    if (!devTestingCard) return;
-    const authInfo = getAuthInfo();
-    const canUse = !!authInfo.user?.isAdmin && !!authInfo.devTestingEnabled;
-    devTestingCard.hidden = !canUse;
-    if (!canUse) renderMessage("");
+    const visible = canUse();
+    if (devTestingFab) devTestingFab.hidden = !visible;
+    if (devTestingCard) devTestingCard.hidden = !visible;
+    if (!visible) renderMessage("");
+  }
+
+  function hideLobbySections() {
+    [
+      lbAuth,
+      lbFriendInvite,
+      lbFriends,
+      lbLeaderboard,
+      lbMain,
+      lbProfile,
+      lbRoom,
+      lbSolo,
+    ].filter(Boolean).forEach(section => { section.style.display = "none"; });
+  }
+
+  function showView() {
+    render();
+    if (!canUse()) {
+      showFallback();
+      return false;
+    }
+    hideModelLoading();
+    hideOutcomeBanner();
+    hideOpponentSpeech();
+    if (gameEl) gameEl.style.display = "none";
+    if (lobbyEl) lobbyEl.style.display = "";
+    hideLobbySections();
+    if (devTestingPanel) devTestingPanel.style.display = "flex";
+    setNavActive("");
+    setViewUrl("dev-testing");
+    renderMessage("");
+    return true;
   }
 
   function runScenario(name, runner) {
@@ -34,6 +92,7 @@ export function createDevTestingController({
   }
 
   function bindEvents() {
+    if (devTestingFab) devTestingFab.onclick = () => showView();
     if (!devTestVictoryHighscore) return;
     devTestVictoryHighscore.onclick = () => {
       runScenario("Victory + highscore", scenarios.victoryHighscore);
@@ -41,6 +100,7 @@ export function createDevTestingController({
   }
 
   function dispose() {
+    if (devTestingFab) devTestingFab.onclick = null;
     if (!devTestVictoryHighscore) return;
     devTestVictoryHighscore.onclick = null;
   }
@@ -49,5 +109,6 @@ export function createDevTestingController({
     bindEvents,
     dispose,
     render,
+    showView,
   };
 }

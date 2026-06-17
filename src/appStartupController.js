@@ -22,6 +22,7 @@ export function createAppStartupController({
   promptSignIn,
   route,
   showAuthView,
+  showDevTestingView,
   showFriendsView,
   showLeaderboardView,
   showProfileView,
@@ -59,6 +60,8 @@ export function createAppStartupController({
       requireAuth(() => showFriendsView());
     } else if (route.initialView === "leaderboard") {
       requireAuth(() => showLeaderboardView());
+    } else if (route.initialView === "dev-testing") {
+      requireAuth(() => showDevTestingView());
     } else if (route.initialView === "solo") {
       requireAuth(() => showSoloSetup());
     } else if (route.initialView === "coop") {

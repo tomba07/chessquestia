@@ -105,6 +105,7 @@ export function createSocialController({
     lbFriendInvite,
     lbFriends,
     lbLeaderboard,
+    lbDevTesting,
     lbMain,
     lbProfile,
     lbRoom,
@@ -240,6 +241,7 @@ export function createSocialController({
       lbFriendInvite,
       lbFriends,
       lbLeaderboard,
+      lbDevTesting,
       lbMain,
       lbProfile,
       lbRoom,
@@ -281,6 +283,7 @@ export function createSocialController({
     lbProfile.style.display = "flex";
     lbFriends.style.display = "none";
     lbLeaderboard.style.display = "none";
+    lbDevTesting.style.display = "none";
     lbFriendInvite.style.display = "none";
     renderFriends();
     renderInviteNotification();
@@ -302,6 +305,7 @@ export function createSocialController({
     lbProfile.style.display = "none";
     lbFriends.style.display = "flex";
     lbLeaderboard.style.display = "none";
+    lbDevTesting.style.display = "none";
     lbFriendInvite.style.display = "none";
     if (reload && !friendState.loading) loadFriends();
     else renderFriends();

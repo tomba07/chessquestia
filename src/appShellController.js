@@ -58,6 +58,7 @@ export function createAppShellController({
     lbFriendInvite,
     lbFriends,
     lbLeaderboard,
+    lbDevTesting,
     lbMain,
     lbProfile,
     lbRoom,
@@ -124,6 +125,7 @@ export function createAppShellController({
     lbProfile.style.display = "none";
     lbFriends.style.display = "none";
     lbLeaderboard.style.display = "none";
+    lbDevTesting.style.display = "none";
     lbFriendInvite.style.display = "none";
   }
 

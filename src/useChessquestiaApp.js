@@ -55,7 +55,7 @@ export function useChessquestiaApp() {
   const { strengthSlider, strengthVal } = appElements.strength;
   const { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill } = appElements.maia;
   const { lobbyEl, gameEl, boardEl, statusEl, gameScoreEl, gameBoardFrameEl, cpChips } = appElements.game;
-  const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteTitle, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, devTestVictoryHighscore, devTestingCard, devTestingMessage, friendAddClose, friendAddDialog, friendAddMessage, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, notificationBadge, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
+  const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteTitle, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, devTestVictoryHighscore, devTestingCard, devTestingFab, devTestingMessage, friendAddClose, friendAddDialog, friendAddMessage, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbDevTesting, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, notificationBadge, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
 
   // ── Load move mappings ────────────────────────────────────────────────────
 
@@ -602,11 +602,31 @@ export function useChessquestiaApp() {
 
   devTesting = createDevTestingController({
     elements: {
+      devTestingFab,
+      devTestingPanel: lbDevTesting,
       devTestingCard,
       devTestingMessage,
       devTestVictoryHighscore,
+      gameEl,
+      lbAuth,
+      lbFriendInvite,
+      lbFriends,
+      lbLeaderboard: appElements.lobby.lbLeaderboard,
+      lbMain,
+      lbProfile,
+      lbRoom,
+      lbSolo,
+      lobbyEl,
     },
     getAuthInfo: () => authInfo,
+    actions: {
+      hideModelLoading,
+      hideOutcomeBanner,
+      hideOpponentSpeech,
+      setNavActive,
+      setViewUrl,
+      showFallback: showPlayView,
+    },
     scenarios: {
       victoryHighscore: showDevVictoryHighscoreScenario,
     },
@@ -637,6 +657,7 @@ export function useChessquestiaApp() {
       lbAuth,
       lbFriendInvite,
       lbFriends,
+      lbDevTesting,
       lbLeaderboard: appElements.lobby.lbLeaderboard,
       lbMain,
       lbProfile,
@@ -765,6 +786,7 @@ export function useChessquestiaApp() {
     showAuthView,
     showFriendsView: socialBridge.showFriendsView,
     showLeaderboardView: leaderboard.show,
+    showDevTestingView: () => devTesting?.showView(),
     showProfileView: socialBridge.showProfileView,
     showSoloSetup,
     soloGame,
