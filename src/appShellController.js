@@ -8,6 +8,7 @@ export function defaultAuthInfo() {
     loginUrl: "/auth/google",
     logoutUrl: "/auth/logout",
     schoolAuthEnabled: false,
+    devTestingEnabled: false,
   };
 }
 

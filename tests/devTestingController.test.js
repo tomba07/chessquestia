@@ -27,15 +27,15 @@ describe("dev testing controller", () => {
     controller.render();
     expect(document.getElementById("card").hidden).toBe(true);
 
-    authInfo = { user: { isAdmin: true }, localAuthEnabled: true };
+    authInfo = { user: { isAdmin: true }, devTestingEnabled: true };
     controller.render();
     expect(document.getElementById("card").hidden).toBe(false);
   });
 
-  it("hides for production-style admins without local auth", () => {
+  it("hides for admins when dev testing is disabled", () => {
     const controller = createDevTestingController({
       elements: createElements(),
-      getAuthInfo: () => ({ user: { isAdmin: true }, localAuthEnabled: false }),
+      getAuthInfo: () => ({ user: { isAdmin: true }, devTestingEnabled: false }),
       scenarios: { victoryHighscore: vi.fn() },
     });
 

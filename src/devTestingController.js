@@ -18,7 +18,7 @@ export function createDevTestingController({
   function render() {
     if (!devTestingCard) return;
     const authInfo = getAuthInfo();
-    const canUse = !!authInfo.user?.isAdmin && !!authInfo.localAuthEnabled;
+    const canUse = !!authInfo.user?.isAdmin && !!authInfo.devTestingEnabled;
     devTestingCard.hidden = !canUse;
     if (!canUse) renderMessage("");
   }

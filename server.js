@@ -47,6 +47,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 const googleAuthEnabled = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
 const isDev = process.env.NODE_ENV !== "production";
 const localAuthEnabled = process.env.LOCAL_AUTH === "1" || (isDev && process.env.LOCAL_AUTH !== "0");
+const devTestingEnabled = process.env.DEV_TESTING === "1" || (isDev && process.env.DEV_TESTING !== "0");
 const schoolAuthEnabled = process.env.SCHOOL_AUTH !== "0";
 const authEnabled = googleAuthEnabled || localAuthEnabled || schoolAuthEnabled;
 const configuredAdminEmails = new Set([
@@ -985,6 +986,7 @@ app.get("/api/me", (req, res) => {
     loginUrl,
     googleAuthEnabled,
     localAuthEnabled,
+    devTestingEnabled,
     schoolAuthEnabled,
     devLoginUsers: localAuthEnabled
       ? DEV_LOGIN_USERS.map(user => ({
