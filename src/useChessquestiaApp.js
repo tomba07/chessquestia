@@ -29,6 +29,7 @@ import { createGamePerspectiveController } from "./gamePerspectiveController.js"
 import { createGamePresentationControllers } from "./gamePresentationControllers.js";
 import { createGameScreenController } from "./gameScreenController.js";
 import { createGameStatusController } from "./gameStatusController.js";
+import { createDevTestingController } from "./devTestingController.js";
 import { createLocalDebugController } from "./localDebugController.js";
 import {
   createLobbyShellController,
@@ -54,7 +55,7 @@ export function useChessquestiaApp() {
   const { strengthSlider, strengthVal } = appElements.strength;
   const { statusDot, statusLabel, downloadBtn, modelLoadingEl, progressBar, progressFill } = appElements.maia;
   const { lobbyEl, gameEl, boardEl, statusEl, gameScoreEl, gameBoardFrameEl, cpChips } = appElements.game;
-  const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteTitle, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, friendAddClose, friendAddDialog, friendAddMessage, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, notificationBadge, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
+  const { authBar, authBtn, authDemoBtn, authDevLoginCard, authDevLoginOptions, authLabel, authPrimaryBtn, backBtn, botSelectTitle, coopInviteDismiss, coopInviteJoin, coopInviteNotice, coopInviteTitle, coopInviteText, cpInviteList, cpInviteMessage, cpLeaveBtn, cpPlayerList, cpRoomMeta, cpStartBtn, devLoginCard, devLoginOptions, devTestVictoryHighscore, devTestingCard, devTestingMessage, friendAddClose, friendAddDialog, friendAddMessage, friendInviteLanding, friendInviteLink, friendLinkCopy, friendLinkShare, friendListEl, friendMessage, friendRequestsEl, friendResultsEl, friendSearch, lbAuth, lbFriendInvite, lbFriends, lbMain, lbProfile, lbRoom, lbSolo, navFriends, navPlay, navProfile, notificationBadge, playCoopBtn, playSoloBtn, profileAccountCard, profileAccountName, profileAuthBtn, profileUsername, soloBackBtn, soloStartBtn, usernameHelp, usernameSaveBtn, welcomeName } = appElements.lobby;
 
   // ── Load move mappings ────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ export function useChessquestiaApp() {
   let coopMessages = null;
   let appEvents = null;
   let botMoves = null;
+  let devTesting = null;
   let playerMoves = null;
   let coopTransport = null;
 
@@ -305,6 +307,35 @@ export function useChessquestiaApp() {
 
   function showLobby() {
     gameScreen.showLobby();
+  }
+
+  function showDevVictoryHighscoreScenario() {
+    if (coop?.phase && coop.phase !== "off") throw new Error("Leave co-op before running this scenario.");
+    hideModelLoading();
+    hideOutcomeBanner();
+    clearBotSplashAutoTimer();
+    hideOpponentSpeech();
+    setupMode = "solo";
+    selectedOpponentIndex = 0;
+    selectedOpponentTheme = "snib";
+    syncStrength(String(SOLO_OPPONENTS[0].elo));
+    chess.load("6k1/6Q1/5K2/8/8/8/8/8 b - - 0 1");
+    soloSession.clearGame();
+    cpChips.innerHTML = "";
+    showGame();
+    board?.setPosition(chess.fen(), false);
+    clearLastMove();
+    clearCheckMarker();
+    disableBoardMoveInput();
+    updateGameScore();
+    setStatus("Victory test", "over");
+    showVictoryBoardPulseAfterDelay("g8", 0, "victory");
+    showOutcomeBannerAfterDelay("victory", 0, {
+      highscore: {
+        fastest: { valueMs: 65000, isPersonalBest: true, rank: 2 },
+        fewestMoves: { value: 12, isPersonalBest: true, rank: 1 },
+      },
+    });
   }
 
   function confirmExitGame() {
@@ -569,6 +600,20 @@ export function useChessquestiaApp() {
   schoolAccounts.render();
   schoolAccounts.loadAccounts();
 
+  devTesting = createDevTestingController({
+    elements: {
+      devTestingCard,
+      devTestingMessage,
+      devTestVictoryHighscore,
+    },
+    getAuthInfo: () => authInfo,
+    scenarios: {
+      victoryHighscore: showDevVictoryHighscoreScenario,
+    },
+  });
+  devTesting.bindEvents();
+  devTesting.render();
+
   const social = createSocialController({
     apiJson,
     elements: {
@@ -735,6 +780,7 @@ export function useChessquestiaApp() {
       botMoves?.dispose();
       coopTransport?.dispose();
       appEvents?.dispose();
+      devTesting?.dispose();
       outcomeScreen.dispose();
       promotionChoice.dispose();
       clearBotSplashAutoTimer();

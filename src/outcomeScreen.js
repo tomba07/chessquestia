@@ -19,13 +19,6 @@ function formatOutcomeTime(startedAt) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function formatDurationMs(durationMs) {
-  const totalSeconds = Math.max(0, Math.round(Number(durationMs || 0) / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
 function rankText(rank) {
   return rank ? `#${rank}` : null;
 }
@@ -47,9 +40,8 @@ export function createOutcomeScreen({
     resultsEl,
     movesEl,
     timeEl,
-    highscoreEl,
-    highscoreTitleEl,
-    highscoreTextEl,
+    movesBestEl,
+    timeBestEl,
     unlockEl,
     unlockNameEl,
     unlockTextEl,
@@ -61,58 +53,38 @@ export function createOutcomeScreen({
   let boardPulseTimer = null;
   let detailsToken = 0;
 
+  function setResultBadge(element, text) {
+    if (!element) return;
+    const row = element.closest(".outcome-result-row");
+    element.textContent = text || "";
+    element.hidden = !text;
+    row?.classList.toggle("has-best", !!text);
+  }
+
   function resetDetails() {
     detailsToken += 1;
     resultsEl.hidden = true;
-    highscoreEl.hidden = true;
     unlockEl.hidden = true;
     challengeBtn.hidden = true;
     challengeBtn.removeAttribute("data-opponent-index");
     movesEl.textContent = "0";
     timeEl.textContent = "0:00";
-    highscoreTitleEl.textContent = "";
-    highscoreTextEl.textContent = "";
+    setResultBadge(movesBestEl, "");
+    setResultBadge(timeBestEl, "");
     unlockNameEl.textContent = "";
     unlockTextEl.textContent = "";
   }
 
+  function highscoreBadgeText(entry) {
+    if (!entry) return "";
+    const rank = rankText(entry.rank);
+    if (entry.isPersonalBest) return rank ? `New best · ${rank}` : "New best";
+    return rank ? `Leaderboard ${rank}` : "";
+  }
+
   function renderHighscore(summary) {
-    const fastest = summary?.fastest || null;
-    const fewestMoves = summary?.fewestMoves || null;
-    if (!fastest && !fewestMoves) {
-      highscoreEl.hidden = true;
-      return;
-    }
-
-    const newBestEntries = [];
-    if (fastest?.isPersonalBest) {
-      const rank = rankText(fastest.rank);
-      newBestEntries.push(`Fastest time ${formatDurationMs(fastest.valueMs)}${rank ? ` (${rank})` : ""}`);
-    }
-    if (fewestMoves?.isPersonalBest) {
-      const rank = rankText(fewestMoves.rank);
-      newBestEntries.push(`Fewest moves ${fewestMoves.value}${rank ? ` (${rank})` : ""}`);
-    }
-
-    if (newBestEntries.length) {
-      highscoreTitleEl.textContent = newBestEntries.length > 1 ? "New personal bests!" : "New personal best!";
-      highscoreTextEl.textContent = newBestEntries.join(" · ");
-      highscoreEl.hidden = false;
-      return;
-    }
-
-    const rankEntries = [
-      fastest?.rank ? `${rankText(fastest.rank)} fastest` : null,
-      fewestMoves?.rank ? `${rankText(fewestMoves.rank)} fewest moves` : null,
-    ].filter(Boolean);
-    if (!rankEntries.length) {
-      highscoreEl.hidden = true;
-      return;
-    }
-
-    highscoreTitleEl.textContent = "Leaderboard";
-    highscoreTextEl.textContent = `Your best ranks: ${rankEntries.join(" · ")}`;
-    highscoreEl.hidden = false;
+    setResultBadge(timeBestEl, highscoreBadgeText(summary?.fastest));
+    setResultBadge(movesBestEl, highscoreBadgeText(summary?.fewestMoves));
   }
 
   function renderDetails(outcome, details = {}) {
@@ -125,9 +97,8 @@ export function createOutcomeScreen({
     timeEl.textContent = formatOutcomeTime(getGameStartedAt());
     renderHighscore(details.highscore);
     if (details.highscorePromise?.then) {
-      highscoreEl.hidden = false;
-      highscoreTitleEl.textContent = "Checking records...";
-      highscoreTextEl.textContent = "";
+      setResultBadge(movesBestEl, "Checking records...");
+      setResultBadge(timeBestEl, "Checking records...");
       details.highscorePromise.then(payload => {
         if (token !== detailsToken) return;
         renderHighscore(payload?.highscore || payload);

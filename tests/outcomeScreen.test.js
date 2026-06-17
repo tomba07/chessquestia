@@ -6,12 +6,14 @@ function createElements() {
     <div id="overlay" class="game-outcome-overlay" aria-hidden="true">
       <div id="banner"><span id="title"></span></div>
       <section id="results" hidden>
-        <strong id="moves">0</strong>
-        <strong id="time">0:00</strong>
-      </section>
-      <section id="highscore" hidden>
-        <strong id="highscore-title"></strong>
-        <span id="highscore-text"></span>
+        <div class="outcome-result-row">
+          <strong id="moves">0</strong>
+          <div id="moves-best" hidden></div>
+        </div>
+        <div class="outcome-result-row">
+          <strong id="time">0:00</strong>
+          <div id="time-best" hidden></div>
+        </div>
       </section>
       <section id="unlock" hidden>
         <strong id="unlock-name"></strong>
@@ -32,9 +34,8 @@ function createElements() {
     resultsEl: byId("results"),
     movesEl: byId("moves"),
     timeEl: byId("time"),
-    highscoreEl: byId("highscore"),
-    highscoreTitleEl: byId("highscore-title"),
-    highscoreTextEl: byId("highscore-text"),
+    movesBestEl: byId("moves-best"),
+    timeBestEl: byId("time-best"),
     unlockEl: byId("unlock"),
     unlockNameEl: byId("unlock-name"),
     unlockTextEl: byId("unlock-text"),
@@ -79,7 +80,8 @@ describe("outcome screen", () => {
     expect(elements.resultsEl.hidden).toBe(false);
     expect(elements.movesEl.textContent).toBe("27");
     expect(elements.timeEl.textContent).toBe("5:42");
-    expect(elements.highscoreEl.hidden).toBe(true);
+    expect(elements.movesBestEl.hidden).toBe(true);
+    expect(elements.timeBestEl.hidden).toBe(true);
     expect(elements.unlockEl.hidden).toBe(false);
     expect(elements.unlockNameEl.textContent).toBe("Muckroot");
     expect(elements.unlockTextEl.textContent).toBe("Bog trickster");
@@ -99,12 +101,13 @@ describe("outcome screen", () => {
     });
     vi.runAllTimers();
 
-    expect(elements.highscoreEl.hidden).toBe(false);
-    expect(elements.highscoreTitleEl.textContent).toBe("New personal bests!");
-    expect(elements.highscoreTextEl.textContent).toBe("Fastest time 1:05 (#2) · Fewest moves 12 (#1)");
+    expect(elements.timeBestEl.hidden).toBe(false);
+    expect(elements.timeBestEl.textContent).toBe("New best · #2");
+    expect(elements.movesBestEl.hidden).toBe(false);
+    expect(elements.movesBestEl.textContent).toBe("New best · #1");
   });
 
-  it("updates the highscore area when an async server result arrives", async () => {
+  it("updates result tile highscores when an async server result arrives", async () => {
     vi.useFakeTimers();
     const { controller, elements } = createController();
     const highscorePromise = Promise.resolve({
@@ -116,13 +119,13 @@ describe("outcome screen", () => {
 
     controller.showBannerAfterDelay("victory", 0, { highscorePromise });
     vi.runAllTimers();
-    expect(elements.highscoreTitleEl.textContent).toBe("Checking records...");
+    expect(elements.movesBestEl.textContent).toBe("Checking records...");
+    expect(elements.timeBestEl.textContent).toBe("Checking records...");
     await highscorePromise;
     await Promise.resolve();
 
-    expect(elements.highscoreEl.hidden).toBe(false);
-    expect(elements.highscoreTitleEl.textContent).toBe("Leaderboard");
-    expect(elements.highscoreTextEl.textContent).toBe("Your best ranks: #5 fastest · #3 fewest moves");
+    expect(elements.timeBestEl.textContent).toBe("Leaderboard #5");
+    expect(elements.movesBestEl.textContent).toBe("Leaderboard #3");
   });
 
   it.each(["defeat", "draw"])("does not show victory details for %s", outcome => {

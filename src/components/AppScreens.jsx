@@ -272,6 +272,18 @@ function ProfilePanel() {
         <div id="school-account-message" className="school-account-message" role="status" aria-live="polite"></div>
         <div id="school-account-list" className="school-account-list"></div>
       </section>
+      <section id="dev-testing-card" className="dev-testing-card" hidden>
+        <div className="dev-testing-heading">
+          <strong>Dev testing</strong>
+          <span>Trigger focused UI scenarios.</span>
+        </div>
+        <div className="dev-testing-actions">
+          <button id="dev-test-victory-highscore" className="sm-btn primary-mini" type="button">
+            Victory + highscore
+          </button>
+        </div>
+        <div id="dev-testing-message" className="school-account-message" role="status" aria-live="polite"></div>
+      </section>
       <div id="dev-login-card" className="dev-login-card" style={{ display: "none" }}>
         <span>Dev login</span>
         <div id="dev-login-options" className="dev-login-options"></div>
@@ -403,23 +415,21 @@ function GameView() {
           </div>
           <section id="game-outcome-results" className="game-outcome-results" hidden>
             <div className="outcome-result-row">
-              <span>Moves</span>
+              <span className="outcome-result-label">Moves</span>
               <div className="outcome-result-value">
                 <img src="/assets/icons/boot-icon.png" alt="" />
                 <strong id="game-outcome-moves">0</strong>
               </div>
+              <div id="game-outcome-moves-best" className="outcome-result-best" hidden></div>
             </div>
             <div className="outcome-result-row">
-              <span>Time</span>
+              <span className="outcome-result-label">Time</span>
               <div className="outcome-result-value">
                 <img src="/assets/icons/hourglass-icon.png" alt="" />
                 <strong id="game-outcome-time">0:00</strong>
               </div>
+              <div id="game-outcome-time-best" className="outcome-result-best" hidden></div>
             </div>
-          </section>
-          <section id="game-outcome-highscore" className="game-outcome-highscore" hidden>
-            <strong id="game-outcome-highscore-title"></strong>
-            <span id="game-outcome-highscore-text"></span>
           </section>
           <section id="game-outcome-unlock" className="game-outcome-unlock" hidden>
             <div className="outcome-unlock-copy">

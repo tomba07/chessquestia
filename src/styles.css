@@ -1563,7 +1563,8 @@
         inset 0 0 0 4px rgba(255, 248, 229, 0.28),
         0 16px 28px rgba(73, 48, 20, 0.1);
     }
-    .school-admin-card {
+    .school-admin-card,
+    .dev-testing-card {
       width: 100%;
       display: flex;
       flex-direction: column;
@@ -1581,22 +1582,40 @@
     .school-admin-card[hidden] {
       display: none;
     }
+    .dev-testing-card[hidden] {
+      display: none;
+    }
+    .dev-testing-heading,
     .school-admin-heading > div {
       display: flex;
       flex-direction: column;
       gap: 4px;
       text-align: center;
     }
+    .dev-testing-heading strong,
     .school-admin-heading strong {
       color: var(--ink);
       font-family: var(--story-font);
       font-size: 24px;
       line-height: 1;
     }
+    .dev-testing-heading span,
     .school-admin-heading span {
       color: rgba(59, 45, 29, 0.66);
       font-size: 12px;
       font-weight: 700;
+    }
+    .dev-testing-actions {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .dev-testing-actions .sm-btn {
+      min-height: 40px;
+      padding-inline: 16px;
+      font-size: 13px;
+      font-weight: 800;
     }
     .school-account-create {
       display: grid;
@@ -3016,44 +3035,9 @@
       pointer-events: none;
     }
     .game-outcome-results[hidden],
-    .game-outcome-highscore[hidden],
     .game-outcome-unlock[hidden],
     .outcome-challenge-btn[hidden] {
       display: none;
-    }
-    .game-outcome-highscore {
-      width: min(500px, 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 10px 18px 12px;
-      border: 1px solid rgba(91, 106, 55, 0.56);
-      border-radius: 6px;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(255, 250, 218, 0.35), transparent 62%),
-        linear-gradient(180deg, rgba(128, 138, 82, 0.96), rgba(93, 107, 61, 0.96));
-      color: #fff7df;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        0 6px 14px rgba(35, 24, 13, 0.18);
-      font-family: var(--story-font);
-      line-height: 1.05;
-      text-align: center;
-      text-shadow: 0 2px 0 rgba(44, 35, 20, 0.34);
-    }
-    .game-outcome-highscore strong {
-      flex: 0 0 auto;
-      font-size: clamp(18px, 2.8vw, 23px);
-      font-weight: 900;
-    }
-    .game-outcome-highscore span {
-      min-width: 0;
-      color: rgba(255, 247, 223, 0.92);
-      font-family: ui-serif, Georgia, "Times New Roman", serif;
-      font-size: clamp(13px, 2vw, 16px);
-      font-weight: 800;
-      line-height: 1.2;
     }
     .outcome-section-label {
       min-width: min(270px, 70%);
@@ -3135,7 +3119,7 @@
       border-radius: 1px;
       pointer-events: none;
     }
-    .outcome-result-row span {
+    .outcome-result-label {
       width: calc(100% - 18px);
       padding: 0 0 12px;
       border-bottom: 1px solid rgba(126, 82, 36, 0.38);
@@ -3143,6 +3127,32 @@
       font-size: clamp(18px, 2.6vw, 22px);
       font-weight: 800;
       text-align: center;
+    }
+    .outcome-result-best {
+      max-width: 100%;
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px 7px;
+      border: 1px solid rgba(85, 102, 52, 0.46);
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 251, 219, 0.46), transparent 70%),
+        linear-gradient(180deg, rgba(127, 139, 84, 0.94), rgba(92, 108, 63, 0.94));
+      color: #fff7df;
+      font-family: ui-serif, Georgia, "Times New Roman", serif;
+      font-size: clamp(11px, 1.55vw, 13px);
+      font-weight: 900;
+      line-height: 1.05;
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(45, 35, 18, 0.32);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 3px 7px rgba(45, 30, 15, 0.14);
+    }
+    .outcome-result-best[hidden] {
+      display: none;
     }
     .outcome-result-value {
       min-height: 39px;
@@ -3797,18 +3807,6 @@
         width: min(370px, 100%);
         gap: 11px;
       }
-      .game-outcome-highscore {
-        width: min(370px, 100%);
-        flex-direction: column;
-        gap: 4px;
-        padding: 9px 14px 10px;
-      }
-      .game-outcome-highscore strong {
-        font-size: 18px;
-      }
-      .game-outcome-highscore span {
-        font-size: 13px;
-      }
       .outcome-section-label {
         min-height: 42px;
         top: 12px;
@@ -3825,10 +3823,15 @@
         gap: 11px;
         padding: 14px 11px 15px;
       }
-      .outcome-result-row span {
+      .outcome-result-label {
         width: calc(100% - 14px);
         padding-bottom: 10px;
         font-size: 17px;
+      }
+      .outcome-result-best {
+        min-height: 25px;
+        padding: 5px 9px 6px;
+        font-size: 11px;
       }
       .outcome-result-value {
         min-height: 34px;
