@@ -455,9 +455,9 @@ function GameView() {
           </section>
           <section id="game-outcome-unlock" className="game-outcome-unlock" hidden>
             <div className="outcome-unlock-copy">
-              <div className="outcome-section-label outcome-unlock-label">New enemy unlocked!</div>
+              <span className="outcome-unlock-title">New enemy unlocked!</span>
               <strong id="game-outcome-unlock-name"></strong>
-              <p id="game-outcome-unlock-text"></p>
+              <img id="game-outcome-unlock-card" className="outcome-unlock-card" src="/assets/cards/locked_card.png" alt="" />
               <button id="game-outcome-challenge" className="outcome-challenge-btn" type="button">
                 Challenge Now
               </button>

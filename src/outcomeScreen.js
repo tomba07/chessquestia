@@ -44,7 +44,7 @@ export function createOutcomeScreen({
     timeBestEl,
     unlockEl,
     unlockNameEl,
-    unlockTextEl,
+    unlockCardEl,
     challengeBtn,
     boardPulseEl,
     screenFlashEl,
@@ -72,7 +72,10 @@ export function createOutcomeScreen({
     setResultBadge(movesBestEl, "");
     setResultBadge(timeBestEl, "");
     unlockNameEl.textContent = "";
-    unlockTextEl.textContent = "";
+    if (unlockCardEl) {
+      unlockCardEl.src = "/assets/cards/locked_card.png";
+      unlockCardEl.alt = "";
+    }
   }
 
   function highscoreBadgeText(entry) {
@@ -109,7 +112,10 @@ export function createOutcomeScreen({
     if (!opponent) return;
     unlockEl.hidden = false;
     unlockNameEl.textContent = opponent.name;
-    unlockTextEl.textContent = opponent.splashText || opponent.role || "";
+    if (unlockCardEl) {
+      unlockCardEl.src = opponent.card ? `/assets/cards/${opponent.card}` : "/assets/cards/locked_card.png";
+      unlockCardEl.alt = "";
+    }
     challengeBtn.hidden = getCoopPhase() !== "off";
     challengeBtn.dataset.opponentIndex = String(opponents.indexOf(opponent));
   }

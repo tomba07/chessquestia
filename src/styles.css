@@ -3081,55 +3081,6 @@
     .outcome-challenge-btn[hidden] {
       display: none;
     }
-    .outcome-section-label {
-      min-width: min(270px, 70%);
-      min-height: 52px;
-      position: absolute;
-      z-index: 1;
-      top: 14px;
-      left: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px 30px 7px;
-      border: 2px solid #67592c;
-      border-radius: 6px;
-      background: linear-gradient(180deg, #78804a, #606a3e);
-      color: #fff7df;
-      font-family: var(--story-font);
-      font-size: clamp(20px, 3.6vw, 27px);
-      font-weight: 800;
-      line-height: 1;
-      text-align: center;
-      text-shadow: 0 2px 0 rgba(52, 39, 23, 0.38);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 4px 0 #4d482b,
-        0 7px 12px rgba(56, 42, 22, 0.18);
-      transform: translateX(-50%);
-      white-space: nowrap;
-    }
-    .outcome-section-label::before,
-    .outcome-section-label::after {
-      content: "";
-      width: 24px;
-      height: 32px;
-      position: absolute;
-      z-index: -1;
-      top: 8px;
-      border: 2px solid #67592c;
-      background: #596238;
-    }
-    .outcome-section-label::before {
-      right: calc(100% - 5px);
-      border-right: 0;
-      transform: skewY(-8deg);
-    }
-    .outcome-section-label::after {
-      left: calc(100% - 5px);
-      border-left: 0;
-      transform: skewY(8deg);
-    }
     .outcome-result-row {
       min-width: 0;
       position: relative;
@@ -3219,12 +3170,12 @@
     }
     .game-outcome-unlock {
       width: min(520px, 100%);
-      min-height: 210px;
+      min-height: 0;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 72px 38px 28px;
+      padding: 24px 34px 28px;
       border: 1px solid rgba(113, 78, 39, 0.38);
       border-radius: 10px;
       background:
@@ -3240,32 +3191,37 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       text-align: center;
     }
-    .outcome-unlock-label {
-      top: 14px;
-      min-width: min(280px, 72%);
-      font-size: clamp(19px, 3.4vw, 27px);
+    .outcome-unlock-title {
+      color: #5b3b21;
+      font-family: var(--story-font);
+      font-size: clamp(24px, 4.4vw, 34px);
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+      text-shadow:
+        0 2px 0 rgba(255, 247, 223, 0.82),
+        0 7px 14px rgba(73, 48, 20, 0.16);
     }
     .game-outcome-unlock strong {
       font-family: var(--story-font);
-      font-size: clamp(28px, 5vw, 38px);
+      font-size: clamp(20px, 3.7vw, 27px);
       font-weight: 900;
       line-height: 1;
       text-wrap: balance;
     }
-    .game-outcome-unlock p {
-      max-width: 27ch;
-      margin: 0;
-      font-family: ui-serif, Georgia, "Times New Roman", serif;
-      font-size: clamp(15px, 2.7vw, 20px);
-      font-weight: 700;
-      line-height: 1.22;
+    .outcome-unlock-card {
+      width: min(170px, 48vw);
+      aspect-ratio: 840 / 1200;
+      object-fit: contain;
+      border-radius: 8px;
+      filter: drop-shadow(0 10px 16px rgba(49, 31, 15, 0.28));
     }
     .outcome-challenge-btn {
       width: min(230px, 100%);
-      margin-top: 8px;
+      margin-top: 2px;
       padding: 12px 22px 14px;
       border: 2px solid #5a4c28;
       border-radius: 8px;
@@ -3849,18 +3805,6 @@
         width: min(370px, 100%);
         gap: 11px;
       }
-      .outcome-section-label {
-        min-height: 42px;
-        top: 12px;
-        padding: 3px 20px 6px;
-        font-size: 18px;
-      }
-      .outcome-section-label::before,
-      .outcome-section-label::after {
-        width: 18px;
-        height: 27px;
-        top: 7px;
-      }
       .outcome-result-row {
         gap: 11px;
         padding: 14px 11px 15px;
@@ -3888,19 +3832,19 @@
       }
       .game-outcome-unlock {
         width: min(370px, 100%);
-        min-height: 190px;
-        padding: 64px 24px 24px;
+        padding: 18px 20px 22px;
       }
-      .outcome-unlock-label {
-        top: 12px;
-        font-size: 17px;
+      .outcome-unlock-copy {
+        gap: 9px;
+      }
+      .outcome-unlock-title {
+        font-size: 24px;
       }
       .game-outcome-unlock strong {
-        font-size: 25px;
+        font-size: 21px;
       }
-      .game-outcome-unlock p {
-        max-width: 22ch;
-        font-size: 14px;
+      .outcome-unlock-card {
+        width: min(132px, 42vw);
       }
       .outcome-challenge-btn {
         width: 176px;

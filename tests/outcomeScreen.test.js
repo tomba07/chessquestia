@@ -17,7 +17,7 @@ function createElements() {
       </section>
       <section id="unlock" hidden>
         <strong id="unlock-name"></strong>
-        <p id="unlock-text"></p>
+        <img id="unlock-card" alt="" />
         <button id="challenge" hidden></button>
       </section>
       <button id="continue"></button>
@@ -38,7 +38,7 @@ function createElements() {
     timeBestEl: byId("time-best"),
     unlockEl: byId("unlock"),
     unlockNameEl: byId("unlock-name"),
-    unlockTextEl: byId("unlock-text"),
+    unlockCardEl: byId("unlock-card"),
     challengeBtn: byId("challenge"),
     boardPulseEl: byId("pulse"),
     screenFlashEl: byId("flash"),
@@ -48,8 +48,8 @@ function createElements() {
 function createController({ coopPhase = "off", startedAt, moveCount = 27 } = {}) {
   const elements = createElements();
   const opponents = [
-    { name: "Snib", splashText: "Cellar menace" },
-    { name: "Muckroot", splashText: "Bog trickster" },
+    { name: "Snib", card: "snib_card.png", splashText: "Cellar menace" },
+    { name: "Muckroot", card: "muckroot_card.png", splashText: "Bog trickster" },
   ];
   const controller = createOutcomeScreen({
     elements,
@@ -84,7 +84,7 @@ describe("outcome screen", () => {
     expect(elements.timeBestEl.hidden).toBe(true);
     expect(elements.unlockEl.hidden).toBe(false);
     expect(elements.unlockNameEl.textContent).toBe("Muckroot");
-    expect(elements.unlockTextEl.textContent).toBe("Bog trickster");
+    expect(elements.unlockCardEl.getAttribute("src")).toBe("/assets/cards/muckroot_card.png");
     expect(elements.challengeBtn.hidden).toBe(false);
     expect(elements.challengeBtn.dataset.opponentIndex).toBe("1");
   });
