@@ -294,8 +294,17 @@ function DevTestingPanel() {
           <span>Trigger UI states without playing through them.</span>
         </div>
         <div className="dev-testing-actions">
-          <button id="dev-test-victory-highscore" className="sm-btn primary-mini" type="button">
-            Victory + highscore
+          <button id="dev-test-victory-highscore" className="sm-btn primary-mini" type="button" data-dev-test-scenario="victoryHighscore">
+            Victory: both highscores
+          </button>
+          <button className="sm-btn primary-mini" type="button" data-dev-test-scenario="victoryMovesHighscore">
+            Victory: moves highscore
+          </button>
+          <button className="sm-btn primary-mini" type="button" data-dev-test-scenario="victoryTimeHighscore">
+            Victory: time highscore
+          </button>
+          <button className="sm-btn primary-mini" type="button" data-dev-test-scenario="victoryUnlock">
+            Victory: unlock enemy
           </button>
         </div>
         <div id="dev-testing-message" className="school-account-message" role="status" aria-live="polite"></div>

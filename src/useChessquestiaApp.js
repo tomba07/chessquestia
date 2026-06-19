@@ -309,7 +309,7 @@ export function useChessquestiaApp() {
     gameScreen.showLobby();
   }
 
-  function showDevVictoryHighscoreScenario() {
+  function showDevVictoryScenario(details = {}) {
     if (coop?.phase && coop.phase !== "off") throw new Error("Leave co-op before running this scenario.");
     hideModelLoading();
     hideOutcomeBanner();
@@ -330,11 +330,37 @@ export function useChessquestiaApp() {
     updateGameScore();
     setStatus("Victory test", "over");
     showVictoryBoardPulseAfterDelay("g8", 0, "victory");
-    showOutcomeBannerAfterDelay("victory", 0, {
+    showOutcomeBannerAfterDelay("victory", 0, details);
+  }
+
+  function showDevVictoryHighscoreScenario() {
+    showDevVictoryScenario({
       highscore: {
         fastest: { valueMs: 65000, isPersonalBest: true, rank: 2 },
         fewestMoves: { value: 12, isPersonalBest: true, rank: 1 },
       },
+    });
+  }
+
+  function showDevVictoryMovesHighscoreScenario() {
+    showDevVictoryScenario({
+      highscore: {
+        fewestMoves: { value: 9, isPersonalBest: true, rank: 1 },
+      },
+    });
+  }
+
+  function showDevVictoryTimeHighscoreScenario() {
+    showDevVictoryScenario({
+      highscore: {
+        fastest: { valueMs: 42000, isPersonalBest: true, rank: 1 },
+      },
+    });
+  }
+
+  function showDevVictoryUnlockScenario() {
+    showDevVictoryScenario({
+      unlockedOpponent: SOLO_OPPONENTS[1],
     });
   }
 
@@ -629,6 +655,9 @@ export function useChessquestiaApp() {
     },
     scenarios: {
       victoryHighscore: showDevVictoryHighscoreScenario,
+      victoryMovesHighscore: showDevVictoryMovesHighscoreScenario,
+      victoryTimeHighscore: showDevVictoryTimeHighscoreScenario,
+      victoryUnlock: showDevVictoryUnlockScenario,
     },
   });
   devTesting.bindEvents();

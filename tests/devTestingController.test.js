@@ -11,7 +11,8 @@ function createElements() {
     <div id="panel" style="display: none">
     </div>
     <section id="card" hidden>
-      <button id="victory" type="button"></button>
+      <button id="victory" type="button" data-dev-test-scenario="victoryHighscore"></button>
+      <button id="moves" type="button" data-dev-test-scenario="victoryMovesHighscore"></button>
       <div id="message"></div>
     </section>
   `;
@@ -84,18 +85,24 @@ describe("dev testing controller", () => {
     expect(setViewUrl).toHaveBeenCalledWith("dev-testing");
   });
 
-  it("runs the victory highscore scenario from the button", () => {
-    const scenario = vi.fn();
+  it("runs victory scenarios from dev testing buttons", () => {
+    const highscoreScenario = vi.fn();
+    const movesScenario = vi.fn();
     const controller = createDevTestingController({
       elements: createElements(),
       getAuthInfo: () => ({ user: { isAdmin: true } }),
-      scenarios: { victoryHighscore: scenario },
+      scenarios: {
+        victoryHighscore: highscoreScenario,
+        victoryMovesHighscore: movesScenario,
+      },
     });
     controller.bindEvents();
 
     document.getElementById("victory").click();
+    document.getElementById("moves").click();
 
-    expect(scenario).toHaveBeenCalledTimes(1);
-    expect(document.getElementById("message").textContent).toBe("Victory + highscore scenario opened.");
+    expect(highscoreScenario).toHaveBeenCalledTimes(1);
+    expect(movesScenario).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("message").textContent).toBe("Victory: moves highscore scenario opened.");
   });
 });

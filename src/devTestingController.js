@@ -31,6 +31,13 @@ export function createDevTestingController({
     showFallback = () => {},
   } = actions;
 
+  const scenarioLabels = {
+    victoryHighscore: "Victory: both highscores",
+    victoryMovesHighscore: "Victory: moves highscore",
+    victoryTimeHighscore: "Victory: time highscore",
+    victoryUnlock: "Victory: unlock enemy",
+  };
+
   function canUse() {
     const authInfo = getAuthInfo();
     return !!authInfo.user?.isAdmin && !!authInfo.devTestingEnabled;
@@ -93,16 +100,18 @@ export function createDevTestingController({
 
   function bindEvents() {
     if (devTestingFab) devTestingFab.onclick = () => showView();
-    if (!devTestVictoryHighscore) return;
-    devTestVictoryHighscore.onclick = () => {
-      runScenario("Victory + highscore", scenarios.victoryHighscore);
+    if (!devTestingCard) return;
+    devTestingCard.onclick = (event) => {
+      const button = event.target.closest("[data-dev-test-scenario]");
+      if (!button) return;
+      const scenarioKey = button.dataset.devTestScenario;
+      runScenario(scenarioLabels[scenarioKey] || scenarioKey, scenarios[scenarioKey]);
     };
   }
 
   function dispose() {
     if (devTestingFab) devTestingFab.onclick = null;
-    if (!devTestVictoryHighscore) return;
-    devTestVictoryHighscore.onclick = null;
+    if (devTestingCard) devTestingCard.onclick = null;
   }
 
   return {
