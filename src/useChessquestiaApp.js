@@ -30,6 +30,7 @@ import { createGamePresentationControllers } from "./gamePresentationControllers
 import { createGameScreenController } from "./gameScreenController.js";
 import { createGameStatusController } from "./gameStatusController.js";
 import { createDevTestingController } from "./devTestingController.js";
+import { createDevTestingScenarios } from "./devTestingScenarios.js";
 import { createLocalDebugController } from "./localDebugController.js";
 import {
   createLobbyShellController,
@@ -309,61 +310,6 @@ export function useChessquestiaApp() {
     gameScreen.showLobby();
   }
 
-  function showDevVictoryScenario(details = {}) {
-    if (coop?.phase && coop.phase !== "off") throw new Error("Leave co-op before running this scenario.");
-    hideModelLoading();
-    hideOutcomeBanner();
-    clearBotSplashAutoTimer();
-    hideOpponentSpeech();
-    setupMode = "solo";
-    selectedOpponentIndex = 0;
-    selectedOpponentTheme = "snib";
-    syncStrength(String(SOLO_OPPONENTS[0].elo));
-    chess.load("6k1/6Q1/5K2/8/8/8/8/8 b - - 0 1");
-    soloSession.clearGame();
-    cpChips.innerHTML = "";
-    showGame();
-    board?.setPosition(chess.fen(), false);
-    clearLastMove();
-    clearCheckMarker();
-    disableBoardMoveInput();
-    updateGameScore();
-    setStatus("Victory test", "over");
-    showVictoryBoardPulseAfterDelay("g8", 0, "victory");
-    showOutcomeBannerAfterDelay("victory", 0, details);
-  }
-
-  function showDevVictoryHighscoreScenario() {
-    showDevVictoryScenario({
-      highscore: {
-        fastest: { valueMs: 65000, isPersonalBest: true, rank: 2 },
-        fewestMoves: { value: 12, isPersonalBest: true, rank: 1 },
-      },
-    });
-  }
-
-  function showDevVictoryMovesHighscoreScenario() {
-    showDevVictoryScenario({
-      highscore: {
-        fewestMoves: { value: 9, isPersonalBest: true, rank: 1 },
-      },
-    });
-  }
-
-  function showDevVictoryTimeHighscoreScenario() {
-    showDevVictoryScenario({
-      highscore: {
-        fastest: { valueMs: 42000, isPersonalBest: true, rank: 1 },
-      },
-    });
-  }
-
-  function showDevVictoryUnlockScenario() {
-    showDevVictoryScenario({
-      unlockedOpponent: SOLO_OPPONENTS[1],
-    });
-  }
-
   function confirmExitGame() {
     return gameScreen.confirmExitGame();
   }
@@ -626,6 +572,33 @@ export function useChessquestiaApp() {
   schoolAccounts.render();
   schoolAccounts.loadAccounts();
 
+  const devTestingScenarios = createDevTestingScenarios({
+    chess,
+    clearBotSplashAutoTimer,
+    clearCheckMarker,
+    clearLastMove,
+    cpChips,
+    disableBoardMoveInput,
+    getBoard: () => board,
+    getCoopPhase: () => coop?.phase || "off",
+    hideModelLoading,
+    hideOpponentSpeech,
+    hideOutcomeBanner,
+    opponents: SOLO_OPPONENTS,
+    setSelectedOpponent: ({ index, theme }) => {
+      selectedOpponentIndex = index;
+      selectedOpponentTheme = theme;
+    },
+    setSetupMode: (mode) => { setupMode = mode; },
+    setStatus,
+    showGame,
+    showOutcomeBannerAfterDelay,
+    showVictoryBoardPulseAfterDelay,
+    soloSession,
+    syncStrength,
+    updateGameScore,
+  });
+
   devTesting = createDevTestingController({
     elements: {
       devTestingFab,
@@ -653,12 +626,7 @@ export function useChessquestiaApp() {
       setViewUrl,
       showFallback: showPlayView,
     },
-    scenarios: {
-      victoryHighscore: showDevVictoryHighscoreScenario,
-      victoryMovesHighscore: showDevVictoryMovesHighscoreScenario,
-      victoryTimeHighscore: showDevVictoryTimeHighscoreScenario,
-      victoryUnlock: showDevVictoryUnlockScenario,
-    },
+    scenarios: devTestingScenarios,
   });
   devTesting.bindEvents();
   devTesting.render();
