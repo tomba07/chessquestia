@@ -1,50 +1,35 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      - chessquestia
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      CHESSQUESTIA_DOMAIN: ${CHESSQUESTIA_DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - default
-      - web
+    chessquestia:
+      build:
+        context: ..
+      restart: unless-stopped
+      container_name: chessquestia
+      environment:
+        NODE_ENV: production
+        PORT: 5678
+        PUBLIC_BASE_URL: https://${CHESSQUESTIA_DOMAIN}
+        ROOMS_FILE: /data/chessquestia-rooms.json
+        AUTH_FILE: /data/chessquestia-auth.json
+        DB_FILE: /data/chessquestia.sqlite
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      volumes:
+        - chessquestia_data:/data
+      expose:
+        - "5678"
+      networks:
+        - web
+      healthcheck:
+        test: ["CMD", "node", "-e",
+  "fetch('http://127.0.0.1:5678/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+        interval: 30s
+        timeout: 5s
+        retries: 3
+  
+  volumes:
+    chessquestia_data:
 
-  chessquestia:
-    build:
-      context: ..
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      PORT: 5678
-      PUBLIC_BASE_URL: https://${CHESSQUESTIA_DOMAIN}
-      ROOMS_FILE: /data/chessquestia-rooms.json
-      AUTH_FILE: /data/chessquestia-auth.json
-      DB_FILE: /data/chessquestia.sqlite
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-    volumes:
-      - chessquestia_data:/data
-    expose:
-      - "5678"
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-volumes:
-  caddy_data:
-  caddy_config:
-  chessquestia_data:
-
-networks:
-  web:
-    name: web
+  networks:
+    web:
+      name: web
+      external: true
