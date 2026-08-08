@@ -3,8 +3,12 @@ import { createAppEventController } from "../src/appEventController.js";
 
 function createController({ coopPhase = "off" } = {}) {
   let outcomeActions;
+  let appShellActions;
   const deps = {
-    appShell: { bindEvents: vi.fn() },
+    appShell: {
+      bindEvents: vi.fn(actions => { appShellActions = actions; }),
+      showSoloSetup: vi.fn(),
+    },
     bindBotSplashStartButton: vi.fn(),
     chessnutBoard: { bind: vi.fn() },
     coopInviteList: document.createElement("div"),
@@ -60,7 +64,7 @@ function createController({ coopPhase = "off" } = {}) {
   deps.soloStartBtn.disabled = true;
   const controller = createAppEventController(deps);
   controller.bind();
-  return { deps, outcomeActions };
+  return { appShellActions, deps, outcomeActions };
 }
 
 describe("app event controller", () => {
@@ -90,5 +94,14 @@ describe("app event controller", () => {
     expect(deps.setSetupMode).toHaveBeenCalledWith("solo");
     expect(deps.soloGame.start).toHaveBeenCalledTimes(1);
     expect(deps.reopenCoopLobby).not.toHaveBeenCalled();
+  });
+
+  it("leaves co-op before opening solo setup", () => {
+    const { appShellActions, deps } = createController({ coopPhase: "lobby" });
+
+    appShellActions.onStartSolo();
+
+    expect(deps.leaveCoop).toHaveBeenCalledTimes(1);
+    expect(deps.appShell.showSoloSetup).toHaveBeenCalledTimes(1);
   });
 });

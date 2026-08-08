@@ -1,8 +1,5 @@
-- styling selected bot
 - current player indication
 - coop: selected piece highlight
-- leaderboards
- - info on victory screen
 - timer
 - highlights
  - game changing moves

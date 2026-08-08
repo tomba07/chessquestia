@@ -277,12 +277,12 @@ export function createAppShellController({
     });
   }
 
-  function bindEvents({ onStartDemo, onConnectCoop }) {
+  function bindEvents({ onStartDemo, onStartSolo, onConnectCoop }) {
     navPlay.onclick = () => requireAuth(showPlayView);
     bindDevLoginOptions(devLoginOptions);
     bindDevLoginOptions(authDevLoginOptions);
     authDemoBtn.onclick = onStartDemo;
-    playSoloBtn.onclick = () => requireAuth(showSoloSetup);
+    playSoloBtn.onclick = () => requireAuth(onStartSolo || showSoloSetup);
     playCoopBtn.onclick = () => requireAuth(() => onConnectCoop());
   }
 

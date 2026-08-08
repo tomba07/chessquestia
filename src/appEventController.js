@@ -38,6 +38,10 @@ export function createAppEventController({
   function bind() {
     appShell.bindEvents({
       onStartDemo: () => soloGame.startDemo(),
+      onStartSolo: () => {
+        if (getCoop().phase !== "off") leaveCoop();
+        appShell.showSoloSetup();
+      },
       onConnectCoop: () => startCoopRoom(),
     });
     opponentSelection.bindCards();
