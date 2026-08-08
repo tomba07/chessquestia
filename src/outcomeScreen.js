@@ -27,6 +27,7 @@ export function createOutcomeScreen({
   elements,
   getBoard,
   getCoopPhase,
+  getCanChallengeUnlockedOpponent = () => getCoopPhase() === "off",
   getGameStartedAt,
   getLastMoveSquares,
   getMoveCount,
@@ -116,7 +117,7 @@ export function createOutcomeScreen({
       unlockCardEl.src = opponent.card ? `/assets/cards/${opponent.card}` : "/assets/cards/locked_card.png";
       unlockCardEl.alt = "";
     }
-    challengeBtn.hidden = getCoopPhase() !== "off";
+    challengeBtn.hidden = !getCanChallengeUnlockedOpponent();
     challengeBtn.dataset.opponentIndex = String(opponents.indexOf(opponent));
   }
 

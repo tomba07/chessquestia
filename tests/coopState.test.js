@@ -76,4 +76,50 @@ describe("co-op match statistics", () => {
       gameOver: false,
     });
   });
+
+  it("lets the co-op host reopen the lobby after game over", () => {
+    const send = vi.fn();
+    const coop = { phase: "over", myIdx: 0, ws: { send } };
+    const controller = createCoopActionsController({
+      getConnection: () => null,
+      getCoop: () => coop,
+      getElo: () => 900,
+      getGameOver: () => true,
+      getFen: () => "mate-fen",
+      getMaiaReady: () => true,
+      getOpponentSelectionReadonly: () => false,
+      getSoloStartDisabled: () => false,
+      requestModelDownload: vi.fn(),
+      showCoopBotSelection: vi.fn(),
+      showModelLoading: vi.fn(),
+    });
+
+    controller.reopenLobby();
+
+    expect(JSON.parse(send.mock.calls[0][0])).toEqual({
+      type: "reopen-lobby",
+    });
+  });
+
+  it("does not let co-op guests reopen the lobby after game over", () => {
+    const send = vi.fn();
+    const coop = { phase: "over", myIdx: 1, ws: { send } };
+    const controller = createCoopActionsController({
+      getConnection: () => null,
+      getCoop: () => coop,
+      getElo: () => 900,
+      getGameOver: () => true,
+      getFen: () => "mate-fen",
+      getMaiaReady: () => true,
+      getOpponentSelectionReadonly: () => false,
+      getSoloStartDisabled: () => false,
+      requestModelDownload: vi.fn(),
+      showCoopBotSelection: vi.fn(),
+      showModelLoading: vi.fn(),
+    });
+
+    controller.reopenLobby();
+
+    expect(send).not.toHaveBeenCalled();
+  });
 });

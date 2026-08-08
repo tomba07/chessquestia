@@ -45,7 +45,12 @@ function createElements() {
   };
 }
 
-function createController({ coopPhase = "off", startedAt, moveCount = 27 } = {}) {
+function createController({
+  coopPhase = "off",
+  canChallengeUnlockedOpponent,
+  startedAt,
+  moveCount = 27,
+} = {}) {
   const elements = createElements();
   const opponents = [
     { name: "Snib", card: "snib_card.png", splashText: "Cellar menace" },
@@ -55,6 +60,7 @@ function createController({ coopPhase = "off", startedAt, moveCount = 27 } = {})
     elements,
     getBoard: () => null,
     getCoopPhase: () => coopPhase,
+    getCanChallengeUnlockedOpponent: canChallengeUnlockedOpponent,
     getGameStartedAt: () => startedAt,
     getLastMoveSquares: () => [],
     getMoveCount: () => moveCount,
@@ -140,9 +146,29 @@ describe("outcome screen", () => {
     expect(elements.unlockEl.hidden).toBe(true);
   });
 
-  it("hides the challenge action in co-op victories", () => {
+  it("shows the challenge action for eligible co-op victories", () => {
     vi.useFakeTimers();
-    const { controller, elements, opponents } = createController({ coopPhase: "playing" });
+    const { controller, elements, opponents } = createController({
+      coopPhase: "over",
+      canChallengeUnlockedOpponent: () => true,
+    });
+
+    controller.showBannerAfterDelay("victory", 0, {
+      unlockedOpponent: opponents[1],
+    });
+    vi.runAllTimers();
+
+    expect(elements.unlockEl.hidden).toBe(false);
+    expect(elements.challengeBtn.hidden).toBe(false);
+    expect(elements.challengeBtn.dataset.opponentIndex).toBe("1");
+  });
+
+  it("hides the challenge action for ineligible co-op victories", () => {
+    vi.useFakeTimers();
+    const { controller, elements, opponents } = createController({
+      coopPhase: "over",
+      canChallengeUnlockedOpponent: () => false,
+    });
 
     controller.showBannerAfterDelay("victory", 0, {
       unlockedOpponent: opponents[1],

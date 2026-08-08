@@ -12,6 +12,7 @@ export function createAppEventController({
   outcomeScreen,
   promotionChoice,
   renderRoomLobby,
+  reopenCoopLobby,
   sendCoopInvite,
   setCoopSelectingOpponent,
   setOpponentSelectionReadonly,
@@ -81,12 +82,20 @@ export function createAppEventController({
       onChallenge: (opponentIndex) => {
         const opponent = elements.opponents[opponentIndex];
         if (!opponent) return;
+        const coop = getCoop();
         hideOutcomeBanner();
-        setSetupMode("solo");
+        if (coop && coop.phase !== "off") {
+          setSetupMode("coop");
+          setOpponentSelectionReadonly(false);
+          elements.lbSolo.classList.remove("readonly");
+          reopenCoopLobby?.();
+          return;
+        }
         setSelectedOpponent(opponentIndex, opponent.theme);
         syncStrength(String(opponent.elo));
         updateOpponentSelection(String(opponent.elo));
         soloStartBtn.disabled = false;
+        setSetupMode("solo");
         soloGame.start();
       },
     });

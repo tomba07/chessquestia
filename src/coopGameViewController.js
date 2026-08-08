@@ -149,9 +149,10 @@ export function createCoopGameViewController({
   function applyActiveState(msg) {
     const room = coop();
     const wasInActiveGame = room.phase === "playing" || room.phase === "over";
+    const startingFreshGame = room.phase === "over" && msg.phase === "playing";
     room.phase = msg.phase;
 
-    if (!wasInActiveGame) enterActiveGame(msg);
+    if (!wasInActiveGame || startingFreshGame) enterActiveGame(msg);
     renderChips(msg.players, msg.activeIdx, msg.myIdx, msg.midTurn);
 
     if (msg.fen !== chess().fen()) applyRemoteFen(msg.fen);

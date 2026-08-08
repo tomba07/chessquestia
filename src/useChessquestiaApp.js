@@ -694,6 +694,7 @@ export function useChessquestiaApp() {
     outcomeScreen,
     promotionChoice,
     renderRoomLobby,
+    reopenCoopLobby: () => coopTransport?.reopenLobby(),
     sendCoopInvite,
     setOpponentSelectionReadonly: (readonly) => { opponentSelectionReadonly = readonly; },
     setCoopSelectingOpponent: (selecting) => coopTransport?.setSelectingOpponent(selecting),

@@ -59,6 +59,10 @@ export function createGamePresentationControllers({
     },
     getBoard,
     getCoopPhase: () => getCoop()?.phase || "off",
+    getCanChallengeUnlockedOpponent: () => {
+      const coop = getCoop();
+      return !coop || coop.phase === "off" || (coop.phase === "over" && coop.myIdx === 0);
+    },
     getGameStartedAt: () => {
       const coop = getCoop();
       return coop?.phase !== "off" ? coop.startedAt : getSoloSession()?.gameStartedAt;

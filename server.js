@@ -719,6 +719,27 @@ function cancelPendingRoomInvites(roomId) {
   for (const inviteeId of invitees) notifyUser(inviteeId);
 }
 
+function invitePreviousRoomPlayers(room, inviterUserId, players) {
+  if (!room?.id || !inviterUserId || !players?.length) return;
+  const now = Date.now();
+  const invite = db.prepare(`
+    INSERT INTO room_invites (room_id, inviter_id, invitee_id, status, created_at, responded_at)
+    VALUES (?, ?, ?, 'pending', ?, NULL)
+    ON CONFLICT(room_id, invitee_id) DO UPDATE SET
+      inviter_id = excluded.inviter_id,
+      status = 'pending',
+      created_at = excluded.created_at,
+      responded_at = NULL
+  `);
+  const inviteeIds = [...new Set(players
+    .map(player => player?.userId)
+    .filter(userId => userId && userId !== inviterUserId))];
+  for (const inviteeId of inviteeIds) {
+    invite.run(room.id, inviterUserId, inviteeId, now);
+    notifyUser(inviteeId);
+  }
+}
+
 function closeLobbyRoom(room, message = "The room was closed.") {
   if (!room) return;
   cancelPendingRoomInvites(room.id);
@@ -1933,6 +1954,30 @@ function attachWebSocketHandlers() {
         room.startedAt = Date.now();
         room.updatedAt = Date.now();
         persistRooms();
+        broadcastRoom(room);
+        break;
+      }
+
+      case "reopen-lobby": {
+        const room = rooms.get(currentRoomId);
+        if (!room || room.hostPlayerId !== currentPlayerId || room.phase !== "over") return;
+        const previousPlayers = room.order
+          .map(id => room.players.get(id))
+          .filter(Boolean);
+        const disconnectedPlayers = previousPlayers.filter(player => !player.connected);
+        for (const player of disconnectedPlayers) room.players.delete(player.id);
+        room.order = room.order.filter(id => room.players.has(id));
+        if (!room.order.includes(room.hostPlayerId)) room.order.unshift(room.hostPlayerId);
+        room.phase = "lobby";
+        room.selectingOpponent = false;
+        room.fen = INITIAL_FEN;
+        room.activeIdx = 0;
+        room.midTurn = false;
+        room.startedAt = null;
+        room.updatedAt = Date.now();
+        room.moveHistory = [];
+        persistRooms();
+        invitePreviousRoomPlayers(room, room.hostUserId, disconnectedPlayers);
         broadcastRoom(room);
         break;
       }

@@ -61,6 +61,25 @@ export function createCoopActionsController({
     send({ type: "start" });
   }
 
+  function reopenLobby() {
+    const coop = room();
+    if (
+      getOpponentSelectionReadonly()
+      || coop?.phase !== "over"
+      || coop.myIdx !== 0
+    ) {
+      return;
+    }
+
+    if (!getMaiaReady()) {
+      showModelLoading("Preparing game...");
+      requestModelDownload();
+      return;
+    }
+
+    send({ type: "reopen-lobby" });
+  }
+
   function enterBotSelection() {
     const coop = room();
     if (coop?.phase !== "lobby") return;
@@ -74,6 +93,7 @@ export function createCoopActionsController({
     enterBotSelection,
     leave,
     publishMove,
+    reopenLobby,
     setSelectingOpponent,
     startWithSelectedBot,
   };
