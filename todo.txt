@@ -1,6 +1,4 @@
 - styling selected bot
-- improve victory screen
-- challenge unlocked bot coop
 - current player indication
 - coop: selected piece highlight
 - leaderboards

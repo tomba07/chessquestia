@@ -663,6 +663,14 @@ function areFriends(userId, friendId) {
 }
 
 function roomHasUser(roomId, userId) {
+  const room = rooms.get(roomId);
+  if (room) {
+    return [...room.players.values()].some(player => (
+      player.userId === userId
+      && player.connected
+      && player.ws?.readyState === 1
+    ));
+  }
   return !!db.prepare(`
     SELECT 1 FROM room_players WHERE room_id = ? AND user_id = ?
   `).get(roomId, userId);
@@ -1733,6 +1741,7 @@ function roomState(room, myPlayerId, myIdx) {
   const players = room.order.map(id => {
     const player = room.players.get(id);
     return {
+      userId: player.userId || null,
       name: player.name,
       connected: !!player.connected,
       maiaReady: !!player.maiaReady,
@@ -1762,6 +1771,19 @@ function roomState(room, myPlayerId, myIdx) {
 
 function broadcastRoom(room) {
   broadcast(room, (wsId, idx) => roomState(room, wsId, idx));
+}
+
+function removeLobbyPlayer(room, playerId) {
+  if (!room || room.phase !== "lobby" || room.hostPlayerId === playerId) return false;
+  const player = room.players.get(playerId);
+  if (!player) return false;
+  room.players.delete(playerId);
+  room.order = room.order.filter(id => id !== playerId);
+  if (room.activeIdx >= room.order.length) room.activeIdx = 0;
+  room.updatedAt = Date.now();
+  persistRooms();
+  broadcastRoom(room);
+  return true;
 }
 
 function normalizePlayerName(name) {
@@ -1991,6 +2013,11 @@ function attachWebSocketHandlers() {
           currentPlayerId = null;
           return;
         }
+        if (removeLobbyPlayer(room, currentPlayerId)) {
+          currentRoomId = null;
+          currentPlayerId = null;
+          return;
+        }
         const player = room.players.get(currentPlayerId);
         if (player) {
           player.connected = false;
@@ -2075,6 +2102,8 @@ function attachWebSocketHandlers() {
     if (!room) return;
     const player = room.players.get(currentPlayerId);
     if (!player || player.ws !== ws) return;
+
+    if (removeLobbyPlayer(room, currentPlayerId)) return;
 
     player.connected = false;
     player.maiaReady = false;
