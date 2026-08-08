@@ -23,6 +23,22 @@ export function createCoopConnectionController({
     room.reconnectTimer = null;
   }
 
+  function clearSyncTimer() {
+    const room = coop();
+    if (!room?.syncTimer) return;
+    clearInterval(room.syncTimer);
+    room.syncTimer = null;
+  }
+
+  function startSyncTimer(ws) {
+    const room = coop();
+    clearSyncTimer();
+    room.syncTimer = setInterval(() => {
+      if (room.ws !== ws || ws.readyState !== WebSocket.OPEN || room.phase !== "lobby") return;
+      ws.send(JSON.stringify({ type: "sync" }));
+    }, 2000);
+  }
+
   function joinPayload(roomId, name, opts = {}) {
     const room = coop();
     return {
@@ -50,14 +66,16 @@ export function createCoopConnectionController({
     const roomId = opts.roomId || getRoomFromUrl() || room.roomId;
     const name = opts.name || getPlayerName(roomId);
     clearReconnectTimer();
+    clearSyncTimer();
     room.leaving = false;
 
     const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${wsProto}//${location.host}`);
     room.ws = ws;
-    ws.onopen = () => ws.send(JSON.stringify(
-      action === "create" ? createPayload(name) : joinPayload(roomId, name, opts)
-    ));
+    ws.onopen = () => {
+      ws.send(JSON.stringify(action === "create" ? createPayload(name) : joinPayload(roomId, name, opts)));
+      startSyncTimer(ws);
+    };
     ws.onmessage = ({ data }) => onMessage(JSON.parse(data));
     ws.onclose = () => {
       if (room.ws !== ws) return;
@@ -68,6 +86,7 @@ export function createCoopConnectionController({
 
   function handleDisconnect() {
     const room = coop();
+    clearSyncTimer();
     room.ws = null;
     if (room.leaving || room.phase === "off") {
       room.leaving = false;
@@ -98,6 +117,7 @@ export function createCoopConnectionController({
   function leave() {
     const room = coop();
     clearReconnectTimer();
+    clearSyncTimer();
     room.leaving = true;
     if (room.ws?.readyState === WebSocket.OPEN) {
       room.ws.send(JSON.stringify({ type: "leave" }));
@@ -111,10 +131,12 @@ export function createCoopConnectionController({
 
   function dispose() {
     clearReconnectTimer();
+    clearSyncTimer();
   }
 
   return {
     clearReconnectTimer,
+    clearSyncTimer,
     connect,
     dispose,
     leave,

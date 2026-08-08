@@ -67,6 +67,39 @@ function registerSocialRoutes(app, {
     }));
   }
 
+  function roomInviteStatuses(roomId, inviterId) {
+    return db.prepare(`
+      SELECT
+        ri.id,
+        ri.invitee_id,
+        ri.status,
+        ri.created_at,
+        ri.responded_at,
+        invitee.username AS invitee_username,
+        invitee.name AS invitee_name,
+        invitee.email AS invitee_email,
+        invitee.picture AS invitee_picture
+      FROM room_invites ri
+      JOIN users invitee ON invitee.id = ri.invitee_id
+      WHERE ri.room_id = ? AND ri.inviter_id = ?
+      ORDER BY ri.created_at DESC
+    `).all(roomId, inviterId).map(row => ({
+      id: row.id,
+      userId: row.invitee_id,
+      status: row.status,
+      createdAt: row.created_at,
+      respondedAt: row.responded_at,
+      invitee: publicFriendUser({
+        id: row.invitee_id,
+        username: row.invitee_username,
+        name: row.invitee_name,
+        email: row.invitee_email,
+        picture: row.invitee_picture,
+        created_at: row.created_at,
+      }),
+    }));
+  }
+
   app.post("/api/presence", (req, res) => {
     const user = requireApiUser(req, res);
     if (!user) return;
@@ -345,6 +378,27 @@ function registerSocialRoutes(app, {
     const user = requireApiUser(req, res);
     if (!user) return;
     res.json({ invites: pendingGameInvites(user.id) });
+  });
+
+  app.get("/api/coop/rooms/:roomId/invites", (req, res) => {
+    const user = requireApiUser(req, res);
+    if (!user) return;
+
+    const roomId = String(req.params.roomId || "").trim();
+    const room = db.prepare("SELECT id FROM rooms WHERE id = ?").get(roomId);
+    if (!room) {
+      res.status(404).json({ error: "Room not found" });
+      return;
+    }
+    const persistedRoomPlayer = db.prepare(`
+      SELECT 1 FROM room_players WHERE room_id = ? AND user_id = ?
+    `).get(roomId, user.id);
+    if (!roomHasUser(roomId, user.id) && !persistedRoomPlayer) {
+      res.status(403).json({ error: "Join the room before viewing invites" });
+      return;
+    }
+
+    res.json({ invites: roomInviteStatuses(roomId, user.id) });
   });
 
   app.post("/api/coop/invites", (req, res) => {

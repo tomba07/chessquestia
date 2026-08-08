@@ -20,6 +20,41 @@ export function createCoopMessageController({
   async function handleMessage(msg) {
     const coop = getCoop();
 
+    function showPendingLobby({ host = false } = {}) {
+      const self = {
+        name: getCoopPlayerName(coop.roomId),
+        connected: true,
+        maiaReady: true,
+        unlockedCount: readSoloProgress(),
+      };
+      const pendingPlayers = host
+        ? [self]
+        : [
+          { name: "Host", connected: true, maiaReady: true, unlockedCount: 1 },
+          self,
+        ];
+      const pendingState = {
+        type: "room-state",
+        roomId: coop.roomId,
+        playerId: coop.playerId,
+        phase: "lobby",
+        players: pendingPlayers,
+        activeIdx: 0,
+        midTurn: false,
+        fen: coop.fen,
+        myIdx: host ? 0 : 1,
+        startedAt: coop.startedAt,
+        moveCount: coop.moveCount,
+        strength: coop.strength,
+        selectingOpponent: false,
+        maxUnlockedOpponentCount: readSoloProgress(),
+      };
+      coopRoom.showRoomPanel();
+      coop.phase = "lobby";
+      coop.players = pendingPlayers;
+      coopGameView.applyLobbyState(pendingState);
+    }
+
     if (msg.type === "error") {
       if (msg.code === "auth-required") {
         connectToAuth();
@@ -28,6 +63,10 @@ export function createCoopMessageController({
       if (msg.code === "waiting-for-maia") {
         showModelLoading("Preparing game...");
         alert(msg.message.replace("Waiting for Maia on:", "The game is still loading for:"));
+        return;
+      }
+      if (msg.code === "coop-partner-required") {
+        alert(msg.message);
         return;
       }
       alert(msg.message);
@@ -52,8 +91,7 @@ export function createCoopMessageController({
       rememberRoom(msg.roomId, getCoopPlayerName(msg.roomId), msg.playerId);
       setRoomUrl(msg.roomId);
       loadCoopInviteFriends();
-      coopRoom.showRoomPanel();
-      coop.phase = "lobby";
+      showPendingLobby({ host: true });
       return;
     }
 
@@ -65,6 +103,7 @@ export function createCoopMessageController({
       setRoomUrl(msg.roomId);
       loadCoopInviteFriends();
       loadInviteNotifications();
+      showPendingLobby({ host: false });
       return;
     }
 

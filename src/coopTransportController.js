@@ -18,6 +18,7 @@ export function createCoopTransportController({
   requestModelDownload,
   setSetupMode,
   showCoopBotSelection,
+  showCoopStartBlocked,
   showLobby,
   showModelLoading,
   storedPlayerId,
@@ -48,6 +49,7 @@ export function createCoopTransportController({
     getSoloStartDisabled,
     requestModelDownload,
     showCoopBotSelection,
+    showStartBlocked: showCoopStartBlocked,
     showModelLoading,
   });
 

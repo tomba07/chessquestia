@@ -742,6 +742,7 @@ export function useChessquestiaApp() {
     requestModelDownload,
     setSetupMode: (mode) => { setupMode = mode; },
     showCoopBotSelection,
+    showCoopStartBlocked: (message) => alert(message),
     showLobby,
     showModelLoading,
     storedPlayerId: coopRoom.storedPlayerId,

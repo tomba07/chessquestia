@@ -16,9 +16,14 @@ export function createCoopInviteController({
     loading: false,
     error: "",
     friends: [],
+    inviteStatuses: new Map(),
     sent: new Set(),
     busyKey: "",
   };
+
+  function statusForFriend(friendId) {
+    return state.inviteStatuses.get(friendId) || (state.sent.has(friendId) ? "pending" : "");
+  }
 
   function renderInviteFriends() {
     inviteMessageEl.textContent = state.error;
@@ -42,9 +47,12 @@ export function createCoopInviteController({
     }
 
     const joinedUserIds = getJoinedUserIds();
-    const friends = state.friends.filter(friend => !joinedUserIds.has(friend.id));
+    const friends = state.friends.filter(friend => {
+      const status = statusForFriend(friend.id);
+      return !joinedUserIds.has(friend.id) && status !== "accepted";
+    });
     inviteListEl.innerHTML = friends.map(friend => {
-      const sent = state.sent.has(friend.id);
+      const sent = statusForFriend(friend.id) === "pending";
       const busy = state.busyKey === friend.id;
       return friendRow(
         friend,
@@ -61,20 +69,29 @@ export function createCoopInviteController({
     `;
   }
 
-  async function loadFriends() {
-    if (!getAuthInfo().user || !getRoomId()) {
+  async function loadFriends({ silent = false } = {}) {
+    const roomId = getRoomId();
+    if (!getAuthInfo().user || !roomId) {
       renderInviteFriends();
       return;
     }
-    state.loading = true;
+    state.loading = !silent;
     state.error = "";
     renderInviteFriends();
     try {
-      const payload = await apiJson("/api/friends");
-      state.friends = payload.friends || [];
+      const [friendsPayload, invitesPayload] = await Promise.all([
+        apiJson("/api/friends"),
+        apiJson(`/api/coop/rooms/${encodeURIComponent(roomId)}/invites`),
+      ]);
+      state.friends = friendsPayload.friends || [];
+      state.inviteStatuses = new Map((invitesPayload.invites || []).map(invite => [invite.userId, invite.status]));
+      state.sent = new Set((invitesPayload.invites || [])
+        .filter(invite => invite.status === "pending")
+        .map(invite => invite.userId));
     } catch (err) {
       state.error = err.message;
       state.friends = [];
+      state.inviteStatuses = new Map();
     } finally {
       state.loading = false;
       renderInviteFriends();
@@ -103,10 +120,11 @@ export function createCoopInviteController({
 
   function clearSent() {
     state.sent.clear();
+    state.inviteStatuses.clear();
   }
 
   function shouldLoadFriends() {
-    return !state.friends.length && !state.loading;
+    return (!state.friends.length || state.sent.size > 0) && !state.loading;
   }
 
   return {

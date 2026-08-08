@@ -1,9 +1,50 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCoopActionsController } from "../src/coopActionsController.js";
+import { createCoopConnectionController } from "../src/coopConnectionController.js";
+import { createCoopInviteController } from "../src/coopInviteController.js";
 import { createCoopMessageController } from "../src/coopMessageController.js";
+import { createCoopRoomController } from "../src/coopRoomController.js";
 import { createInitialCoopState } from "../src/coopState.js";
 
 describe("co-op match statistics", () => {
+  it("polls room state while the co-op lobby is open", () => {
+    vi.useFakeTimers();
+    const send = vi.fn();
+    class FakeWebSocket {
+      static OPEN = 1;
+      constructor() {
+        this.readyState = FakeWebSocket.OPEN;
+        FakeWebSocket.instance = this;
+      }
+      send = send;
+      close = vi.fn();
+    }
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const coop = createInitialCoopState();
+    coop.phase = "lobby";
+    const controller = createCoopConnectionController({
+      getCoop: () => coop,
+      getElo: () => 900,
+      getMaiaReady: () => true,
+      getPlayerName: () => "mirko",
+      getRoomFromUrl: () => null,
+      readSoloProgress: () => 3,
+      setSetupMode: vi.fn(),
+      showLobby: vi.fn(),
+      storedPlayerId: () => "",
+      onMessage: vi.fn(),
+      onPlayingReconnect: vi.fn(),
+      onReconnectingLobby: vi.fn(),
+    });
+
+    controller.connect("join", { roomId: "room-1" });
+    FakeWebSocket.instance.onopen();
+    vi.advanceTimersByTime(2000);
+
+    expect(send).toHaveBeenLastCalledWith(JSON.stringify({ type: "sync" }));
+    controller.dispose();
+  });
+
   it("hydrates server move count and start time from room state", async () => {
     const coop = createInitialCoopState();
     const applyActiveState = vi.fn();
@@ -48,6 +89,77 @@ describe("co-op match statistics", () => {
     expect(coop.moveCount).toBe(27);
     expect(coop.maxUnlockedOpponentCount).toBe(3);
     expect(applyActiveState).toHaveBeenCalledWith(message);
+  });
+
+  it("shows the room panel immediately after joining an invite", async () => {
+    const coop = createInitialCoopState();
+    const showRoomPanel = vi.fn();
+    const controller = createCoopMessageController({
+      connectToAuth: vi.fn(),
+      coopGameView: { applyActiveState: vi.fn(), applyLobbyState: vi.fn() },
+      coopInvites: { clearSent: vi.fn() },
+      coopRoom: { showRoomPanel },
+      getCoop: () => coop,
+      getCoopPlayerName: () => "lena",
+      getSetupMode: () => "coop",
+      loadCoopInviteFriends: vi.fn(),
+      loadInviteNotifications: vi.fn(),
+      readSoloProgress: () => 2,
+      rememberRoom: vi.fn(),
+      setRoomUrl: vi.fn(),
+      showModelLoading: vi.fn(),
+      showPlayView: vi.fn(),
+      syncStrength: vi.fn(),
+      updateOpponentSelection: vi.fn(),
+      elements: { lbSolo: document.createElement("div") },
+    });
+
+    await controller.handleMessage({
+      type: "joined",
+      roomId: "room-1",
+      playerId: "player-lena",
+    });
+
+    expect(coop.roomId).toBe("room-1");
+    expect(coop.playerId).toBe("player-lena");
+    expect(coop.phase).toBe("lobby");
+    expect(showRoomPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides accepted invitees from the co-op invite list", async () => {
+    const inviteMessageEl = document.createElement("div");
+    const inviteListEl = document.createElement("div");
+    const controller = createCoopInviteController({
+      apiJson: vi.fn(async (url) => {
+        if (url === "/api/friends") {
+          return {
+            friends: [
+              { id: "local:lena", username: "lena", name: "lena" },
+              { id: "local:test1", username: "test1", name: "test1" },
+            ],
+          };
+        }
+        if (url === "/api/coop/rooms/room-1/invites") {
+          return {
+            invites: [
+              { userId: "local:lena", status: "accepted" },
+              { userId: "local:test1", status: "pending" },
+            ],
+          };
+        }
+        return {};
+      }),
+      elements: { inviteMessageEl, inviteListEl },
+      getAuthInfo: () => ({ user: { username: "mirko" } }),
+      getRoomId: () => "room-1",
+      getJoinedUserIds: () => new Set(),
+    });
+
+    await controller.loadFriends();
+
+    expect(inviteListEl.textContent).not.toContain("lena");
+    expect(inviteListEl.textContent).toContain("test1");
+    expect(inviteListEl.textContent).toContain("Invite sent");
   });
 
   it("increments the local move count once when publishing a playing move", () => {
@@ -121,5 +233,116 @@ describe("co-op match statistics", () => {
     controller.reopenLobby();
 
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("shows the host button to choose an opponent before a partner joins", () => {
+    const cpStartBtn = document.createElement("button");
+    const controller = createCoopRoomController({
+      elements: {
+        cpPlayerList: document.createElement("div"),
+        cpRoomMeta: document.createElement("div"),
+        cpStartBtn,
+        lbFriendInvite: document.createElement("div"),
+        lbFriends: document.createElement("div"),
+        lbLeaderboard: document.createElement("div"),
+        lbDevTesting: document.createElement("div"),
+        lbMain: document.createElement("div"),
+        lbProfile: document.createElement("div"),
+        lbRoom: document.createElement("div"),
+        lbSolo: document.createElement("div"),
+      },
+      storage: {
+        lastRoomKey: "last-room",
+        legacyLastRoomKey: "legacy-last-room",
+        nameKey: roomId => `room.${roomId}.name`,
+        legacyNameKey: roomId => `legacy.room.${roomId}.name`,
+        playerKey: roomId => `room.${roomId}.player`,
+      },
+      getAuthInfo: () => ({ user: { username: "mirko" } }),
+      getCoop: () => ({ selectingOpponent: false }),
+      hideModelLoading: vi.fn(),
+      showModelLoading: vi.fn(),
+      renderCoopInviteFriends: vi.fn(),
+    });
+
+    controller.renderLobby([
+      { name: "mirko", connected: true, maiaReady: true, unlockedCount: 3 },
+    ], 0);
+
+    expect(cpStartBtn.style.display).toBe("inline");
+    expect(cpStartBtn.disabled).toBe(false);
+    expect(cpStartBtn.textContent).toBe("Choose opponent");
+    expect(cpStartBtn.title).toContain("Invite at least one friend before starting");
+  });
+
+  it("keeps the host choose-opponent button available while a joined partner prepares", () => {
+    const cpStartBtn = document.createElement("button");
+    const controller = createCoopRoomController({
+      elements: {
+        cpPlayerList: document.createElement("div"),
+        cpRoomMeta: document.createElement("div"),
+        cpStartBtn,
+        lbFriendInvite: document.createElement("div"),
+        lbFriends: document.createElement("div"),
+        lbLeaderboard: document.createElement("div"),
+        lbDevTesting: document.createElement("div"),
+        lbMain: document.createElement("div"),
+        lbProfile: document.createElement("div"),
+        lbRoom: document.createElement("div"),
+        lbSolo: document.createElement("div"),
+      },
+      storage: {
+        lastRoomKey: "last-room",
+        legacyLastRoomKey: "legacy-last-room",
+        nameKey: roomId => `room.${roomId}.name`,
+        legacyNameKey: roomId => `legacy.room.${roomId}.name`,
+        playerKey: roomId => `room.${roomId}.player`,
+      },
+      getAuthInfo: () => ({ user: { username: "mirko" } }),
+      getCoop: () => ({ selectingOpponent: false }),
+      hideModelLoading: vi.fn(),
+      showModelLoading: vi.fn(),
+      renderCoopInviteFriends: vi.fn(),
+    });
+
+    controller.renderLobby([
+      { name: "mirko", connected: true, maiaReady: true, unlockedCount: 3 },
+      { name: "lena", connected: true, maiaReady: false, unlockedCount: 2 },
+    ], 0);
+
+    expect(cpStartBtn.style.display).toBe("inline");
+    expect(cpStartBtn.disabled).toBe(false);
+    expect(cpStartBtn.textContent).toBe("Choose opponent");
+    expect(cpStartBtn.title).toContain("once every connected player is ready");
+  });
+
+  it("blocks starting a co-op game before a partner joins", () => {
+    const send = vi.fn();
+    const showStartBlocked = vi.fn();
+    const coop = {
+      phase: "lobby",
+      myIdx: 0,
+      players: [{ name: "mirko", connected: true }],
+      ws: { send },
+    };
+    const controller = createCoopActionsController({
+      getConnection: () => null,
+      getCoop: () => coop,
+      getElo: () => 900,
+      getGameOver: () => false,
+      getFen: () => "start-fen",
+      getMaiaReady: () => true,
+      getOpponentSelectionReadonly: () => false,
+      getSoloStartDisabled: () => false,
+      requestModelDownload: vi.fn(),
+      showCoopBotSelection: vi.fn(),
+      showModelLoading: vi.fn(),
+      showStartBlocked,
+    });
+
+    controller.startWithSelectedBot();
+
+    expect(send).not.toHaveBeenCalled();
+    expect(showStartBlocked).toHaveBeenCalledWith("Invite at least one friend before starting a co-op game.");
   });
 });

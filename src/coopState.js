@@ -17,5 +17,6 @@ export function createInitialCoopState() {
     leaving: false,
     reconnectTimer: null,
     reconnectAttempts: 0,
+    syncTimer: null,
   };
 }

@@ -1773,6 +1773,13 @@ function broadcastRoom(room) {
   broadcast(room, (wsId, idx) => roomState(room, wsId, idx));
 }
 
+function sendRoomState(room, playerId) {
+  const player = room.players.get(playerId);
+  const myIdx = room.order.indexOf(playerId);
+  if (!player?.connected || player.ws?.readyState !== 1 || myIdx < 0) return;
+  player.ws.send(JSON.stringify(roomState(room, playerId, myIdx)));
+}
+
 function removeLobbyPlayer(room, playerId) {
   if (!room || room.phase !== "lobby" || room.hostPlayerId === playerId) return false;
   const player = room.players.get(playerId);
@@ -1858,6 +1865,7 @@ function attachWebSocketHandlers() {
         currentPlayerId = playerId;
         persistRooms();
         ws.send(JSON.stringify({ type: "created", roomId, playerId }));
+        sendRoomState(room, playerId);
         broadcastRoom(room);
         break;
       }
@@ -1873,7 +1881,13 @@ function attachWebSocketHandlers() {
           ws.send(JSON.stringify({ type: "error", message: "Room not found" }));
           return;
         }
-        const playerIdByToken = msg.playerId && room.players.has(msg.playerId) ? msg.playerId : null;
+        const playerIdByToken = (() => {
+          if (!msg.playerId || !room.players.has(msg.playerId)) return null;
+          const tokenPlayer = room.players.get(msg.playerId);
+          if (user?.id && tokenPlayer?.userId && tokenPlayer.userId !== user.id) return null;
+          if (!user?.id && tokenPlayer?.name && normalizePlayerName(tokenPlayer.name) !== normalizePlayerName(msg.name)) return null;
+          return msg.playerId;
+        })();
         const playerIdByUser = findPlayerIdByUser(room, user?.id);
         const playerIdByName = findPlayerIdByName(room, msg.name);
         const returningPlayerId = playerIdByToken || playerIdByUser || playerIdByName;
@@ -1902,17 +1916,24 @@ function attachWebSocketHandlers() {
           lastSeen: Date.now(),
         });
         if (!room.order.includes(playerId)) room.order.push(playerId);
+        const acceptedInvite = user?.id ? db.prepare(`
+          SELECT inviter_id
+          FROM room_invites
+          WHERE room_id = ? AND invitee_id = ? AND status = 'pending'
+        `).get(room.id, user.id) : null;
         if (user?.id) {
-          db.prepare(`
+          const acceptResult = db.prepare(`
             UPDATE room_invites
             SET status = 'accepted', responded_at = ?
             WHERE room_id = ? AND invitee_id = ? AND status = 'pending'
           `).run(Date.now(), room.id, user.id);
+          if (acceptResult.changes) notifyUser(acceptedInvite?.inviter_id);
         }
         currentRoomId = msg.roomId;
         currentPlayerId = playerId;
         persistRooms();
         ws.send(JSON.stringify({ type: "joined", roomId: room.id, playerId }));
+        sendRoomState(room, playerId);
         broadcastRoom(room);
         break;
       }
@@ -1931,6 +1952,13 @@ function attachWebSocketHandlers() {
         room.updatedAt = Date.now();
         persistRooms();
         broadcastRoom(room);
+        break;
+      }
+
+      case "sync": {
+        const room = rooms.get(currentRoomId);
+        if (!room || !currentPlayerId) return;
+        sendRoomState(room, currentPlayerId);
         break;
       }
 
@@ -1958,6 +1986,18 @@ function attachWebSocketHandlers() {
       case "start": {
         const room = rooms.get(currentRoomId);
         if (!room || room.hostPlayerId !== currentPlayerId || room.phase !== "lobby") return;
+        const connectedPlayers = room.order
+          .map(id => room.players.get(id))
+          .filter(player => player?.connected);
+        if (connectedPlayers.length < 2) {
+          ws.send(JSON.stringify({
+            type: "error",
+            code: "coop-partner-required",
+            message: "Invite at least one friend before starting a co-op game.",
+          }));
+          broadcastRoom(room);
+          return;
+        }
         const waitingFor = room.order
           .map(id => room.players.get(id))
           .filter(player => player && !player.maiaReady)

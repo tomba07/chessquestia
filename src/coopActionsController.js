@@ -10,6 +10,7 @@ export function createCoopActionsController({
   requestModelDownload,
   showCoopBotSelection,
   showModelLoading,
+  showStartBlocked = () => {},
 }) {
   function room() {
     return getCoop();
@@ -42,12 +43,18 @@ export function createCoopActionsController({
 
   function startWithSelectedBot() {
     const coop = room();
+    const connectedPlayers = (coop?.players || []).filter(player => player.connected);
     if (
       getOpponentSelectionReadonly()
       || getSoloStartDisabled()
       || coop?.phase !== "lobby"
       || coop.myIdx !== 0
     ) {
+      return;
+    }
+
+    if (connectedPlayers.length < 2) {
+      showStartBlocked("Invite at least one friend before starting a co-op game.");
       return;
     }
 

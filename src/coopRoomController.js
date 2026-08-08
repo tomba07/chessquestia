@@ -76,15 +76,21 @@ export function createCoopRoomController({
 
   function renderLobby(players, myIdx) {
     const coop = getCoop();
+    const authInfo = getAuthInfo();
+    const fallbackName = authInfo.user?.username || authInfo.user?.name || authInfo.user?.email || "Player";
+    const lobbyPlayers = players?.length
+      ? players
+      : [{ name: fallbackName, connected: true, maiaReady: false, unlockedCount: 1 }];
+    const effectiveMyIdx = players?.length ? myIdx : 0;
     cpPlayerList.innerHTML = "";
-    players.forEach((player, i) => {
+    lobbyPlayers.forEach((player, i) => {
       const row = document.createElement("div");
       row.className = "player-row";
 
       const name = document.createElement("div");
       name.className = "player-name";
       const unlocked = Number(player.unlockedCount || 1);
-      name.textContent = `${player.name}${i === myIdx ? " (you)" : ""} · ${unlocked} bot${unlocked === 1 ? "" : "s"}`;
+      name.textContent = `${player.name}${i === effectiveMyIdx ? " (you)" : ""} · ${unlocked} bot${unlocked === 1 ? "" : "s"}`;
 
       const status = document.createElement("div");
       const statusText = player.connected
@@ -99,24 +105,24 @@ export function createCoopRoomController({
       cpPlayerList.appendChild(row);
     });
 
-    const host = myIdx === 0;
-    const ready = allPlayersReady(players);
-    const connectedPlayers = players.filter(player => player.connected);
+    const host = effectiveMyIdx === 0;
+    const ready = allPlayersReady(lobbyPlayers);
+    const connectedPlayers = lobbyPlayers.filter(player => player.connected);
     const hasCoopPartner = connectedPlayers.length >= 2;
-    const canOpenSelection = ready && hasCoopPartner && (host || coop.selectingOpponent);
-    const playerCount = `${players.length} player${players.length === 1 ? "" : "s"}`;
-    const hostName = players[0]?.name || "Host";
+    const canOpenSelection = host || coop.selectingOpponent;
+    const playerCount = `${lobbyPlayers.length} player${lobbyPlayers.length === 1 ? "" : "s"}`;
+    const hostName = lobbyPlayers[0]?.name || "Host";
     cpRoomMeta.textContent = host ? `${playerCount} · You are host` : `${playerCount} · Host: ${hostName}`;
     cpStartBtn.style.display = "inline";
     cpStartBtn.disabled = !canOpenSelection;
     cpStartBtn.textContent = host
-      ? ready && hasCoopPartner ? "Choose opponent" : "Waiting for players"
+      ? "Choose opponent"
       : coop.selectingOpponent ? "See host's selection" : "Host will choose opponent";
-    cpStartBtn.title = !hasCoopPartner
-      ? "Invite at least one friend before choosing an opponent."
-      : ready
+    cpStartBtn.title = ready
+      ? hasCoopPartner
         ? host || coop.selectingOpponent ? "" : "The host will choose the opponent."
-        : "The game is still preparing on one or more devices.";
+        : "You can choose the opponent now. Invite at least one friend before starting."
+      : "You can choose the opponent now. The game can start once every connected player is ready.";
     if (ready || !host) hideModelLoading();
     else showModelLoading("Preparing game...");
     renderCoopInviteFriends();
