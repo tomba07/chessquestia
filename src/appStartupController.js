@@ -20,6 +20,7 @@ export function createAppStartupController({
   loadInviteNotifications,
   onInvitePollTimer,
   promptSignIn,
+  resumeCoopRoom,
   route,
   showAuthView,
   showDevTestingView,
@@ -47,7 +48,7 @@ export function createAppStartupController({
     }
 
     if (route.roomId) {
-      requireAuth(() => connectCoop("join", { roomId: route.roomId }));
+      requireAuth(() => resumeCoopRoom(route.roomId));
     } else if (route.incomingFriendUsername) {
       await loadFriendInviteLanding();
     } else if (route.demoGame === "snib") {

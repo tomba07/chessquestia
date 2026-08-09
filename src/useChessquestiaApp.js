@@ -22,6 +22,7 @@ import {
 import { createBoardController } from "./boardController.js";
 import { createBotMoveController } from "./botMoveController.js";
 import { createInitialCoopState } from "./coopState.js";
+import { createCoopSessionController } from "./coopSessionController.js";
 import { createCoopTransportController } from "./coopTransportController.js";
 import { createCoopUiControllers } from "./coopUiControllers.js";
 import { createGameOverController } from "./gameOverController.js";
@@ -774,6 +775,13 @@ export function useChessquestiaApp() {
     coopTransport?.leave();
   }
 
+  const coopSession = createCoopSessionController({
+    apiJson,
+    connectCoop,
+    showPlayView,
+    storedPlayerId: coopRoom.storedPlayerId,
+  });
+
   const startup = createAppStartupController({
     connectCoop,
     getAuthInfo: () => authInfo,
@@ -781,6 +789,7 @@ export function useChessquestiaApp() {
     loadInviteNotifications: socialBridge.loadInviteNotifications,
     onInvitePollTimer: (timer) => { invitePollTimer = timer; },
     promptSignIn,
+    resumeCoopRoom: coopSession.resumeRoom,
     route: startupRoute,
     showAuthView,
     showFriendsView: socialBridge.showFriendsView,

@@ -4,6 +4,7 @@ import { createCoopConnectionController } from "../src/coopConnectionController.
 import { createCoopInviteController } from "../src/coopInviteController.js";
 import { createCoopMessageController } from "../src/coopMessageController.js";
 import { createCoopRoomController } from "../src/coopRoomController.js";
+import { createCoopSessionController } from "../src/coopSessionController.js";
 import { createInitialCoopState } from "../src/coopState.js";
 
 describe("co-op match statistics", () => {
@@ -43,6 +44,51 @@ describe("co-op match statistics", () => {
 
     expect(send).toHaveBeenLastCalledWith(JSON.stringify({ type: "sync" }));
     controller.dispose();
+  });
+
+  it("resumes a room through the server before opening the co-op socket", async () => {
+    const connectCoop = vi.fn();
+    const controller = createCoopSessionController({
+      apiJson: vi.fn(async (url) => {
+        expect(url).toBe("/api/coop/rooms/room-1/session?playerId=player-1");
+        return {
+          session: {
+            canJoin: true,
+            myPlayerId: "player-1",
+          },
+        };
+      }),
+      connectCoop,
+      showPlayView: vi.fn(),
+      storedPlayerId: () => "player-1",
+    });
+
+    await controller.resumeRoom("room-1");
+
+    expect(connectCoop).toHaveBeenCalledWith("join", {
+      roomId: "room-1",
+      playerId: "player-1",
+    });
+  });
+
+  it("does not open the co-op socket when the server rejects room resume", async () => {
+    const connectCoop = vi.fn();
+    const showPlayView = vi.fn();
+    vi.stubGlobal("alert", vi.fn());
+    const controller = createCoopSessionController({
+      apiJson: vi.fn(async () => {
+        throw new Error("Room not found");
+      }),
+      connectCoop,
+      showPlayView,
+      storedPlayerId: () => "",
+    });
+
+    await controller.resumeRoom("stale-room");
+
+    expect(connectCoop).not.toHaveBeenCalled();
+    expect(showPlayView).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith("Room not found");
   });
 
   it("hydrates server move count and start time from room state", async () => {

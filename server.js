@@ -1769,6 +1769,49 @@ function roomState(room, myPlayerId, myIdx) {
   };
 }
 
+function roomSession(room, user, playerId = null) {
+  const playerIdByToken = (() => {
+    if (!playerId || !room.players.has(playerId)) return null;
+    const tokenPlayer = room.players.get(playerId);
+    if (user?.id && tokenPlayer?.userId && tokenPlayer.userId !== user.id) return null;
+    return playerId;
+  })();
+  const playerIdByUser = findPlayerIdByUser(room, user?.id);
+  const myPlayerId = playerIdByUser || playerIdByToken || null;
+  const myIdx = myPlayerId ? room.order.indexOf(myPlayerId) : -1;
+  const state = roomState(room, myPlayerId, myIdx);
+  const connectedPlayers = state.players.filter(player => player.connected);
+  return {
+    ...state,
+    myPlayerId,
+    myRole: myIdx === 0 ? "host" : myIdx > 0 ? "guest" : "visitor",
+    isMember: myIdx >= 0,
+    canJoin: room.phase === "lobby" || myIdx >= 0,
+    canStart: myIdx === 0 && room.phase === "lobby" && connectedPlayers.length >= 2,
+    canSelectOpponent: myIdx === 0 && room.phase === "lobby",
+  };
+}
+
+app.get("/api/coop/rooms/:roomId/session", (req, res) => {
+  const user = requireApiUser(req, res);
+  if (!user) return;
+
+  const roomId = String(req.params.roomId || "").trim();
+  const room = rooms.get(roomId);
+  if (!room) {
+    res.status(404).json({ error: "Room not found" });
+    return;
+  }
+
+  const session = roomSession(room, user, String(req.query.playerId || ""));
+  if (!session.canJoin) {
+    res.status(403).json({ error: "This game has already started." });
+    return;
+  }
+
+  res.json({ session });
+});
+
 function broadcastRoom(room) {
   broadcast(room, (wsId, idx) => roomState(room, wsId, idx));
 }
