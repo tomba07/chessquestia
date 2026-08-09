@@ -19,12 +19,25 @@ export function createGameStatusController({
     }
 
     if (coop.midTurn) {
+      const activePlayer = coop.players?.[coop.activeIdx];
+      if (activePlayer?.reconnecting || activePlayer?.connected === false) {
+        set(`${activePlayer?.name || "Player"} reconnecting...`, "thinking");
+        return;
+      }
       const opponentName = getCurrentOpponent()?.shortName || "Opponent";
       set(`${opponentName}'s turn`, "thinking");
       return;
     }
 
     const activePlayer = coop.players?.[coop.activeIdx];
+    if (activePlayer?.reconnecting) {
+      set(`${activePlayer.name || "Player"} reconnecting...`, "thinking");
+      return;
+    }
+    if (activePlayer?.connected === false) {
+      set(`${activePlayer.name || "Player"} offline`, "thinking");
+      return;
+    }
     set(`${activePlayer?.name || "Player"}'s turn`);
   }
 

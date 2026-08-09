@@ -50,6 +50,7 @@ const localAuthEnabled = process.env.LOCAL_AUTH === "1" || (isDev && process.env
 const devTestingEnabled = process.env.DEV_TESTING === "1" || (isDev && process.env.DEV_TESTING !== "0");
 const schoolAuthEnabled = process.env.SCHOOL_AUTH !== "0";
 const authEnabled = googleAuthEnabled || localAuthEnabled || schoolAuthEnabled;
+const PLAYER_RECONNECT_GRACE_MS = parseInt(process.env.PLAYER_RECONNECT_GRACE_MS || "30000", 10);
 const configuredAdminEmails = new Set([
   "ditesch@gmail.com",
   "mirko.teschke@gmail.com",
@@ -1692,6 +1693,7 @@ function loadRooms() {
           name: savedPlayer.name,
           ws: null,
           connected: false,
+          reconnecting: false,
           maiaReady: !!savedPlayer.maia_ready,
           unlockedCount: normalizeUnlockedOpponentCount(savedPlayer.unlocked_count),
           lastSeen: savedPlayer.last_seen || Date.now(),
@@ -1744,6 +1746,7 @@ function roomState(room, myPlayerId, myIdx) {
       userId: player.userId || null,
       name: player.name,
       connected: !!player.connected,
+      reconnecting: !!player.reconnecting,
       maiaReady: !!player.maiaReady,
       signedIn: !!player.userId,
       unlockedCount: normalizeUnlockedOpponentCount(player.unlockedCount),
@@ -1823,10 +1826,52 @@ function sendRoomState(room, playerId) {
   player.ws.send(JSON.stringify(roomState(room, playerId, myIdx)));
 }
 
+function clearPlayerReconnectTimer(player) {
+  if (!player?.reconnectTimer) return;
+  clearTimeout(player.reconnectTimer);
+  player.reconnectTimer = null;
+}
+
+function finishPlayerReconnectGrace(roomId, playerId) {
+  const room = rooms.get(roomId);
+  if (!room || room.phase !== "playing") return;
+  const player = room.players.get(playerId);
+  if (!player || player.connected || !player.reconnecting) return;
+  player.reconnecting = false;
+  player.reconnectTimer = null;
+  player.lastSeen = Date.now();
+  room.updatedAt = Date.now();
+  persistRooms();
+  broadcastRoom(room);
+}
+
+function markPlayerDisconnected(room, playerId, { reconnecting = false } = {}) {
+  const player = room?.players.get(playerId);
+  if (!player) return false;
+  clearPlayerReconnectTimer(player);
+  player.connected = false;
+  player.maiaReady = false;
+  player.ws = null;
+  player.reconnecting = reconnecting;
+  player.lastSeen = Date.now();
+  if (reconnecting) {
+    player.reconnectTimer = setTimeout(
+      () => finishPlayerReconnectGrace(room.id, playerId),
+      PLAYER_RECONNECT_GRACE_MS,
+    );
+  }
+  if (room.activeIdx >= room.order.length) room.activeIdx = 0;
+  room.updatedAt = Date.now();
+  persistRooms();
+  broadcastRoom(room);
+  return true;
+}
+
 function removeLobbyPlayer(room, playerId) {
   if (!room || room.phase !== "lobby" || room.hostPlayerId === playerId) return false;
   const player = room.players.get(playerId);
   if (!player) return false;
+  clearPlayerReconnectTimer(player);
   room.players.delete(playerId);
   room.order = room.order.filter(id => id !== playerId);
   if (room.activeIdx >= room.order.length) room.activeIdx = 0;
@@ -1889,6 +1934,7 @@ function attachWebSocketHandlers() {
             name,
             ws,
             connected: true,
+            reconnecting: false,
             maiaReady: !!msg.maiaReady,
             unlockedCount,
             lastSeen: Date.now(),
@@ -1945,6 +1991,7 @@ function attachWebSocketHandlers() {
         }
         const playerId = returningPlayerId || randomUUID();
         const existing = room.players.get(playerId);
+        clearPlayerReconnectTimer(existing);
         if (existing?.ws?.readyState === 1 && existing.ws !== ws)
           existing.ws.close(1000, "Reconnected");
         const unlockedCount = unlockedCountForUserAndClient(user, msg.unlockedOpponentCount || existing?.unlockedCount);
@@ -1954,6 +2001,7 @@ function attachWebSocketHandlers() {
           name: user?.username || user?.name || msg.name || existing?.name || "Player",
           ws,
           connected: true,
+          reconnecting: false,
           maiaReady: !!msg.maiaReady,
           unlockedCount,
           lastSeen: Date.now(),
@@ -2102,15 +2150,7 @@ function attachWebSocketHandlers() {
           return;
         }
         const player = room.players.get(currentPlayerId);
-        if (player) {
-          player.connected = false;
-          player.maiaReady = false;
-          player.ws = null;
-          player.lastSeen = Date.now();
-          room.updatedAt = Date.now();
-          persistRooms();
-          broadcastRoom(room);
-        }
+        if (player) markPlayerDisconnected(room, currentPlayerId, { reconnecting: false });
         currentRoomId = null;
         currentPlayerId = null;
         break;
@@ -2188,14 +2228,7 @@ function attachWebSocketHandlers() {
 
     if (removeLobbyPlayer(room, currentPlayerId)) return;
 
-    player.connected = false;
-    player.maiaReady = false;
-    player.ws = null;
-    player.lastSeen = Date.now();
-    if (room.activeIdx >= room.order.length) room.activeIdx = 0;
-    room.updatedAt = Date.now();
-    persistRooms();
-    broadcastRoom(room);
+    markPlayerDisconnected(room, currentPlayerId, { reconnecting: room.phase === "playing" });
   });
   });
 }

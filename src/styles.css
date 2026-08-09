@@ -3736,6 +3736,7 @@
       backdrop-filter: blur(2px);
     }
     .chip.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .chip.waiting { border-color: rgba(184, 112, 31, 0.42); color: var(--warn); font-weight: 600; }
     .chip.me::after { content: " (you)"; opacity: 0.55; }
 
     .game-controls {

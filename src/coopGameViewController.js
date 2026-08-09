@@ -65,8 +65,9 @@ export function createCoopGameViewController({
       const chip = document.createElement("span");
       chip.className = "chip"
         + (index === activeIdx && !midTurn ? " active" : "")
-        + (index === myIdx ? " me" : "");
-      chip.textContent = player.name;
+        + (index === myIdx ? " me" : "")
+        + (player.reconnecting ? " waiting" : "");
+      chip.textContent = `${player.name}${player.reconnecting ? " reconnecting" : ""}`;
       cpChips.appendChild(chip);
     });
     if (midTurn) {

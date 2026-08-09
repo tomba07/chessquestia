@@ -6,6 +6,7 @@ import { createCoopMessageController } from "../src/coopMessageController.js";
 import { createCoopRoomController } from "../src/coopRoomController.js";
 import { createCoopSessionController } from "../src/coopSessionController.js";
 import { createInitialCoopState } from "../src/coopState.js";
+import { createGameStatusController } from "../src/gameStatusController.js";
 
 describe("co-op match statistics", () => {
   it("polls room state while the co-op lobby is open", () => {
@@ -279,6 +280,56 @@ describe("co-op match statistics", () => {
     controller.reopenLobby();
 
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("shows a reconnecting status when the active co-op player drops during a game", () => {
+    const element = document.createElement("div");
+    const coop = {
+      phase: "playing",
+      activeIdx: 1,
+      myIdx: 0,
+      midTurn: false,
+      players: [
+        { name: "mirko", connected: true },
+        { name: "lena", connected: false, reconnecting: true },
+      ],
+    };
+    const controller = createGameStatusController({
+      element,
+      getCoop: () => coop,
+      getCurrentOpponent: () => ({ shortName: "Snib" }),
+      getMaiaReady: () => true,
+    });
+
+    controller.setCoopTurn();
+
+    expect(element.textContent).toBe("lena reconnecting...");
+    expect(element.className).toBe("thinking");
+  });
+
+  it("shows reconnecting instead of the bot turn when the responsible co-op player drops mid-turn", () => {
+    const element = document.createElement("div");
+    const coop = {
+      phase: "playing",
+      activeIdx: 1,
+      myIdx: 0,
+      midTurn: true,
+      players: [
+        { name: "mirko", connected: true },
+        { name: "lena", connected: false, reconnecting: true },
+      ],
+    };
+    const controller = createGameStatusController({
+      element,
+      getCoop: () => coop,
+      getCurrentOpponent: () => ({ shortName: "Snib" }),
+      getMaiaReady: () => true,
+    });
+
+    controller.setCoopTurn();
+
+    expect(element.textContent).toBe("lena reconnecting...");
+    expect(element.className).toBe("thinking");
   });
 
   it("shows the host button to choose an opponent before a partner joins", () => {
