@@ -6810,9 +6810,10 @@
       position: static;
       display: block;
       margin: 0;
-      width: 78%;
-      max-height: 98%;
-      height: auto;
+      width: auto;
+      max-width: none;
+      height: var(--opponent-art-height, 100%);
+      max-height: none;
       flex: 0 1 auto;
       object-fit: contain;
       object-position: center bottom;
