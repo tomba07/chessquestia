@@ -6859,3 +6859,55 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.7),
         0 8px 18px rgba(58, 37, 18, 0.12);
     }
+
+    /* Leaderboard opponent cards follow the main bot-card treatment. */
+    .leaderboard-opponents {
+      gap: 12px;
+      padding: 0 0 4px;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .leaderboard-opponent {
+      min-width: 126px;
+      flex-basis: 126px;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(92, 67, 37, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 244, 216, 0.92);
+      color: var(--cq-walnut);
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .leaderboard-opponent-art-wrap {
+      width: 100%;
+      height: 82px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 7px;
+      background:
+        radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.56), transparent 52%),
+        #efe0ba;
+      pointer-events: none;
+    }
+
+    .leaderboard-opponent img {
+      width: auto;
+      height: 106%;
+      max-width: none;
+      object-fit: contain;
+      object-position: center bottom;
+      filter: drop-shadow(0 8px 9px rgba(41, 25, 12, 0.24));
+    }
+
+    .leaderboard-opponent.active {
+      border-color: rgba(185, 133, 58, 0.54);
+      background: rgba(255, 244, 216, 0.92);
+      box-shadow: inset 0 0 0 1px rgba(185, 133, 58, 0.18);
+    }

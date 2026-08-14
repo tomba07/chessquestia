@@ -71,7 +71,9 @@ export function createLeaderboardController({
         data-leaderboard-opponent="${opponent.theme}"
         aria-pressed="${opponent.theme === opponentKey}"
       >
-        <img src="/assets/bots/${opponent.talkPortrait}" alt="" />
+        <span class="leaderboard-opponent-art-wrap" aria-hidden="true">
+          <img src="/assets/bots/${opponent.talkPortrait}" alt="" />
+        </span>
         <span>${opponent.shortName || opponent.name}</span>
       </button>
     `).join("");
