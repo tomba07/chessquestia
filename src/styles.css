@@ -6751,15 +6751,19 @@
     }
 
     /* Card art frames */
+    #lb-main .home-copy,
     #lb-main .mode-card {
-      border: 0;
+      border: 1px solid rgba(92, 67, 37, 0.2);
       border-radius: 8px;
       background: rgba(255, 244, 216, 0.92);
       box-shadow: 0 10px 24px rgba(54, 39, 22, 0.12);
     }
 
     .opponent-card {
+      border: 1px solid rgba(92, 67, 37, 0.2);
+      border-radius: 8px;
       background: rgba(255, 244, 216, 0.92);
+      box-shadow: 0 10px 24px rgba(54, 39, 22, 0.12);
     }
 
     #lb-main .mode-card::before {
