@@ -6815,6 +6815,10 @@
       transform: none;
     }
 
+    .opponent-card.locked .opponent-card-art {
+      filter: blur(5px) saturate(0.75) opacity(0.62);
+    }
+
     .opponent-card-copy,
     .opponent-locked-copy {
       z-index: 2;
