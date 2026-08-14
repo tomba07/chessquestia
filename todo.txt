@@ -1,3 +1,8 @@
+- medals/unlocks
+ - games won
+ - streak
+ - bots beaten
+- player levels & unlocks
 - current player indication
 - coop: selected piece highlight
 - timer
@@ -8,5 +13,4 @@
 - badges / awards
 - post game analysis
 - player rating
-- player levels & unlocks
 - char specific locked cards
