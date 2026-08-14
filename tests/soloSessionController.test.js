@@ -35,7 +35,7 @@ function createController(overrides = {}) {
 }
 
 describe("solo session progression", () => {
-  it("uses the greater of local and server progress", () => {
+  it("uses local progress for guests and applies co-op shared unlocks", () => {
     localStorage.setItem(STORAGE_KEYS.soloProgressKey, JSON.stringify({ unlocked: 3 }));
     const { controller } = createController({
       authInfo: { user: null, soloProgress: { unlockedOpponentCount: 2 } },
@@ -45,6 +45,19 @@ describe("solo session progression", () => {
 
     expect(controller.readProgress()).toBe(3);
     expect(controller.unlockedCountForMode({ setupMode: "coop", coopMaxUnlocked: 4 })).toBe(4);
+  });
+
+  it("uses server progress for signed-in users so admin resets can lower unlocks", () => {
+    localStorage.setItem(STORAGE_KEYS.soloProgressKey, JSON.stringify({ unlocked: 5 }));
+    const { controller, onProgressChanged } = createController({
+      authInfo: { user: { id: "mirko" }, soloProgress: { unlockedOpponentCount: 3 } },
+    });
+
+    controller.syncProgressFromAuth();
+
+    expect(controller.readProgress()).toBe(3);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.soloProgressKey)).unlocked).toBe(3);
+    expect(onProgressChanged).toHaveBeenCalled();
   });
 
   it("unlocks the next opponent once and persists authenticated progress", () => {

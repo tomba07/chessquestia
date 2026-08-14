@@ -47,7 +47,9 @@ export function createSoloSessionController({
   }
 
   function readProgress() {
-    return Math.max(readLocalProgress(), serverUnlockedOpponentCount);
+    if (getAuthInfo().user)
+      return clampProgress(Math.max(unlockedOpponentCount, serverUnlockedOpponentCount));
+    return readLocalProgress();
   }
 
   function updateServerProgress(unlocked) {
@@ -77,13 +79,13 @@ export function createSoloSessionController({
   function syncProgressFromAuth() {
     const authInfo = getAuthInfo();
     serverUnlockedOpponentCount = clampProgress(authInfo.soloProgress?.unlockedOpponentCount || 1);
-    const localUnlocked = readLocalProgress();
-    if (authInfo.user && localUnlocked > serverUnlockedOpponentCount) {
-      serverUnlockedOpponentCount = localUnlocked;
-      updateServerProgress(localUnlocked);
-    } else if (serverUnlockedOpponentCount > localUnlocked) {
+    if (authInfo.user) {
+      unlockedOpponentCount = serverUnlockedOpponentCount;
       writeLocalProgress(serverUnlockedOpponentCount);
+      onProgressChanged();
+      return;
     }
+    unlockedOpponentCount = readLocalProgress();
   }
 
   function unlockedCountForMode({ setupMode, coopMaxUnlocked = 1 }) {

@@ -271,17 +271,28 @@ function soloProgressForUserId(userId) {
   return { unlockedOpponentCount: normalizeUnlockedOpponentCount(row?.unlocked_count || 1) };
 }
 
-function setUserUnlockedOpponentCount(userId, unlockedCount) {
+function upsertUserUnlockedOpponentCount(userId, unlockedCount, { allowDecrease = false } = {}) {
   if (!userId) return soloProgressForUserId(userId);
   const normalized = normalizeUnlockedOpponentCount(unlockedCount);
+  const updateExpression = allowDecrease
+    ? "excluded.unlocked_count"
+    : "MAX(user_progress.unlocked_count, excluded.unlocked_count)";
   db.prepare(`
     INSERT INTO user_progress (user_id, unlocked_count, updated_at)
     VALUES (?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET
-      unlocked_count = MAX(user_progress.unlocked_count, excluded.unlocked_count),
+      unlocked_count = ${updateExpression},
       updated_at = excluded.updated_at
   `).run(userId, normalized, Date.now());
   return soloProgressForUserId(userId);
+}
+
+function setUserUnlockedOpponentCount(userId, unlockedCount) {
+  return upsertUserUnlockedOpponentCount(userId, unlockedCount);
+}
+
+function forceUserUnlockedOpponentCount(userId, unlockedCount) {
+  return upsertUserUnlockedOpponentCount(userId, unlockedCount, { allowDecrease: true });
 }
 
 function seededProgressForEmail(email) {
@@ -1149,6 +1160,35 @@ app.delete("/api/admin/test-users/:id", (req, res) => {
     return;
   }
   res.json({ message: "Account deleted." });
+});
+
+app.patch("/api/admin/solo-progress", (req, res) => {
+  const admin = requireAdminUser(req, res);
+  if (!admin) return;
+
+  const userId = String(req.body?.userId || req.body?.user_id || "").trim();
+  const username = normalizeUsername(req.body?.username);
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const unlockedCount = req.body?.unlockedOpponentCount ?? req.body?.unlocked;
+  const target = userId
+    ? db.prepare("SELECT * FROM users WHERE id = ?").get(userId)
+    : username
+      ? db.prepare("SELECT * FROM users WHERE username = ?").get(username)
+      : email
+        ? db.prepare("SELECT * FROM users WHERE LOWER(email) = ?").get(email)
+        : null;
+
+  if (!target) {
+    res.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  const soloProgress = forceUserUnlockedOpponentCount(target.id, unlockedCount);
+  res.json({
+    user: publicUser(userFromRow(target)),
+    soloProgress,
+    message: `${target.username || target.name || "Player"} now has ${soloProgress.unlockedOpponentCount} opponent${soloProgress.unlockedOpponentCount === 1 ? "" : "s"} unlocked.`,
+  });
 });
 
 app.patch("/api/solo-progress", (req, res) => {

@@ -74,7 +74,7 @@ export function createOutcomeScreen({
     setResultBadge(timeBestEl, "");
     unlockNameEl.textContent = "";
     if (unlockCardEl) {
-      unlockCardEl.src = "/assets/cards/locked_card.png";
+      unlockCardEl.src = "/assets/bots/snib/talk.png";
       unlockCardEl.alt = "";
     }
   }
@@ -114,7 +114,7 @@ export function createOutcomeScreen({
     unlockEl.hidden = false;
     unlockNameEl.textContent = opponent.name;
     if (unlockCardEl) {
-      unlockCardEl.src = opponent.card ? `/assets/cards/${opponent.card}` : "/assets/cards/locked_card.png";
+      unlockCardEl.src = `/assets/bots/${opponent.theme || "snib"}/talk.png`;
       unlockCardEl.alt = "";
     }
     challengeBtn.hidden = !getCanChallengeUnlockedOpponent();

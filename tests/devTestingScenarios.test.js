@@ -25,7 +25,7 @@ function createDeps({ coopPhase = "off" } = {}) {
     hideOutcomeBanner: vi.fn(),
     opponents: [
       { elo: 500, theme: "snib" },
-      { name: "Muckroot", card: "muckroot_card.png" },
+      { name: "Muckroot", theme: "muckroot" },
     ],
     setSelectedOpponent: vi.fn(),
     setSetupMode: vi.fn(),

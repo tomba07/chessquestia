@@ -69,7 +69,7 @@ export function createOpponentSelectionController({
       card.classList.toggle("locked", !unlocked);
       card.classList.toggle("readonly", unlocked && readonly);
       card.setAttribute("aria-disabled", disabled ? "true" : "false");
-      if (art) art.src = unlocked ? card.dataset.unlockedSrc : "/assets/cards/locked_card.png";
+      if (art) art.src = card.dataset.unlockedSrc;
     });
     return unlockedOpponentCount;
   }

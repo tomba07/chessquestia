@@ -4,7 +4,6 @@ export function createBotSplash({ elements, getCurrentOpponent }) {
   const {
     botSplashEl,
     botSplashArt,
-    botSplashBanner,
     botSplashName,
     botSplashText,
     botSplashStrength,
@@ -16,24 +15,14 @@ export function createBotSplash({ elements, getCurrentOpponent }) {
   let botSplashAutoTimer = null;
   let botSplashMode = null;
 
-  function isMobileSplashViewport() {
-    return window.matchMedia?.("(max-width: 860px), (orientation: portrait)")?.matches;
-  }
-
-  function splashImageForOpponent(opponent, mobile = isMobileSplashViewport()) {
-    return `/assets/splash/${mobile ? "mobile" : "desktop"}/${opponent?.theme || "snib"}_splash.png`;
-  }
-
-  function splashBannerImage(mobile = isMobileSplashViewport()) {
-    return mobile ? "/assets/splash/ui/banner_mobile.png" : "/assets/splash/ui/banner.png";
+  function splashImageForOpponent(opponent) {
+    return `/assets/backgrounds/${opponent?.theme || "snib"}_splash.png`;
   }
 
   function renderBotSplashStrength(rank = 1) {
     botSplashStrength.innerHTML = "";
     Array.from({ length: 5 }, (_, index) => {
-      const icon = document.createElement("img");
-      icon.src = "/assets/splash/ui/strength_icon.png";
-      icon.alt = "";
+      const icon = document.createElement("span");
       icon.className = index < rank ? "filled" : "";
       botSplashStrength.appendChild(icon);
     });
@@ -97,9 +86,8 @@ export function createBotSplash({ elements, getCurrentOpponent }) {
       clearBotSplashAutoTimer();
       botSplashBeforeFade = beforeFade;
       botSplashMode = mode;
-      const mobileSplash = isMobileSplashViewport();
-      botSplashArt.src = splashImageForOpponent(opponent, mobileSplash);
-      botSplashBanner.src = splashBannerImage(mobileSplash);
+      botSplashEl.dataset.theme = opponent.theme || "snib";
+      botSplashArt.src = splashImageForOpponent(opponent);
       botSplashName.textContent = opponent.name;
       botSplashText.textContent = opponent.splashText || opponent.concept || "";
       renderBotSplashStrength(opponent.rank);

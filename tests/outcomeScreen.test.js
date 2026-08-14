@@ -53,8 +53,8 @@ function createController({
 } = {}) {
   const elements = createElements();
   const opponents = [
-    { name: "Snib", card: "snib_card.png", splashText: "Cellar menace" },
-    { name: "Muckroot", card: "muckroot_card.png", splashText: "Bog trickster" },
+    { name: "Snib", theme: "snib", splashText: "Cellar menace" },
+    { name: "Muckroot", theme: "muckroot", splashText: "Bog trickster" },
   ];
   const controller = createOutcomeScreen({
     elements,
@@ -90,7 +90,7 @@ describe("outcome screen", () => {
     expect(elements.timeBestEl.hidden).toBe(true);
     expect(elements.unlockEl.hidden).toBe(false);
     expect(elements.unlockNameEl.textContent).toBe("Muckroot");
-    expect(elements.unlockCardEl.getAttribute("src")).toBe("/assets/cards/muckroot_card.png");
+    expect(elements.unlockCardEl.getAttribute("src")).toBe("/assets/bots/muckroot/talk.png");
     expect(elements.challengeBtn.hidden).toBe(false);
     expect(elements.challengeBtn.dataset.opponentIndex).toBe("1");
   });

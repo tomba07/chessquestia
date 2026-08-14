@@ -26,14 +26,14 @@ function SideMenu() {
   return (
     <nav className="side-menu" aria-label="Main navigation">
       <div className="side-brand">Chessquestia</div>
-      <button id="nav-play" className="side-link active" type="button"><img className="nav-icon" src="/assets/icons/home-icon.png" alt="" />Home</button>
-      <button id="nav-profile" className="side-link" type="button"><img className="nav-icon" src="/assets/icons/profile-icon.png" alt="" />Profile</button>
+      <button id="nav-play" className="side-link active" type="button"><span className="nav-icon" aria-hidden="true">H</span>Home</button>
+      <button id="nav-profile" className="side-link" type="button"><span className="nav-icon" aria-hidden="true">P</span>Profile</button>
       <button id="nav-friends" className="side-link" type="button">
-        <img className="nav-icon" src="/assets/icons/friends-icon.png" alt="" />Friends
+        <span className="nav-icon" aria-hidden="true">F</span>Friends
         <span id="notification-badge" className="notification-badge" hidden>0</span>
       </button>
       <button id="nav-leaderboard" className="side-link" type="button" aria-label="Leaderboard">
-        <img className="nav-icon" src="/assets/icons/leaderboard-icon.png" alt="" />
+        <span className="nav-icon" aria-hidden="true">R</span>
         <span className="nav-label-desktop">Leaderboard</span>
         <span className="nav-label-mobile" aria-hidden="true">Ranks</span>
       </button>
@@ -45,23 +45,26 @@ function PlayPanel() {
   return (
     <div id="lb-main" className="lobby-section lobby-panel">
       <div className="home-copy">
-        <div>Welcome back,</div>
+        <div className="home-eyebrow">Welcome back</div>
         <strong id="welcome-name">Wanderer</strong>
-        <span className="home-divider" aria-hidden="true"></span>
         <p>{randomHomeGreeting()}</p>
       </div>
       <div className="mode-grid">
         <button id="play-solo-btn" className="mode-card" type="button">
-          <img src="/assets/buttons/solo_button.png" alt="" />
+          <span className="mode-card-art-wrap" aria-hidden="true">
+            <img className="mode-card-art" src="/assets/misc/solo.png" alt="" />
+          </span>
           <span className="mode-card-copy">
-            <strong><img className="mode-title-icon" src="/assets/icons/solo_icon.png" alt="" />Solo</strong>
+            <strong>Solo</strong>
             <span>Challenge AI opponents and sharpen your skills.</span>
           </span>
         </button>
         <button id="play-coop-btn" className="mode-card" type="button">
-          <img src="/assets/buttons/coop_button.png" alt="" />
+          <span className="mode-card-art-wrap" aria-hidden="true">
+            <img className="mode-card-art" src="/assets/misc/coop.png" alt="" />
+          </span>
           <span className="mode-card-copy">
-            <strong><img className="mode-title-icon" src="/assets/icons/coop-icon.png" alt="" />Co-op</strong>
+            <strong>Co-op</strong>
             <span>Team up with friends and play together.</span>
           </span>
         </button>
@@ -81,7 +84,6 @@ function AuthPanel() {
       </div>
       <div className="auth-actions">
         <button id="auth-primary-btn" className="bot-continue-btn auth-primary-btn" type="button">
-          <img src="/assets/icons/submit-icon.png" alt="" />
           <span>Continue with Google</span>
         </button>
         <button id="auth-demo-btn" className="sm-btn auth-demo-btn" type="button">
@@ -110,12 +112,11 @@ function OpponentRank({ rank }) {
   return (
     <span className="opponent-rank" aria-label={`${rank} out of five`}>
       {Array.from({ length: 5 }, (_, index) => (
-        <img
+        <span
           key={index}
           className={index < rank ? "filled" : ""}
-          src="/assets/icons/solo_icon.png"
-          alt=""
-        />
+          aria-hidden="true"
+        ></span>
       ))}
     </span>
   );
@@ -125,7 +126,7 @@ function SinglePlayerSetup() {
   return (
     <div id="lb-solo" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <button id="solo-back-btn" className="bot-back-btn" type="button" aria-label="Back">
-        <img src="/assets/icons/back-icon.png" alt="" />
+        <span aria-hidden="true">←</span>
       </button>
       <div className="bot-select-head">
         <h2 id="bot-select-title">Choose your opponent</h2>
@@ -143,16 +144,18 @@ function SinglePlayerSetup() {
             data-opponent-strength={opponent.elo}
             data-opponent-theme={opponent.theme}
             data-opponent-index={index}
-            data-unlocked-src={`/assets/cards/${opponent.card}`}
+            data-unlocked-src={`/assets/bots/${opponent.theme}/talk.png`}
             aria-pressed="false"
             aria-disabled={index > 0 ? "true" : "false"}
             disabled={index > 0}
           >
-            <img
-              className="opponent-card-art"
-              src={index > 0 ? "/assets/cards/locked_card.png" : `/assets/cards/${opponent.card}`}
-              alt=""
-            />
+            <span className="opponent-card-art-wrap" aria-hidden="true">
+              <img
+                className="opponent-card-art"
+                src={`/assets/bots/${opponent.theme}/talk.png`}
+                alt=""
+              />
+            </span>
             <span className="opponent-card-copy">
               <strong>{opponent.name}</strong>
               <OpponentRank rank={opponent.rank} />
@@ -162,7 +165,6 @@ function SinglePlayerSetup() {
         ))}
       </div>
       <button id="solo-start-btn" className="bot-continue-btn" type="button" disabled>
-        <img src="/assets/icons/submit-icon.png" alt="" />
         <span>Continue</span>
       </button>
     </div>
@@ -338,6 +340,9 @@ function LeaderboardPanel() {
 function CoopRoomPanel() {
   return (
     <div id="lb-room" className="lobby-section lobby-panel" style={{ display: "none" }}>
+      <button id="cp-leave" className="bot-back-btn" type="button" aria-label="Back">
+        <span aria-hidden="true">←</span>
+      </button>
       <div className="panel-head">
         <div className="panel-title">Waiting room</div>
         <span className="home-divider" aria-hidden="true"></span>
@@ -351,7 +356,6 @@ function CoopRoomPanel() {
       </div>
       <div className="lb-btns room-actions">
         <button id="cp-start" className="lb-btn primary" style={{ display: "none" }} type="button">Continue</button>
-        <button id="cp-leave" className="sm-btn" type="button">Leave</button>
       </div>
     </div>
   );
@@ -414,7 +418,7 @@ function GameView() {
   return (
     <div id="game">
       <button id="back-btn" className="game-back-btn" type="button" aria-label="Back to lobby">
-        <img src="/assets/icons/back-icon.png" alt="" />
+        <span aria-hidden="true">←</span>
       </button>
       <div className="game-score-plaque" aria-live="polite">
         <div id="game-score">+0</div>
@@ -439,7 +443,7 @@ function GameView() {
             <div className="outcome-result-row">
               <span className="outcome-result-label">Moves</span>
               <div className="outcome-result-value">
-                <img src="/assets/icons/boot-icon.png" alt="" />
+                <span className="outcome-result-icon" aria-hidden="true">M</span>
                 <strong id="game-outcome-moves">0</strong>
               </div>
               <div id="game-outcome-moves-best" className="outcome-result-best" hidden></div>
@@ -447,7 +451,7 @@ function GameView() {
             <div className="outcome-result-row">
               <span className="outcome-result-label">Time</span>
               <div className="outcome-result-value">
-                <img src="/assets/icons/hourglass-icon.png" alt="" />
+                <span className="outcome-result-icon" aria-hidden="true">T</span>
                 <strong id="game-outcome-time">0:00</strong>
               </div>
               <div id="game-outcome-time-best" className="outcome-result-best" hidden></div>
@@ -457,14 +461,13 @@ function GameView() {
             <div className="outcome-unlock-copy">
               <span className="outcome-unlock-title">New enemy unlocked!</span>
               <strong id="game-outcome-unlock-name"></strong>
-              <img id="game-outcome-unlock-card" className="outcome-unlock-card" src="/assets/cards/locked_card.png" alt="" />
+              <img id="game-outcome-unlock-card" className="outcome-unlock-card" src="/assets/bots/snib/talk.png" alt="" />
               <button id="game-outcome-challenge" className="outcome-challenge-btn" type="button">
                 Challenge Now
               </button>
             </div>
           </section>
           <button id="game-outcome-continue" className="bot-continue-btn game-outcome-continue" type="button">
-            <img src="/assets/buttons/button_simple.png" alt="" />
             <span>Continue</span>
           </button>
         </div>
@@ -513,10 +516,10 @@ function DevTestingButton() {
 function BotSplash() {
   return (
     <div id="bot-splash" className="bot-splash" hidden aria-hidden="true">
-      <img id="bot-splash-art" className="bot-splash-art" src="/assets/splash/desktop/snib_splash.png" alt="" />
+      <img id="bot-splash-art" className="bot-splash-art" src="/assets/backgrounds/snib_splash.png" alt="" />
       <div className="bot-splash-panel">
         <div className="bot-splash-copy" role="dialog" aria-modal="true" aria-labelledby="bot-splash-name">
-          <img id="bot-splash-banner" className="bot-splash-banner" src="/assets/splash/ui/banner.png" alt="" />
+          <div id="bot-splash-banner" className="bot-splash-banner" aria-hidden="true"></div>
           <div className="bot-splash-content">
             <h2 id="bot-splash-name">Snib the Candle Goblin</h2>
             <span className="bot-splash-divider" aria-hidden="true"></span>
@@ -526,7 +529,6 @@ function BotSplash() {
           </div>
         </div>
         <button id="bot-splash-start" className="bot-continue-btn bot-splash-start" type="button">
-          <img src="/assets/icons/submit-icon.png" alt="" />
           <span>Start game</span>
         </button>
       </div>
