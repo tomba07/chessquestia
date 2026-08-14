@@ -1,8 +1,8 @@
-- medals/unlocks
- - games won
- - streak
- - bots beaten
 - player levels & unlocks
+ - have own pieces (maybe bronze, silver, golden pieces etc). Also for PVP each has their own
+- medals/unlocks
+ - streak
+ - chess pieces
 - current player indication
 - coop: selected piece highlight
 - timer
