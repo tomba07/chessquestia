@@ -37,6 +37,9 @@ export function createLeaderboardController({
     leaderboardList,
     leaderboardMetric,
     leaderboardOpponents,
+    achievementsStatsCard,
+    achievementsTotalWins,
+    achievementsDefeatedCount,
     navLeaderboard,
   } = elements;
 
@@ -45,6 +48,11 @@ export function createLeaderboardController({
   let payload = null;
   let loading = false;
   let error = "";
+  let defeatedOpponentKeys = new Set();
+  let totalWins = null;
+  let statsLoaded = false;
+  let statsLoading = false;
+  let statsError = "";
 
   function availableOpponents() {
     const unlockedCount = Math.max(1, Number(getUnlockedOpponentCount?.()) || 1);
@@ -64,19 +72,45 @@ export function createLeaderboardController({
 
   function renderOpponentButtons() {
     normalizeOpponentKey();
-    leaderboardOpponents.innerHTML = availableOpponents().map(opponent => `
+    leaderboardOpponents.innerHTML = availableOpponents().map(opponent => {
+      const active = opponent.theme === opponentKey;
+      const defeated = defeatedOpponentKeys.has(opponent.theme);
+      return `
       <button
-        class="leaderboard-opponent${opponent.theme === opponentKey ? " active" : ""}"
+        class="leaderboard-opponent${active ? " active" : ""}${defeated ? " defeated" : ""}"
         type="button"
         data-leaderboard-opponent="${opponent.theme}"
-        aria-pressed="${opponent.theme === opponentKey}"
+        aria-pressed="${active}"
       >
         <span class="leaderboard-opponent-art-wrap" aria-hidden="true">
           <img src="/assets/bots/${opponent.talkPortrait}" alt="" />
         </span>
-        <span>${opponent.shortName || opponent.name}</span>
+        <span class="leaderboard-opponent-name">${opponent.shortName || opponent.name}</span>
+        <span class="leaderboard-opponent-badges">
+          ${defeated ? `<span class="leaderboard-opponent-badge">Defeated</span>` : ""}
+        </span>
       </button>
-    `).join("");
+    `;
+    }).join("");
+  }
+
+  function renderAchievementStats() {
+    if (!achievementsStatsCard || !achievementsTotalWins) return;
+    const value = statsLoading
+      ? "..."
+      : statsError
+        ? "-"
+        : String(totalWins ?? 0);
+    achievementsTotalWins.textContent = value;
+    if (achievementsDefeatedCount) {
+      achievementsDefeatedCount.textContent = statsLoading
+        ? "..."
+        : statsError
+          ? "-"
+          : String(defeatedOpponentKeys.size);
+    }
+    achievementsStatsCard.classList.toggle("is-loading", statsLoading);
+    achievementsStatsCard.classList.toggle("has-error", !!statsError);
   }
 
   function renderRows() {
@@ -107,13 +141,15 @@ export function createLeaderboardController({
   }
 
   function render() {
+    renderAchievementStats();
     renderOpponentButtons();
     leaderboardMetric.querySelectorAll("[data-leaderboard-metric]").forEach(button => {
       const active = button.dataset.leaderboardMetric === metric;
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
     });
-    lbLeaderboard.querySelector("[data-leaderboard-title]").textContent = selectedOpponent()?.name || "Leaderboard";
+    const title = lbLeaderboard.querySelector("[data-leaderboard-title]");
+    if (title) title.textContent = selectedOpponent()?.name || "Leaderboard";
     renderRows();
   }
 
@@ -133,6 +169,30 @@ export function createLeaderboardController({
     }
   }
 
+  async function loadStats({ force = false } = {}) {
+    if (statsLoading || (statsLoaded && !force)) return;
+    statsLoading = true;
+    statsError = "";
+    renderAchievementStats();
+    try {
+      const stats = await apiJson("/api/game-results/stats");
+      const defeatedOpponents = Array.isArray(stats?.summary?.defeatedOpponents)
+        ? stats.summary.defeatedOpponents
+        : [];
+      defeatedOpponentKeys = new Set(defeatedOpponents.map(result => result.opponentKey).filter(Boolean));
+      totalWins = Number(stats?.summary?.totalWins || 0);
+      statsLoaded = true;
+    } catch (err) {
+      defeatedOpponentKeys = new Set();
+      totalWins = null;
+      statsError = err.message || "Could not load stats.";
+    } finally {
+      statsLoading = false;
+      renderAchievementStats();
+      renderOpponentButtons();
+    }
+  }
+
   function hideOtherSections() {
     [lbAuth, lbFriendInvite, lbFriends, lbLeaderboard, lbDevTesting, lbMain, lbProfile, lbRoom, lbSolo]
       .filter(Boolean)
@@ -149,6 +209,7 @@ export function createLeaderboardController({
     setNavActive("leaderboard");
     hideOtherSections();
     lbLeaderboard.style.display = "flex";
+    loadStats({ force: true });
     load();
   }
 

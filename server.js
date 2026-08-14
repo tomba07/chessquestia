@@ -1255,7 +1255,24 @@ app.get("/api/game-results/stats", (req, res) => {
     ORDER BY mode, result
   `).all();
 
-  res.json({ mine, totals });
+  const totalWins = mine
+    .filter(row => row.result === "victory")
+    .reduce((sum, row) => sum + Number(row.count || 0), 0);
+
+  const defeatedOpponents = db.prepare(`
+    SELECT gr.opponent_key AS opponentKey, MIN(gr.finished_at) AS firstDefeatedAt, COUNT(*) AS wins
+    FROM game_result_players grp
+    JOIN game_results gr ON gr.id = grp.game_result_id
+    WHERE grp.user_id = ?
+      AND grp.result = 'victory'
+      AND gr.result = 'victory'
+      AND gr.opponent_key IS NOT NULL
+      AND gr.opponent_key != ''
+    GROUP BY gr.opponent_key
+    ORDER BY firstDefeatedAt ASC
+  `).all(user.id);
+
+  res.json({ mine, totals, summary: { totalWins, defeatedOpponents } });
 });
 
 app.get("/api/leaderboards", (req, res) => {

@@ -137,6 +137,9 @@ export function getAppElements() {
       leaderboardOpponents: byId("leaderboard-opponents"),
       leaderboardMetric: byId("leaderboard-metric"),
       leaderboardList: byId("leaderboard-list"),
+      achievementsStatsCard: byId("achievements-stats-card"),
+      achievementsTotalWins: byId("achievements-total-wins"),
+      achievementsDefeatedCount: byId("achievements-defeated-count"),
     },
   };
 }

@@ -1,3 +1,12 @@
+import {
+  ArrowLeft,
+  Home,
+  Swords,
+  Trophy,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import { SOLO_OPPONENTS } from "../soloOpponents.js";
 
 const HOME_GREETINGS = [
@@ -26,16 +35,16 @@ function SideMenu() {
   return (
     <nav className="side-menu" aria-label="Main navigation">
       <div className="side-brand">Chessquestia</div>
-      <button id="nav-play" className="side-link active" type="button"><span className="nav-icon" aria-hidden="true">H</span>Home</button>
-      <button id="nav-profile" className="side-link" type="button"><span className="nav-icon" aria-hidden="true">P</span>Profile</button>
+      <button id="nav-play" className="side-link active" type="button"><span className="nav-icon" aria-hidden="true"><Home /></span>Home</button>
+      <button id="nav-profile" className="side-link" type="button"><span className="nav-icon" aria-hidden="true"><User /></span>Profile</button>
       <button id="nav-friends" className="side-link" type="button">
-        <span className="nav-icon" aria-hidden="true">F</span>Friends
+        <span className="nav-icon" aria-hidden="true"><Users /></span>Friends
         <span id="notification-badge" className="notification-badge" hidden>0</span>
       </button>
-      <button id="nav-leaderboard" className="side-link" type="button" aria-label="Leaderboard">
-        <span className="nav-icon" aria-hidden="true">R</span>
-        <span className="nav-label-desktop">Leaderboard</span>
-        <span className="nav-label-mobile" aria-hidden="true">Ranks</span>
+      <button id="nav-leaderboard" className="side-link" type="button" aria-label="Achievements">
+        <span className="nav-icon" aria-hidden="true"><Trophy /></span>
+        <span className="nav-label-desktop">Achievements</span>
+        <span className="nav-label-mobile" aria-hidden="true">Goals</span>
       </button>
     </nav>
   );
@@ -126,7 +135,7 @@ function SinglePlayerSetup() {
   return (
     <div id="lb-solo" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <button id="solo-back-btn" className="bot-back-btn" type="button" aria-label="Back">
-        <span aria-hidden="true">←</span>
+        <ArrowLeft aria-hidden="true" />
       </button>
       <div className="bot-select-head">
         <h2 id="bot-select-title">Choose your opponent</h2>
@@ -201,7 +210,9 @@ function FriendAddDialog() {
       <div className="friend-add-dialog" role="dialog" aria-modal="true" aria-labelledby="friend-add-title">
         <div className="friend-add-head">
           <h3 id="friend-add-title">Add friend</h3>
-          <button id="friend-add-close" className="sm-btn" type="button">Close</button>
+          <button id="friend-add-close" className="friend-add-close" type="button" aria-label="Close">
+            <X aria-hidden="true" />
+          </button>
         </div>
         <label className="friend-search-box" htmlFor="friend-search">
           <span>Search username</span>
@@ -319,20 +330,43 @@ function LeaderboardPanel() {
   return (
     <div id="lb-leaderboard" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
-        <div className="panel-title">Leaderboard</div>
+        <div className="panel-title">Achievements</div>
         <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker" data-leaderboard-title>Snib the Candle Goblin</div>
+        <div className="panel-kicker">Progress and rankings</div>
       </div>
-      <div id="leaderboard-opponents" className="leaderboard-opponents"></div>
-      <div id="leaderboard-metric" className="leaderboard-metric" aria-label="Leaderboard metric">
-        <button className="active" type="button" data-leaderboard-metric="fastest" aria-pressed="true">
-          Fastest
-        </button>
-        <button type="button" data-leaderboard-metric="fewestMoves" aria-pressed="false">
-          Fewest moves
-        </button>
-      </div>
-      <div id="leaderboard-list" className="leaderboard-list"></div>
+      <section id="achievements-stats-card" className="profile-stats-card achievements-stats-card" aria-live="polite">
+        <div className="profile-stats-heading">
+          <strong>Your progress</strong>
+          <span>Victories and defeated opponents.</span>
+        </div>
+        <div className="profile-stat-grid">
+          <div className="profile-stat-tile">
+            <Trophy aria-hidden="true" />
+            <span>Total games won</span>
+            <strong id="achievements-total-wins">...</strong>
+          </div>
+          <div className="profile-stat-tile">
+            <Swords aria-hidden="true" />
+            <span>Opponents defeated</span>
+            <strong id="achievements-defeated-count">...</strong>
+          </div>
+        </div>
+      </section>
+      <section className="leaderboard-rankings-card">
+        <div className="leaderboard-rankings-head">
+          <strong>Rankings</strong>
+        </div>
+        <div id="leaderboard-opponents" className="leaderboard-opponents"></div>
+        <div id="leaderboard-metric" className="leaderboard-metric" aria-label="Leaderboard metric">
+          <button className="active" type="button" data-leaderboard-metric="fastest" aria-pressed="true">
+            Fastest
+          </button>
+          <button type="button" data-leaderboard-metric="fewestMoves" aria-pressed="false">
+            Fewest moves
+          </button>
+        </div>
+        <div id="leaderboard-list" className="leaderboard-list"></div>
+      </section>
     </div>
   );
 }
@@ -341,7 +375,7 @@ function CoopRoomPanel() {
   return (
     <div id="lb-room" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <button id="cp-leave" className="bot-back-btn" type="button" aria-label="Back">
-        <span aria-hidden="true">←</span>
+        <ArrowLeft aria-hidden="true" />
       </button>
       <div className="panel-head">
         <div className="panel-title">Waiting room</div>
@@ -418,7 +452,7 @@ function GameView() {
   return (
     <div id="game">
       <button id="back-btn" className="game-back-btn" type="button" aria-label="Back to lobby">
-        <span aria-hidden="true">←</span>
+        <ArrowLeft aria-hidden="true" />
       </button>
       <div className="game-score-plaque" aria-live="polite">
         <div id="game-score">+0</div>
