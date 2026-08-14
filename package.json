@@ -17,6 +17,8 @@
     "deploy:check": "curl -fsS https://chessquestia.mteschke.com/health"
   },
   "dependencies": {
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
     "chess.js": "^1.4.0",
     "chokidar": "^3.6.0",
     "cm-chessboard": "^8.12.8",
