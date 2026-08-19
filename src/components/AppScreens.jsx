@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ArrowRight,
   Home,
   Swords,
   Trophy,
@@ -67,6 +68,7 @@ function PlayPanel() {
             <strong>Solo</strong>
             <span>Challenge AI opponents and sharpen your skills.</span>
           </span>
+          <ArrowRight className="mode-card-arrow" aria-hidden="true" />
         </button>
         <button id="play-coop-btn" className="mode-card" type="button">
           <span className="mode-card-art-wrap" aria-hidden="true">
@@ -76,6 +78,7 @@ function PlayPanel() {
             <strong>Co-op</strong>
             <span>Team up with friends and play together.</span>
           </span>
+          <ArrowRight className="mode-card-arrow" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -87,9 +90,9 @@ function AuthPanel() {
     <div id="lb-auth" className="lobby-section lobby-panel auth-panel" style={{ display: "none" }}>
       <div className="auth-copy">
         <div>Chessquestia</div>
-        <strong>Sign in or sign up</strong>
+        <strong>Welcome!</strong>
         <span className="home-divider" aria-hidden="true"></span>
-        <p>Save progress, unlock opponents, and play co-op with friends.</p>
+        <p>Keep your progress, unlock new rivals, and team up with friends.</p>
       </div>
       <div className="auth-actions">
         <button id="auth-primary-btn" className="bot-continue-btn auth-primary-btn" type="button">

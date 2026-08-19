@@ -46,8 +46,7 @@ export function createSchoolAccountsController({
   }
 
   function renderLogin() {
-    const authInfo = getAuthInfo();
-    schoolLoginForm.hidden = !authInfo.schoolAuthEnabled || !!authInfo.user;
+    schoolLoginForm.hidden = true;
     renderMessage(schoolLoginMessage, state.error);
   }
 
