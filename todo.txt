@@ -1,3 +1,7 @@
+- design
+ - profile screen (rename to settings)
+ - friends screen
+ - goals
 - player levels & unlocks
  - have own pieces (maybe bronze, silver, golden pieces etc). Also for PVP each has their own
 - medals/unlocks
