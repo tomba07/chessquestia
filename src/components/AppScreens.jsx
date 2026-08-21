@@ -1,10 +1,14 @@
 import {
   ArrowLeft,
   ArrowRight,
+  Clipboard,
   Home,
+  Link as LinkIcon,
+  Share2,
   Swords,
   Trophy,
   User,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -186,23 +190,41 @@ function SinglePlayerSetup() {
 function FriendsPanel() {
   return (
     <div id="lb-friends" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
-        <div className="panel-title">Friends</div>
-        <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker">Players</div>
+      <div className="panel-head friends-panel-head">
+        <div>
+          <div className="panel-title">Friends</div>
+          <div className="panel-kicker">Invite players and manage your chess companions.</div>
+        </div>
+        <button className="sm-btn primary-mini friends-add-hero" type="button" data-friend-action="open-add">
+          <UserPlus aria-hidden="true" />
+          <span>Add friend</span>
+        </button>
       </div>
       <div className="friend-link-card">
-        <div className="friend-section-title">Friend link</div>
-        <p>Share this once so someone can add you directly.</p>
+        <div className="friend-link-copy">
+          <span className="friend-link-icon" aria-hidden="true"><LinkIcon /></span>
+          <div>
+            <strong>Share your friend link</strong>
+            <p>Invite friends to join you on Chessquestia.</p>
+          </div>
+        </div>
         <div className="friend-link-actions">
           <input id="friend-invite-link" readOnly />
-          <button id="friend-link-copy" className="sm-btn primary-mini" type="button">Copy</button>
-          <button id="friend-link-share" className="sm-btn" type="button">Share</button>
+          <button id="friend-link-copy" className="sm-btn primary-mini" type="button">
+            <Clipboard aria-hidden="true" />
+            <span>Copy</span>
+          </button>
+          <button id="friend-link-share" className="sm-btn" type="button">
+            <Share2 aria-hidden="true" />
+            <span>Share</span>
+          </button>
         </div>
       </div>
       <div id="friend-message" className="friend-message"></div>
-      <div id="friend-requests" className="friend-section"></div>
-      <div id="friend-list" className="friend-section"></div>
+      <section className="friends-social-card" aria-label="Friend requests and friends">
+        <div id="friend-requests" className="friend-section"></div>
+        <div id="friend-list" className="friend-section"></div>
+      </section>
     </div>
   );
 }
@@ -246,44 +268,56 @@ function ProfilePanel() {
     <div id="lb-profile" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
         <div className="panel-title">Profile</div>
-        <span className="home-divider" aria-hidden="true"></span>
-        <div className="panel-kicker">Identity</div>
+        <div className="panel-kicker">Manage your account and game settings.</div>
       </div>
-      <div className="username-card">
-        <label htmlFor="profile-username">Your username</label>
-        <div className="username-row">
-          <input id="profile-username" minLength="3" maxLength="20" autoCapitalize="none" autoComplete="off" />
-          <button id="username-save" className="sm-btn primary-mini" type="button">Save</button>
+
+      <section className="profile-main-card" aria-label="Account settings">
+        <div className="profile-section">
+          <div className="profile-section-kicker">Account</div>
+          <label htmlFor="profile-username">Username</label>
+          <div className="username-row">
+            <input id="profile-username" minLength="3" maxLength="20" autoCapitalize="none" autoComplete="off" />
+            <button id="username-save" className="sm-btn primary-mini" type="button">Save</button>
+          </div>
+          <p id="username-help">Other players can find you by this name.</p>
         </div>
-        <p id="username-help">Other players can search for this username.</p>
-      </div>
-      <div className="profile-setting-card">
-        <label className="profile-toggle-row" htmlFor="profile-board-toggle">
-          <span>
-            <strong>Chessnut board</strong>
-            <small>Show board connection controls</small>
-          </span>
-          <input id="profile-board-toggle" type="checkbox" />
-        </label>
-      </div>
-      <div id="profile-account-card" className="profile-account-card" style={{ display: "none" }}>
-        <div>
-          <span>Signed in as</span>
-          <strong id="profile-account-name"></strong>
+
+        <div className="profile-section profile-section-board">
+          <div className="profile-section-kicker">Board</div>
+          <div className="profile-setting-card">
+            <label className="profile-toggle-row" htmlFor="profile-board-toggle">
+              <span>
+                <strong>Chessnut board</strong>
+                <small>Show board connection controls.</small>
+              </span>
+              <input id="profile-board-toggle" type="checkbox" />
+            </label>
+          </div>
         </div>
-        <button id="profile-auth-btn" className="sm-btn" type="button"></button>
-      </div>
+
+        <div className="profile-section profile-section-session">
+          <div className="profile-section-kicker">Session</div>
+          <div id="profile-account-card" className="profile-account-card" style={{ display: "none" }}>
+            <div>
+              <span>Signed in as</span>
+              <strong id="profile-account-name"></strong>
+            </div>
+            <button id="profile-auth-btn" className="sm-btn" type="button"></button>
+          </div>
+        </div>
+      </section>
+
       <section id="school-admin-card" className="school-admin-card" hidden>
         <div className="school-admin-heading">
           <div>
-            <strong>Chess club accounts</strong>
-            <span>Create and manage player logins.</span>
+            <strong>Club players</strong>
+            <span>Create additional player accounts for shared or club play.</span>
           </div>
         </div>
         <form id="school-account-create" className="school-account-create">
           <input id="school-account-username" placeholder="Account name" minLength="3" maxLength="20" autoCapitalize="none" autoComplete="off" required />
           <input id="school-account-password" type="password" placeholder="Password" autoComplete="new-password" required />
-          <button id="school-account-create-submit" className="sm-btn primary-mini" type="submit">Create account</button>
+          <button id="school-account-create-submit" className="sm-btn primary-mini" type="submit">Add player</button>
         </form>
         <div id="school-account-message" className="school-account-message" role="status" aria-live="polite"></div>
         <div id="school-account-list" className="school-account-list"></div>

@@ -110,7 +110,6 @@ export function createFriendsController({
       friendListEl.innerHTML = `
         <div class="friend-section-header">
           <div class="friend-section-title">Friends</div>
-          <button class="sm-btn primary-mini friend-add-inline" type="button" data-friend-action="open-add">Add friend</button>
         </div>
         <div class="empty-state friend-empty">Loading friends...</div>
       `;
@@ -120,12 +119,13 @@ export function createFriendsController({
     const friendsHtml = friendState.friends.map(friend => friendRow(
       friend,
       friendMeta(friend),
-      `<button class="sm-btn" type="button" data-friend-action="remove" data-user-id="${escapeHtml(friend.id)}" ${friendState.busyKey === `remove:${friend.id}` ? "disabled" : ""}>Remove</button>`
+      `<div class="friend-actions">
+        <button class="sm-btn" type="button" data-friend-action="remove" data-user-id="${escapeHtml(friend.id)}" ${friendState.busyKey === `remove:${friend.id}` ? "disabled" : ""}>Remove</button>
+      </div>`
     )).join("");
     friendListEl.innerHTML = `
       <div class="friend-section-header">
         <div class="friend-section-title">Friends</div>
-        <button class="sm-btn primary-mini friend-add-inline" type="button" data-friend-action="open-add">Add friend</button>
       </div>
       ${friendsHtml || `<div class="empty-state friend-empty"><div><strong>No friends yet</strong><span>Search for someone who has signed in once.</span></div></div>`}
     `;
