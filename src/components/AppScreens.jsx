@@ -4,10 +4,11 @@ import {
   Clipboard,
   Home,
   Link as LinkIcon,
+  Lock,
+  Settings,
   Share2,
   Swords,
   Trophy,
-  User,
   UserPlus,
   Users,
   X,
@@ -41,7 +42,6 @@ function SideMenu() {
     <nav className="side-menu" aria-label="Main navigation">
       <div className="side-brand">Chessquestia</div>
       <button id="nav-play" className="side-link active" type="button"><span className="nav-icon" aria-hidden="true"><Home /></span>Home</button>
-      <button id="nav-profile" className="side-link" type="button"><span className="nav-icon" aria-hidden="true"><User /></span>Profile</button>
       <button id="nav-friends" className="side-link" type="button">
         <span className="nav-icon" aria-hidden="true"><Users /></span>Friends
         <span id="notification-badge" className="notification-badge" hidden>0</span>
@@ -51,6 +51,7 @@ function SideMenu() {
         <span className="nav-label-desktop">Achievements</span>
         <span className="nav-label-mobile" aria-hidden="true">Goals</span>
       </button>
+      <button id="nav-profile" className="side-link" type="button" aria-label="Settings"><span className="nav-icon" aria-hidden="true"><Settings /></span>Settings</button>
     </nav>
   );
 }
@@ -152,7 +153,12 @@ function SinglePlayerSetup() {
       <input type="hidden" id="strength-slider" defaultValue="1500" />
       <span id="strength-val" className="sr-only">1500</span>
       <div className="opponent-grid" aria-label="Choose your opponent">
-        {SOLO_OPPONENTS.map((opponent, index) => (
+        {SOLO_OPPONENTS.map((opponent, index) => {
+          const previousOpponent = SOLO_OPPONENTS[index - 1];
+          const unlockText = previousOpponent
+            ? `Defeat ${previousOpponent.shortName || previousOpponent.name} to unlock.`
+            : "Defeat more opponents to unlock.";
+          return (
           <button
             key={opponent.elo}
             className={`opponent-card${index > 0 ? " locked" : ""}`}
@@ -165,6 +171,7 @@ function SinglePlayerSetup() {
             aria-disabled={index > 0 ? "true" : "false"}
             disabled={index > 0}
           >
+            <span className="opponent-selected-badge">Selected</span>
             <span className="opponent-card-art-wrap" aria-hidden="true">
               <img
                 className="opponent-card-art"
@@ -176,12 +183,17 @@ function SinglePlayerSetup() {
               <strong>{opponent.name}</strong>
               <OpponentRank rank={opponent.rank} />
             </span>
-            <span className="opponent-locked-copy">Locked</span>
+            <span className="opponent-locked-copy">
+              <span className="opponent-lock-icon" aria-hidden="true"><Lock /></span>
+              <strong>Locked</strong>
+              <span>{unlockText}</span>
+            </span>
           </button>
-        ))}
+        );})}
       </div>
       <button id="solo-start-btn" className="bot-continue-btn" type="button" disabled>
         <span>Continue</span>
+        <ArrowRight aria-hidden="true" />
       </button>
     </div>
   );
@@ -267,7 +279,7 @@ function ProfilePanel() {
   return (
     <div id="lb-profile" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
-        <div className="panel-title">Profile</div>
+        <div className="panel-title">Settings</div>
         <div className="panel-kicker">Manage your account and game settings.</div>
       </div>
 
@@ -366,16 +378,11 @@ function DevTestingPanel() {
 function LeaderboardPanel() {
   return (
     <div id="lb-leaderboard" className="lobby-section lobby-panel" style={{ display: "none" }}>
-      <div className="panel-head">
+      <div className="panel-head achievements-panel-head">
         <div className="panel-title">Achievements</div>
-        <span className="home-divider" aria-hidden="true"></span>
         <div className="panel-kicker">Progress and rankings</div>
       </div>
       <section id="achievements-stats-card" className="profile-stats-card achievements-stats-card" aria-live="polite">
-        <div className="profile-stats-heading">
-          <strong>Your progress</strong>
-          <span>Victories and defeated opponents.</span>
-        </div>
         <div className="profile-stat-grid">
           <div className="profile-stat-tile">
             <Trophy aria-hidden="true" />
@@ -391,9 +398,11 @@ function LeaderboardPanel() {
       </section>
       <section className="leaderboard-rankings-card">
         <div className="leaderboard-rankings-head">
-          <strong>Rankings</strong>
+          <strong>Leaderboard</strong>
         </div>
-        <div id="leaderboard-opponents" className="leaderboard-opponents"></div>
+        <div className="leaderboard-opponents-block">
+          <div id="leaderboard-opponents" className="leaderboard-opponents"></div>
+        </div>
         <div id="leaderboard-metric" className="leaderboard-metric" aria-label="Leaderboard metric">
           <button className="active" type="button" data-leaderboard-metric="fastest" aria-pressed="true">
             Fastest
@@ -401,6 +410,12 @@ function LeaderboardPanel() {
           <button type="button" data-leaderboard-metric="fewestMoves" aria-pressed="false">
             Fewest moves
           </button>
+        </div>
+        <div className="leaderboard-column-head" aria-hidden="true">
+          <span>Rank</span>
+          <span>Player</span>
+          <span>Mode</span>
+          <span data-leaderboard-score-head>Time</span>
         </div>
         <div id="leaderboard-list" className="leaderboard-list"></div>
       </section>

@@ -154,7 +154,9 @@ export function createAppShellController({
     botSelectTitle.textContent = readonly ? "Opponent selection" : "Choose your opponent";
     const hint = readonly
       ? "The host is choosing. Your view updates automatically."
-      : mode === "coop" ? "Your choice applies to the whole team." : "";
+      : mode === "coop"
+        ? "Your choice applies to the whole team."
+        : "Defeat opponents, climb the rankings, and earn your place in Chessquestia.";
     botSelectHint.textContent = hint;
     botSelectHint.hidden = !hint;
     soloStartBtn.querySelector("span").textContent = readonly

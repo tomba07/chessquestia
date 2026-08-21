@@ -87,7 +87,7 @@ export function createLeaderboardController({
         </span>
         <span class="leaderboard-opponent-name">${opponent.shortName || opponent.name}</span>
         <span class="leaderboard-opponent-badges">
-          ${defeated ? `<span class="leaderboard-opponent-badge">Defeated</span>` : ""}
+          <span class="leaderboard-opponent-badge${defeated ? "" : " muted"}">${defeated ? "Defeated" : "Not defeated"}</span>
         </span>
       </button>
     `;
@@ -128,16 +128,24 @@ export function createLeaderboardController({
       return;
     }
 
-    leaderboardList.innerHTML = rows.map(row => `
-      <div class="leaderboard-row${row.isCurrentUser ? " current-user" : ""}">
-        <strong class="leaderboard-rank">${row.rank}</strong>
-        <span class="leaderboard-player">${escapeHtml(row.playerName)}</span>
+    leaderboardList.innerHTML = rows.map(row => {
+      const playerName = row.playerName || "Player";
+      const playerInitial = String(playerName).trim().charAt(0).toUpperCase() || "?";
+      const topRank = Number(row.rank) === 1;
+      return `
+      <div class="leaderboard-row${row.isCurrentUser ? " current-user" : ""}${topRank ? " top-rank" : ""}">
+        <span class="leaderboard-rank-cell"><strong class="leaderboard-rank">${row.rank}</strong></span>
+        <span class="leaderboard-player-cell">
+          <span class="leaderboard-player-avatar" aria-hidden="true">${escapeHtml(playerInitial)}</span>
+          <span class="leaderboard-player">${escapeHtml(playerName)}</span>
+        </span>
         <span class="leaderboard-mode">${row.mode === "coop" ? "Co-op" : "Solo"}</span>
         <strong class="leaderboard-score">
           ${metric === "fastest" ? formatDuration(row.durationMs) : `${row.movesCount} moves`}
         </strong>
       </div>
-    `).join("");
+    `;
+    }).join("");
   }
 
   function render() {
@@ -150,6 +158,8 @@ export function createLeaderboardController({
     });
     const title = lbLeaderboard.querySelector("[data-leaderboard-title]");
     if (title) title.textContent = selectedOpponent()?.name || "Leaderboard";
+    const scoreHead = lbLeaderboard.querySelector("[data-leaderboard-score-head]");
+    if (scoreHead) scoreHead.textContent = metric === "fastest" ? "Time" : "Moves";
     renderRows();
   }
 
