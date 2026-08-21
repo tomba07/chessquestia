@@ -67,8 +67,8 @@ function PlayPanel() {
           <span className="mode-card-copy">
             <strong>Solo</strong>
             <span>Challenge AI opponents and sharpen your skills.</span>
+            <ArrowRight className="mode-card-arrow" aria-hidden="true" />
           </span>
-          <ArrowRight className="mode-card-arrow" aria-hidden="true" />
         </button>
         <button id="play-coop-btn" className="mode-card" type="button">
           <span className="mode-card-art-wrap" aria-hidden="true">
@@ -77,8 +77,8 @@ function PlayPanel() {
           <span className="mode-card-copy">
             <strong>Co-op</strong>
             <span>Team up with friends and play together.</span>
+            <ArrowRight className="mode-card-arrow" aria-hidden="true" />
           </span>
-          <ArrowRight className="mode-card-arrow" aria-hidden="true" />
         </button>
       </div>
     </div>
