@@ -10923,3 +10923,57 @@
         width: min(420px, calc(100% - 68px));
       }
     }
+
+    /* PWA mobile guardrails: keep nav below the iOS safe area and center home cards. */
+    @media (max-width: 620px) {
+      .side-menu {
+        top: calc(env(safe-area-inset-top, 0px) + 10px);
+        left: max(12px, env(safe-area-inset-left, 0px));
+        right: max(12px, env(safe-area-inset-right, 0px));
+        height: 56px;
+        min-height: 56px;
+        padding: 0 10px;
+      }
+
+      .side-link {
+        height: 56px;
+        min-height: 56px;
+        padding: 0;
+      }
+
+      #lobby {
+        padding:
+          calc(env(safe-area-inset-top, 0px) + 82px)
+          max(14px, env(safe-area-inset-right, 0px))
+          max(24px, env(safe-area-inset-bottom, 0px))
+          max(14px, env(safe-area-inset-left, 0px));
+      }
+
+      #lb-main.lobby-panel {
+        position: relative;
+        top: 0;
+        left: auto;
+        right: auto;
+        width: 100%;
+        max-width: 420px;
+        margin: 0 auto;
+        align-items: center;
+        transform: none;
+      }
+
+      #lb-main .home-copy,
+      #lb-main .mode-grid {
+        width: 100%;
+        max-width: 420px;
+        align-self: center;
+      }
+
+      #lb-main .mode-grid {
+        justify-items: center;
+      }
+
+      #lb-main .mode-card {
+        width: 100%;
+        max-width: 420px;
+      }
+    }
