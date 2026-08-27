@@ -8259,7 +8259,12 @@
       top: 124px;
       width: min(1120px, calc(100% - 64px));
       max-width: 1120px;
+      left: auto;
+      right: auto;
+      margin-left: auto;
+      margin-right: auto;
       gap: clamp(28px, 4cqh, 42px);
+      transform: none;
     }
 
     #lb-main .mode-grid {
@@ -9031,8 +9036,8 @@
       align-items: center;
       justify-content: flex-start;
       margin: 0 0 10px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(72, 54, 34, 0.14);
+      padding-bottom: 0;
+      border-bottom: 0;
       color: #241b16;
       font-family: var(--story-font);
       font-size: 27px;
@@ -9042,14 +9047,8 @@
     }
 
     #lb-friends .friend-section-title::after {
-      content: "";
-      width: 150px;
-      max-width: 45%;
-      height: 2px;
-      position: absolute;
-      left: 0;
-      bottom: -1px;
-      background: #c99a57;
+      content: none;
+      display: none;
     }
 
     #lb-friends .friend-card {
@@ -10932,7 +10931,13 @@
         right: max(12px, env(safe-area-inset-right, 0px));
         height: 56px;
         min-height: 56px;
+        overflow: hidden;
         padding: 0 10px;
+        scrollbar-width: none;
+      }
+
+      .side-menu::-webkit-scrollbar {
+        display: none;
       }
 
       .side-link {
@@ -10961,6 +10966,13 @@
         transform: none;
       }
 
+      #lb-friends.lobby-panel,
+      #lb-profile.lobby-panel,
+      #lb-leaderboard.lobby-panel {
+        top: calc(env(safe-area-inset-top, 0px) + 92px);
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 108px);
+      }
+
       #lb-main .home-copy,
       #lb-main .mode-grid {
         width: 100%;
@@ -10976,4 +10988,23 @@
         width: 100%;
         max-width: 420px;
       }
+    }
+
+    /* Keep Achievements/leaderboard cards flat against the illustrated background. */
+    #lb-leaderboard .achievements-stats-card .profile-stat-tile,
+    #lb-leaderboard .leaderboard-rankings-card,
+    #lb-leaderboard .leaderboard-rankings-card .leaderboard-opponent {
+      box-shadow: none;
+    }
+
+    #lb-leaderboard .leaderboard-rankings-card .leaderboard-opponent:hover {
+      box-shadow: none;
+      transform: none;
+    }
+
+    #lb-leaderboard .leaderboard-rankings-card .leaderboard-opponent.active {
+      border-color: rgba(151, 103, 43, 0.7);
+      background: rgba(251, 246, 235, 0.96);
+      box-shadow: none;
+      transform: none;
     }

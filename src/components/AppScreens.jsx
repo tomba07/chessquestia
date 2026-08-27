@@ -205,7 +205,6 @@ function FriendsPanel() {
       <div className="panel-head friends-panel-head">
         <div>
           <div className="panel-title">Friends</div>
-          <div className="panel-kicker">Invite players and manage your chess companions.</div>
         </div>
         <button className="sm-btn primary-mini friends-add-hero" type="button" data-friend-action="open-add">
           <UserPlus aria-hidden="true" />
@@ -280,7 +279,6 @@ function ProfilePanel() {
     <div id="lb-profile" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head">
         <div className="panel-title">Settings</div>
-        <div className="panel-kicker">Manage your account and game settings.</div>
       </div>
 
       <section className="profile-main-card" aria-label="Account settings">
@@ -380,7 +378,6 @@ function LeaderboardPanel() {
     <div id="lb-leaderboard" className="lobby-section lobby-panel" style={{ display: "none" }}>
       <div className="panel-head achievements-panel-head">
         <div className="panel-title">Achievements</div>
-        <div className="panel-kicker">Progress and rankings</div>
       </div>
       <section id="achievements-stats-card" className="profile-stats-card achievements-stats-card" aria-live="polite">
         <div className="profile-stat-grid">
