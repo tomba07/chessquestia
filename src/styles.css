@@ -11008,3 +11008,149 @@
       box-shadow: none;
       transform: none;
     }
+
+    /* Final mobile splash layout. Later desktop splash rules should not pull this back to center-screen. */
+    @media (max-width: 620px) {
+      .bot-splash-art {
+        object-position: center top;
+      }
+
+      .bot-splash::after {
+        background:
+          linear-gradient(0deg, rgba(18, 13, 8, 0.58), transparent 42%),
+          linear-gradient(180deg, rgba(18, 13, 8, 0.12), transparent 28%),
+          linear-gradient(90deg, rgba(16, 11, 7, 0.14), transparent 26%, transparent 74%, rgba(16, 11, 7, 0.14));
+      }
+
+      .bot-splash-panel {
+        top: auto;
+        right: auto;
+        bottom: max(18px, env(safe-area-inset-bottom, 0px));
+        left: 50%;
+        width: min(calc(100vw - 28px), 390px);
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 28px);
+        gap: 10px;
+        transform: translate(-50%, 22px) scale(0.98);
+        filter:
+          drop-shadow(0 12px 16px rgba(18, 12, 7, 0.46))
+          drop-shadow(0 24px 28px rgba(18, 12, 7, 0.38));
+      }
+
+      .bot-splash.visible .bot-splash-panel {
+        transform: translate(-50%, 0) scale(1);
+      }
+
+      .bot-splash-copy {
+        width: 100%;
+        max-height: min(42dvh, 240px);
+        aspect-ratio: 1536 / 1024;
+      }
+
+      .bot-splash-content {
+        inset: 15% 9% 8%;
+        gap: clamp(4px, 1.8vw, 8px);
+      }
+
+      .bot-splash-content h2 {
+        width: 100%;
+        max-width: 94%;
+        font-size: clamp(20px, 7vw, 27px);
+        line-height: 0.98;
+        text-wrap: balance;
+        overflow-wrap: anywhere;
+      }
+
+      .bot-splash-content p {
+        max-width: 92%;
+        font-size: clamp(12px, 3.6vw, 15px);
+        line-height: 1.14;
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+      }
+
+      .bot-splash-divider {
+        width: 64%;
+        height: 6px;
+      }
+
+      .bot-splash-strength {
+        gap: clamp(12px, 5.4vw, 22px);
+      }
+
+      .bot-splash-strength span {
+        width: clamp(12px, 3.8vw, 16px);
+      }
+
+      .bot-splash-start {
+        width: min(260px, 74vw);
+        font-size: clamp(18px, 5vw, 23px);
+      }
+    }
+
+    @media (max-width: 380px) {
+      .bot-splash-panel {
+        width: calc(100vw - 22px);
+        bottom: max(12px, env(safe-area-inset-bottom, 0px));
+      }
+
+      .bot-splash-copy {
+        max-height: min(39dvh, 212px);
+      }
+
+      .bot-splash-content h2 {
+        font-size: clamp(18px, 6.4vw, 23px);
+      }
+
+      .bot-splash-content p {
+        font-size: clamp(11px, 3.4vw, 13px);
+        -webkit-line-clamp: 3;
+      }
+    }
+
+    /* Desktop page shells should stay balanced under the wide header. */
+    @media (min-width: 901px) {
+      #lb-friends.lobby-panel,
+      #lb-profile.lobby-panel,
+      #lb-leaderboard.lobby-panel {
+        left: 50%;
+        width: min(1240px, calc(100% - 96px));
+        transform: translateX(-50%);
+      }
+    }
+
+    /* Keep the Friends title aligned with Settings/Achievements while preserving the header action. */
+    #lb-friends .friends-panel-head {
+      position: relative;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding-right: 190px;
+    }
+
+    #lb-friends .friends-panel-head > div {
+      gap: 0;
+    }
+
+    #lb-friends .friends-add-hero {
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
+
+    @media (max-width: 900px) {
+      #lb-friends .friends-panel-head {
+        padding-right: 0;
+      }
+
+      #lb-friends .friends-add-hero {
+        position: static;
+        align-self: flex-start;
+      }
+    }
+
+    @media (max-width: 620px) {
+      #lb-friends .friends-add-hero {
+        width: 100%;
+      }
+    }
